@@ -1,0 +1,306 @@
+/* Tailwind directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+:root {
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --background-light: #f3f4f6;
+  --text-dark: #111827;
+  --text-light: #6b7280;
+  --border-color: #e5e7eb;
+  --panel-width: 320px;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background-light);
+  color: var(--text-dark);
+  overflow-x: hidden;
+}
+
+/* Main Content Styles */
+.main-content {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+.main-content.task-panel-open {
+  @apply pr-80;
+  width: calc(100% - var(--panel-width));
+}
+
+/* Side Panel Styles */
+.side-panel {
+  @apply fixed top-0 bg-white h-screen z-40 transition-all duration-300 ease-in-out;
+  width: var(--panel-width);
+}
+
+.side-panel-left {
+  @apply left-0;
+  transform: translateX(-100%);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+}
+
+.side-panel-right {
+  @apply right-0;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
+  transform: translateX(0); /* Default visible for task panel */
+}
+
+.side-panel.open {
+  transform: translateX(0);
+}
+
+.panel-header {
+  @apply flex justify-between items-center px-4 py-3 border-b bg-white sticky top-0 z-10;
+}
+
+.panel-content {
+  @apply p-4 h-[calc(100vh-56px)] overflow-y-auto bg-gray-50;
+}
+
+.panel-toggle {
+  @apply p-2 hover:bg-gray-100 rounded-lg transition-colors;
+}
+
+/* Task Styles */
+.task-item {
+  @apply flex items-center space-x-3 p-3 bg-white rounded-lg border mb-2 hover:shadow-sm transition-shadow;
+}
+
+.task-checkbox {
+  @apply h-5 w-5 border-gray-300 rounded text-blue-600 focus:ring-blue-500;
+}
+
+.task-content {
+  @apply flex-1 min-w-0;
+}
+
+.task-title {
+  @apply text-sm font-medium text-gray-900 truncate;
+}
+
+.task-due-date {
+  @apply text-xs text-gray-500;
+}
+
+/* Bookmark Styles */
+.bookmark-item {
+  @apply flex items-center p-3 bg-white rounded-lg border mb-2 hover:shadow-sm transition-shadow;
+}
+
+.bookmark-content {
+  @apply flex-1 min-w-0 mr-2;
+}
+
+.bookmark-title {
+  @apply text-sm font-medium text-gray-900 truncate;
+}
+
+.bookmark-url {
+  @apply text-xs text-gray-500 truncate;
+}
+
+.bookmark-actions {
+  @apply flex items-center space-x-2;
+}
+
+/* Custom utility classes */
+.shadow-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.transition-default {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Custom component styles */
+.client-card {
+  @apply bg-white rounded-lg p-4 shadow-md border-l-4;
+}
+
+.status-badge {
+  @apply px-2 py-1 rounded-full text-sm font-medium;
+}
+
+.input-field {
+  @apply w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+}
+
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors;
+}
+
+/* Header styles */
+.header {
+  @apply bg-white shadow sticky top-0 z-20;
+}
+
+.header-content {
+  @apply max-w-7xl mx-auto px-4 py-6;
+}
+
+.header-title {
+  @apply text-3xl font-bold text-gray-900;
+}
+
+/* Search bar styles */
+.search-container {
+  @apply relative flex-1 max-w-xl;
+}
+
+.search-input {
+  @apply w-full pl-10 pr-4 py-2 border rounded-lg;
+}
+
+.search-icon {
+  @apply absolute left-3 top-3 text-gray-400;
+}
+
+/* Deal status colors */
+.status-prospecting {
+  @apply text-gray-500;
+}
+
+.status-qualified {
+  @apply text-blue-500;
+}
+
+.status-proposal {
+  @apply text-purple-500;
+}
+
+.status-negotiation {
+  @apply text-orange-500;
+}
+
+.status-closed-won {
+  @apply text-green-500;
+}
+
+.status-closed-lost {
+  @apply text-red-500;
+}
+
+/* Empty state styles */
+.empty-state {
+  @apply flex flex-col items-center justify-center h-64 bg-white rounded-lg shadow-sm p-8;
+}
+
+.empty-state-icon {
+  @apply text-gray-300 mb-4;
+}
+
+.empty-state-title {
+  @apply text-xl font-medium text-gray-900 mb-2;
+}
+
+.empty-state-description {
+  @apply text-gray-500 mb-4 text-center;
+}
+
+/* Modal styles */
+.modal-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4;
+}
+
+.modal-content {
+  @apply bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto;
+}
+
+.modal-header {
+  @apply flex justify-between items-center p-6 border-b;
+}
+
+.modal-title {
+  @apply text-xl font-semibold;
+}
+
+.modal-body {
+  @apply p-6 space-y-6;
+}
+
+.modal-footer {
+  @apply flex justify-end space-x-4 pt-4 border-t;
+}
+
+/* Form styles */
+.form-group {
+  @apply mb-4;
+}
+
+.form-label {
+  @apply block text-sm font-medium text-gray-700 mb-1;
+}
+
+.form-input {
+  @apply w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+}
+
+.form-select {
+  @apply w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+}
+
+.form-checkbox {
+  @apply h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded;
+}
+
+/* Grid layout */
+.client-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+/* Add Task Form */
+.add-task-form {
+  @apply space-y-3 mb-6 p-4 bg-white rounded-lg border;
+}
+
+.add-task-input {
+  @apply w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm;
+}
+
+/* Add Bookmark Form */
+.add-bookmark-form {
+  @apply space-y-3 mb-6 p-4 bg-white rounded-lg border;
+}
+
+.add-bookmark-input {
+  @apply w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm;
+}
+
+/* Empty Panel States */
+.panel-empty-state {
+  @apply flex flex-col items-center justify-center h-64 text-center p-4;
+}
+
+/* Loading States */
+.loading-spinner {
+  @apply animate-spin rounded-full border-2 border-gray-200;
+  border-top-color: var(--primary-color);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+  .main-content.task-panel-open {
+    @apply pr-0;
+    width: 100%;
+  }
+
+  .side-panel-right {
+    transform: translateX(100%);
+  }
+
+  .side-panel-right.open {
+    transform: translateX(0);
+  }
+}
