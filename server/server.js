@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 const Client = require('./models/Client');
 const Task = require('./models/Task');
 const Bookmark = require('./models/Bookmark');
@@ -11,6 +12,9 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB Connection with error handling
 mongoose.connect(process.env.MONGODB_URI)
@@ -111,7 +115,6 @@ app.delete('/api/bookmarks/:id', async (req, res) => {
     res.status(500).json({ message: 'Error deleting bookmark', error: error.message });
   }
 });
-
 // Client Routes
 app.get('/api/clients', async (req, res) => {
   try {
@@ -215,78 +218,6 @@ app.patch('/api/clients/:id/bookmark', async (req, res) => {
   }
 });
 
-app.post('/api/clients/:id/alerts', async (req, res) => {
-  try {
-    const client = await Client.findById(req.params.id);
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-
-    client.alerts.push(req.body);
-    await client.save();
-    
-    res.status(201).json(client);
-  } catch (error) {
-    console.error('Error adding alert:', error);
-    res.status(500).json({ message: 'Error adding alert', error: error.message });
-  }
-});
-
-app.get('/api/clients/:id/alerts', async (req, res) => {
-  try {
-    const client = await Client.findById(req.params.id).select('alerts');
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-    res.json(client.alerts);
-  } catch (error) {
-    console.error('Error fetching alerts:', error);
-    res.status(500).json({ message: 'Error fetching alerts', error: error.message });
-  }
-});
-
-app.patch('/api/clients/:clientId/alerts/:alertId', async (req, res) => {
-  try {
-    const client = await Client.findById(req.params.clientId);
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-
-    const alert = client.alerts.id(req.params.alertId);
-    if (!alert) {
-      return res.status(404).json({ message: 'Alert not found' });
-    }
-
-    alert.isRead = req.body.isRead;
-    await client.save();
-    
-    res.json(client);
-  } catch (error) {
-    console.error('Error updating alert:', error);
-    res.status(500).json({ message: 'Error updating alert', error: error.message });
-  }
-});
-
-app.get('/api/search', async (req, res) => {
-  try {
-    const { query } = req.query;
-    const searchRegex = new RegExp(query, 'i');
-
-    const clients = await Client.find({
-      $or: [
-        { name: searchRegex },
-        { company: searchRegex },
-        { email: searchRegex }
-      ]
-    }).limit(10);
-
-    res.json(clients);
-  } catch (error) {
-    console.error('Error searching clients:', error);
-    res.status(500).json({ message: 'Error searching clients', error: error.message });
-  }
-});
-
 app.get('/api/stats', async (req, res) => {
   try {
     const totalClients = await Client.countDocuments();
@@ -327,28 +258,10 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-app.get('/api/alerts/unread', async (req, res) => {
-  try {
-    const clients = await Client.find({
-      'alerts.isRead': false
-    }).select('name alerts');
-    
-    const unreadAlerts = clients.reduce((acc, client) => {
-      const clientAlerts = client.alerts
-        .filter(alert => !alert.isRead)
-        .map(alert => ({
-          ...alert.toObject(),
-          clientName: client.name,
-          clientId: client._id
-        }));
-      return [...acc, ...clientAlerts];
-    }, []);
-
-    res.json(unreadAlerts);
-  } catch (error) {
-    console.error('Error fetching unread alerts:', error);
-    res.status(500).json({ message: 'Error fetching unread alerts', error: error.message });
-  }
+// The "catch all" handler: for any request that doesn't
+// match one above, send back React's index.html file.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Handle 404 errors
