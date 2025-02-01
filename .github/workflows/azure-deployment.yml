@@ -23,13 +23,14 @@ jobs:
         cd client
         npm ci
         CI=false npm run build
-        mkdir -p ../server/public
-        cp -r build/* ../server/public/
 
-    - name: Install Server Dependencies
+    - name: Prepare Server
       run: |
+        mkdir -p server/public
+        cp -r client/build/* server/public/
         cd server
         npm ci --production
+        cp package.json package-lock.json ../
         
     - name: 'Deploy to Azure Web App'
       uses: azure/webapps-deploy@v2
@@ -37,3 +38,4 @@ jobs:
         app-name: 'SalesIQ'
         publish-profile: ${{ secrets.AZUREWEBAPP_PUBLISHPROFILE }}
         package: './server'
+        slot-name: 'production'
