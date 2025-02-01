@@ -37,4 +37,3 @@ jobs:
         app-name: 'SalesIQ'
         publish-profile: ${{ secrets.AZUREWEBAPP_PUBLISHPROFILE }}
         package: './server'
-        startup-command: 'cd /home/site/wwwroot && npm install && node server.js'
