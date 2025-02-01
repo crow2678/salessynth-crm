@@ -31,12 +31,6 @@ const bookmarkSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
-}, {
-  timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
-  // Add indexes for Cosmos DB
-  indexes: [
-    [{ updatedAt: -1 }]
-  ]
 });
 
 // Update the updatedAt timestamp before saving
@@ -52,6 +46,10 @@ bookmarkSchema.pre('save', function(next) {
   }
   next();
 });
+
+// Define indexes after schema definition but before model creation
+bookmarkSchema.index({ createdAt: -1 });
+bookmarkSchema.index({ updatedAt: -1 });
 
 const Bookmark = mongoose.model('Bookmark', bookmarkSchema);
 

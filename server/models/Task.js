@@ -22,13 +22,6 @@ const taskSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
-}, {
-  timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
-  // Add indexes for Cosmos DB
-  indexes: [
-    [{ updatedAt: -1 }],
-    [{ completed: 1, updatedAt: -1 }]
-  ]
 });
 
 // Update the updatedAt timestamp before saving
@@ -36,6 +29,11 @@ taskSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   next();
 });
+
+// Define indexes after schema definition but before model creation
+taskSchema.index({ createdAt: -1 });
+taskSchema.index({ completed: 1 });
+taskSchema.index({ updatedAt: -1 });
 
 const Task = mongoose.model('Task', taskSchema);
 
