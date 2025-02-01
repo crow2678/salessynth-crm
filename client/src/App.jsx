@@ -10,7 +10,8 @@ import BookmarkPanel from './components/BookmarkPanel';
 import { getClientStatus, calculateMetrics } from './utils/statusUtils';
 import { STATUS_CONFIG } from './utils/statusUtils';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
+//const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const SalesSynth = () => {
   const queryClient = useQueryClient();
