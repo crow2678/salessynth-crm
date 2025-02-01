@@ -17,14 +17,37 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB Connection with error handling
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-  })
-  .catch((err) => {
-    console.error('❌ MongoDB connection error:', err);
-    process.exit(1);
-  });
+// Cosmos DB Connection with retry logic
+const connectDB = async (retries = 5) => {
+  while (retries) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        retryWrites: false, // Important for Cosmos DB
+        ssl: true,
+        tlsInsecure: false,
+        maxIdleTimeMS: 120000,
+        directConnection: true,
+        serverSelectionTimeoutMS: 5000,
+      });
+      console.log('✅ Connected to Cosmos DB');
+      break;
+    } catch (err) {
+      console.error(`❌ Cosmos DB connection error (${retries} retries left):`, err.message);
+      retries -= 1;
+      if (!retries) {
+        console.error('Failed to connect to Cosmos DB after multiple retries');
+        process.exit(1);
+      }
+      // Wait for 5 seconds before retrying
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
+};
+
+// Initialize the database connection
+connectDB().catch(console.error);
 
 // Task Routes
 app.get('/api/tasks', async (req, res) => {
