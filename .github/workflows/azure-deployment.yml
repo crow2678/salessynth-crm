@@ -3,6 +3,7 @@ name: Azure Web App Deployment
 on:
   push:
     branches:
+      - master
       - main
 
 jobs:
@@ -17,22 +18,23 @@ jobs:
       with:
         node-version: '18.x'
 
-    - name: Install server dependencies
-      run: |
-        cd server
-        npm install
-
-    - name: Build React app
+    - name: Install and Build Client
       run: |
         cd client
-        npm install
-        npm run build
+        npm ci
+        CI=false npm run build
         mkdir -p ../server/public
         cp -r build/* ../server/public/
 
+    - name: Install Server Dependencies
+      run: |
+        cd server
+        npm ci --production
+        
     - name: 'Deploy to Azure Web App'
       uses: azure/webapps-deploy@v2
       with:
         app-name: 'SalesIQ'
         publish-profile: ${{ secrets.AZUREWEBAPP_PUBLISHPROFILE }}
         package: './server'
+        startup-command: 'cd /home/site/wwwroot && npm install && node server.js'
