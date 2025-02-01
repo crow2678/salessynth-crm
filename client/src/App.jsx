@@ -71,18 +71,64 @@ const SalesSynth = () => {
     }
   });
 
-  const toggleBookmarkMutation = useMutation({
-    mutationFn: (clientId) => axios.patch(`${API_URL}/clients/${clientId}/bookmark`),
-    onSuccess: (_, clientId) => {
-      queryClient.invalidateQueries(['clients']);
-      queryClient.invalidateQueries(['stats']);
-      const client = clients.find(c => c._id === clientId);
-      showAlert('info', `${client.name} ${client.isBookmarked ? 'removed from' : 'added to'} bookmarks`);
-    },
-    onError: (error) => {
-      showAlert('error', error.response?.data?.message || 'Error toggling bookmark');
+  // Updated toggleBookmarkMutation with proper error handling and retry logic
+const toggleBookmarkMutation = useMutation({
+  mutationFn: async (clientId) => {
+    try {
+      const response = await axios.patch(`${API_URL}/clients/${clientId}/bookmark`);
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 404) {
+        queryClient.invalidateQueries(['clients']);
+        throw new Error('Client not found');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('Service is busy, please try again');
+      }
+      throw error;
     }
-  });
+  },
+  retry: (failureCount, error) => {
+    // Retry up to 3 times if it's a throttling error
+    return failureCount < 3 && error?.response?.status === 429;
+  },
+  retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000), // exponential backoff
+  onMutate: async (clientId) => {
+    // Cancel any outgoing refetches so they don't overwrite our optimistic update
+    await queryClient.cancelQueries(['clients']);
+
+    // Get the current client
+    const client = clients.find(c => c._id === clientId);
+    if (!client) return;
+
+    // Optimistically update the UI
+    const previousClients = queryClient.getQueryData(['clients']);
+    queryClient.setQueryData(['clients'], old => 
+      old.map(c => c._id === clientId ? { ...c, isBookmarked: !c.isBookmarked } : c)
+    );
+
+    return { previousClients };
+  },
+  onSuccess: (_, clientId) => {
+    queryClient.invalidateQueries(['clients']);
+    queryClient.invalidateQueries(['stats']);
+    const client = clients.find(c => c._id === clientId);
+    if (client) {
+      showAlert('info', `${client.name} ${client.isBookmarked ? 'removed from' : 'added to'} bookmarks`);
+    }
+  },
+  onError: (error, clientId, context) => {
+    if (context?.previousClients) {
+      queryClient.setQueryData(['clients'], context.previousClients);
+    }
+    showAlert('error', error.message || 'Error toggling bookmark');
+    queryClient.invalidateQueries(['clients']);
+  },
+  onSettled: () => {
+    queryClient.invalidateQueries(['clients']);
+    queryClient.invalidateQueries(['stats']);
+  }
+});
 
   // Handlers
   const showAlert = (type, message) => {
@@ -105,9 +151,14 @@ const SalesSynth = () => {
     setShowNewClientModal(false);
   };
 
-  const handleToggleBookmark = (clientId) => {
-    toggleBookmarkMutation.mutate(clientId);
-  };
+  const handleToggleBookmark = async (clientId) => {
+	  try {
+		await toggleBookmarkMutation.mutateAsync(clientId);
+	  } catch (error) {
+		console.error('Error toggling bookmark:', error);
+		// Error is handled in mutation config
+	  }
+	};
 
   // Filtered clients
   const filteredClients = clients.filter(client => {

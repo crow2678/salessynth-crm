@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { X, Plus, Calendar } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
-//const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const TaskPanel = ({ isOpen = true, onToggle }) => {
   const queryClient = useQueryClient();
   const [newTask, setNewTask] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
+  const [error, setError] = useState(null);
 
   // Fetch tasks
   const { data: tasks = [], isLoading } = useQuery({
@@ -25,25 +26,69 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
   // Add task mutation
   const addTaskMutation = useMutation({
     mutationFn: (newTask) => axios.post(`${API_URL}/tasks`, newTask),
+    retry: (failureCount, error) => {
+      return failureCount < 3 && error?.response?.status === 429;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000),
     onSuccess: () => {
       queryClient.invalidateQueries(['tasks']);
       setNewTask('');
       setDueDate('');
+      setError(null);
+    },
+    onError: (error) => {
+      console.error('Error adding task:', error);
+      setError(error?.response?.status === 429 
+        ? 'Service is busy, please try again in a moment'
+        : 'Failed to add task');
     }
   });
 
   // Toggle completion mutation
   const toggleCompletionMutation = useMutation({
-    mutationFn: (taskId) => axios.patch(`${API_URL}/tasks/${taskId}/complete`),
+    mutationFn: async (taskId) => {
+      try {
+        const response = await axios.patch(`${API_URL}/tasks/${taskId}/complete`);
+        return response.data;
+      } catch (error) {
+        if (error.response?.status === 404) {
+          queryClient.invalidateQueries(['tasks']);
+          throw new Error('Task not found');
+        }
+        throw error;
+      }
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries(['tasks']);
+      setError(null);
+    },
+    onError: (error) => {
+      console.error('Error toggling task:', error);
+      setError('Failed to update task status');
       queryClient.invalidateQueries(['tasks']);
     }
   });
 
   // Delete task mutation
   const deleteTaskMutation = useMutation({
-    mutationFn: (taskId) => axios.delete(`${API_URL}/tasks/${taskId}`),
+    mutationFn: async (taskId) => {
+      try {
+        const response = await axios.delete(`${API_URL}/tasks/${taskId}`);
+        return response.data;
+      } catch (error) {
+        if (error.response?.status === 404) {
+          return { message: 'Task already deleted' };
+        }
+        throw error;
+      }
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries(['tasks']);
+      setError(null);
+    },
+    onError: (error) => {
+      console.error('Error deleting task:', error);
+      setError('Failed to delete task. Please try again.');
       queryClient.invalidateQueries(['tasks']);
     }
   });
@@ -83,6 +128,12 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
       </div>
 
       <div className="panel-content">
+        {error && (
+          <div className="mb-4 p-2 text-sm text-red-600 bg-red-50 rounded">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleAddTask} className="add-task-form">
           <input
             type="text"
@@ -103,8 +154,14 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
               className="btn-primary flex items-center"
               disabled={!newTask.trim() || addTaskMutation.isLoading}
             >
-              <Plus size={20} className="mr-1" />
-              Add
+              {addTaskMutation.isLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+              ) : (
+                <>
+                  <Plus size={20} className="mr-1" />
+                  Add
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -138,6 +195,7 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
                   checked={task.completed}
                   onChange={() => toggleTaskCompletion(task._id)}
                   className="task-checkbox"
+                  disabled={toggleCompletionMutation.isLoading}
                 />
                 <div className="task-content">
                   <p className={`task-title ${task.completed ? 'line-through text-gray-400' : ''}`}>
@@ -153,6 +211,7 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
                 <button
                   onClick={() => deleteTask(task._id)}
                   className="text-gray-400 hover:text-red-500"
+                  disabled={deleteTaskMutation.isLoading}
                 >
                   <X size={16} />
                 </button>

@@ -4,12 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
-//const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const BookmarkPanel = ({ isOpen, onToggle }) => {
   const queryClient = useQueryClient();
   const [newBookmark, setNewBookmark] = useState({ title: '', url: '' });
   const [copyStatus, setCopyStatus] = useState({});
+  const [error, setError] = useState(null);
 
   // Fetch bookmarks
   const { data: bookmarks = [], isLoading } = useQuery({
@@ -21,30 +21,24 @@ const BookmarkPanel = ({ isOpen, onToggle }) => {
   });
 
   // Add bookmark mutation
-const addBookmarkMutation = useMutation({
-  mutationFn: (newBookmark) => axios.post(`${API_URL}/bookmarks`, newBookmark),
-  retry: (failureCount, error) => {
-    // Retry up to 3 times if it's a throttling error (429)
-    return failureCount < 3 && error?.response?.status === 429;
-  },
-  retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000), // exponential backoff
-  onSuccess: () => {
-    queryClient.invalidateQueries(['bookmarks']);
-    setAlert({
-      type: 'success',
-      message: 'Bookmark added successfully'
-    });
-  },
-  onError: (error) => {
-    console.error('Mutation error:', error);
-    setAlert({
-      type: 'error',
-      message: error?.response?.status === 429 
+  const addBookmarkMutation = useMutation({
+    mutationFn: (newBookmark) => axios.post(`${API_URL}/bookmarks`, newBookmark),
+    retry: (failureCount, error) => {
+      return failureCount < 3 && error?.response?.status === 429;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['bookmarks']);
+      setError(null);
+      setNewBookmark({ title: '', url: '' });
+    },
+    onError: (error) => {
+      console.error('Mutation error:', error);
+      setError(error?.response?.status === 429 
         ? 'Service is busy, please try again in a moment'
-        : 'Failed to add bookmark'
-    });
-  }
-});
+        : 'Failed to add bookmark');
+    }
+  });
 
   // Delete bookmark mutation
   const deleteBookmarkMutation = useMutation({
@@ -54,38 +48,26 @@ const addBookmarkMutation = useMutation({
     }
   });
 
-// BookmarkPanel.jsx
-const handleAddBookmark = async (e) => {
-  e.preventDefault();
-  if (!newBookmark.title.trim() || !newBookmark.url.trim()) return;
+  const handleAddBookmark = async (e) => {
+    e.preventDefault();
+    if (!newBookmark.title.trim() || !newBookmark.url.trim()) return;
 
-  // Add http:// if no protocol is specified
-  let url = newBookmark.url;
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    url = 'https://' + url;
-  }
-
-  try {
-    setIsSubmitting(true);
-    await addBookmarkMutation.mutateAsync({
-      title: newBookmark.title.trim(),
-      url: url
-    });
-    
-    setNewBookmark({ title: '', url: '' });
-  } catch (error) {
-    console.error('Error adding bookmark:', error);
-    // Show error in UI
-    if (error?.response?.status === 429) {
-      // Handle throttling error
-      setError('Service is busy, please try again in a moment');
-    } else {
-      setError('Failed to add bookmark. Please try again.');
+    // Add http:// if no protocol is specified
+    let url = newBookmark.url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
     }
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+
+    try {
+      await addBookmarkMutation.mutateAsync({
+        title: newBookmark.title.trim(),
+        url: url
+      });
+    } catch (error) {
+      console.error('Error adding bookmark:', error);
+      // Error handling is now in mutation config
+    }
+  };
 
   const deleteBookmark = (bookmarkId) => {
     deleteBookmarkMutation.mutate(bookmarkId);
@@ -114,6 +96,11 @@ const handleAddBookmark = async (e) => {
 
       <div className="panel-content">
         <form onSubmit={handleAddBookmark} className="add-bookmark-form">
+          {error && (
+            <div className="mb-4 p-2 text-sm text-red-600 bg-red-50 rounded">
+              {error}
+            </div>
+          )}
           <input
             type="text"
             placeholder="Title"
@@ -133,8 +120,14 @@ const handleAddBookmark = async (e) => {
             className="btn-primary flex items-center w-full justify-center"
             disabled={!newBookmark.title.trim() || !newBookmark.url.trim() || addBookmarkMutation.isLoading}
           >
-            <Plus size={20} className="mr-1" />
-            Add Bookmark
+            {addBookmarkMutation.isLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+            ) : (
+              <>
+                <Plus size={20} className="mr-1" />
+                Add Bookmark
+              </>
+            )}
           </button>
         </form>
 
