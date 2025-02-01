@@ -16,39 +16,77 @@ app.use(express.json());
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'public')));
 
-// MongoDB Connection with error handling
-// Cosmos DB Connection with retry logic
+// Cosmos DB Connection with enhanced debug logging
 const connectDB = async (retries = 5) => {
+  console.log('Starting database connection...');
+  console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
+  console.log('Environment:', process.env.NODE_ENV);
+  
   while (retries) {
     try {
-      await mongoose.connect(process.env.MONGODB_URI, {
+      console.log(`Attempt ${6-retries} to connect to database...`);
+      
+      const options = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        retryWrites: false, // Important for Cosmos DB
+        retryWrites: false,
         ssl: true,
         tlsInsecure: false,
         maxIdleTimeMS: 120000,
-        directConnection: true,
-        serverSelectionTimeoutMS: 5000,
-      });
-      console.log('✅ Connected to Cosmos DB');
+        serverSelectionTimeoutMS: 5000
+      };
+      
+      console.log('Connection options:', JSON.stringify(options));
+      
+      await mongoose.connect(process.env.MONGODB_URI, options);
+      console.log('✅ Connected to Cosmos DB successfully');
       break;
     } catch (err) {
-      console.error(`❌ Cosmos DB connection error (${retries} retries left):`, err.message);
+      console.error('❌ Detailed connection error:');
+      console.error('Error name:', err.name);
+      console.error('Error message:', err.message);
+      console.error('Error code:', err.code);
+      
       retries -= 1;
       if (!retries) {
-        console.error('Failed to connect to Cosmos DB after multiple retries');
+        console.error('Failed to connect to Cosmos DB after all retries');
         process.exit(1);
       }
-      // Wait for 5 seconds before retrying
+      console.log(`Waiting 5 seconds before retry... (${retries} attempts remaining)`);
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
 };
 
-// Initialize the database connection
-connectDB().catch(console.error);
+// Initialize the database connection with error handling
+(async () => {
+  try {
+    console.log('Starting application initialization...');
+    console.log('Port:', process.env.PORT);
+    await connectDB();
+  } catch (err) {
+    console.error('❌ Fatal database connection error:', err);
+    process.exit(1);
+  }
+})();
 
+// Add health check endpoint
+app.get('/health', (req, res) => {
+  const healthcheck = {
+    uptime: process.uptime(),
+    message: 'OK',
+    timestamp: Date.now(),
+    mongooseState: mongoose.connection.readyState
+  };
+  try {
+    res.send(healthcheck);
+  } catch (e) {
+    healthcheck.message = e;
+    res.status(503).send();
+  }
+});
+
+// [Rest of your existing routes remain exactly the same]
 // Task Routes
 app.get('/api/tasks', async (req, res) => {
   try {
@@ -138,6 +176,7 @@ app.delete('/api/bookmarks/:id', async (req, res) => {
     res.status(500).json({ message: 'Error deleting bookmark', error: error.message });
   }
 });
+
 // Client Routes
 app.get('/api/clients', async (req, res) => {
   try {
