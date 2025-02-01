@@ -23,6 +23,8 @@ app.get('/early-health', (req, res) => {
 });
 
 // Cosmos DB Connection with enhanced debug logging
+// In server.js
+
 const connectDB = async (retries = 5) => {
   console.log('Starting database connection attempt...');
   
@@ -36,34 +38,56 @@ const connectDB = async (retries = 5) => {
     return false;
   }
 
-  while (retries) {
-    try {
-      console.log(`Connection attempt ${6-retries}/5`);
-      
-      const options = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        retryWrites: false,
-        ssl: true,
-        maxIdleTimeMS: 120000,
-        serverSelectionTimeoutMS: 30000
-      };
-      
-      await mongoose.connect(connectionString, options);
-      console.log('✅ Connected to Cosmos DB successfully');
-      return true;
-    } catch (err) {
-      console.error('❌ Connection error:', err.message);
-      retries -= 1;
-      if (!retries) {
-        console.error('Failed to connect after all retries');
-        return false;
-      }
-      await new Promise(resolve => setTimeout(resolve, 10000));
-    }
+  const options = {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    retryWrites: false,
+    ssl: true,
+    // Moderate connection pool settings
+    maxPoolSize: 5,            // One connection per user is usually sufficient
+    minPoolSize: 1,            // Keep at least one connection alive
+    serverSelectionTimeoutMS: 30000,
+    connectTimeoutMS: 30000,
+    socketTimeoutMS: 360000
+  };
+
+  try {
+    await mongoose.connect(connectionString, options);
+    console.log('✅ Connected to Cosmos DB successfully');
+    return true;
+  } catch (err) {
+    console.error('❌ Connection error:', err.message);
+    throw err;
   }
-  return false;
 };
+
+// Basic connection monitoring
+mongoose.connection.on('error', (err) => {
+  console.error('Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('Mongoose disconnected, attempting to reconnect...');
+  setTimeout(() => {
+    connectDB().catch(console.error);
+  }, 5000);
+});
+
+// Simple error handler middleware
+app.use((error, req, res, next) => {
+  console.error('Server error:', error);
+  
+  // Handle Cosmos DB specific errors
+  if (error.code === 16500) { // Rate limit exceeded
+    return res.status(429).json({
+      message: 'Please wait a moment before trying again'
+    });
+  }
+  
+  res.status(500).json({
+    message: 'Something went wrong, please try again'
+  });
+});
 
 // Task Routes
 app.get('/api/tasks', async (req, res) => {
