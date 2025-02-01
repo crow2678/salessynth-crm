@@ -7,6 +7,7 @@ const Client = require('./models/Client');
 const Task = require('./models/Task');
 const Bookmark = require('./models/Bookmark');
 
+// Initialize express but don't start listening yet
 const app = express();
 
 // Middleware
@@ -16,77 +17,56 @@ app.use(express.json());
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Add early health check before DB connection
+app.get('/early-health', (req, res) => {
+  res.json({ status: 'starting' });
+});
+
 // Cosmos DB Connection with enhanced debug logging
 const connectDB = async (retries = 5) => {
-  console.log('Starting database connection...');
-  console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
-  console.log('Environment:', process.env.NODE_ENV);
+  console.log('Starting database connection attempt...');
+  console.log('Current directory:', __dirname);
+  console.log('Environment variables:');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('PORT:', process.env.PORT);
+  console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
   
   while (retries) {
     try {
-      console.log(`Attempt ${6-retries} to connect to database...`);
+      console.log(`Connection attempt ${6-retries}/5`);
       
       const options = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
         retryWrites: false,
         ssl: true,
-        tlsInsecure: false,
         maxIdleTimeMS: 120000,
-        serverSelectionTimeoutMS: 5000
+        serverSelectionTimeoutMS: 30000, // Increased timeout
       };
       
-      console.log('Connection options:', JSON.stringify(options));
-      
+      console.log('Attempting mongoose connection...');
       await mongoose.connect(process.env.MONGODB_URI, options);
       console.log('✅ Connected to Cosmos DB successfully');
-      break;
+      return true;
     } catch (err) {
-      console.error('❌ Detailed connection error:');
+      console.error('❌ Connection error details:');
       console.error('Error name:', err.name);
       console.error('Error message:', err.message);
       console.error('Error code:', err.code);
+      console.error('Stack trace:', err.stack);
       
       retries -= 1;
       if (!retries) {
         console.error('Failed to connect to Cosmos DB after all retries');
-        process.exit(1);
+        return false;
       }
-      console.log(`Waiting 5 seconds before retry... (${retries} attempts remaining)`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      console.log(`Waiting 10 seconds before retry... (${retries} attempts remaining)`);
+      await new Promise(resolve => setTimeout(resolve, 10000));
     }
   }
+  return false;
 };
 
-// Initialize the database connection with error handling
-(async () => {
-  try {
-    console.log('Starting application initialization...');
-    console.log('Port:', process.env.PORT);
-    await connectDB();
-  } catch (err) {
-    console.error('❌ Fatal database connection error:', err);
-    process.exit(1);
-  }
-})();
-
-// Add health check endpoint
-app.get('/health', (req, res) => {
-  const healthcheck = {
-    uptime: process.uptime(),
-    message: 'OK',
-    timestamp: Date.now(),
-    mongooseState: mongoose.connection.readyState
-  };
-  try {
-    res.send(healthcheck);
-  } catch (e) {
-    healthcheck.message = e;
-    res.status(503).send();
-  }
-});
-
-// [Rest of your existing routes remain exactly the same]
 // Task Routes
 app.get('/api/tasks', async (req, res) => {
   try {
@@ -320,6 +300,22 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  const healthcheck = {
+    uptime: process.uptime(),
+    message: 'OK',
+    timestamp: Date.now(),
+    mongooseState: mongoose.connection.readyState
+  };
+  try {
+    res.send(healthcheck);
+  } catch (e) {
+    healthcheck.message = e;
+    res.status(503).send();
+  }
+});
+
 // The "catch all" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 app.get('*', (req, res) => {
@@ -340,18 +336,69 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Graceful shutdown function
+const gracefulShutdown = (server) => {
+  console.log('Received shutdown signal');
+  server.close(() => {
+    console.log('HTTP server closed');
+    mongoose.connection.close(false, () => {
+      console.log('MongoDB connection closed');
+      // Delay exit to ensure logs are written
+      setTimeout(() => process.exit(1), 1000);
+    });
+  });
+};
 
-// Handle unhandled rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled rejection:', err);
-  // Gracefully shutdown on critical errors
-  process.exit(1);
+// Initialize application
+const initializeApp = async () => {
+  try {
+    console.log('Starting application initialization...');
+    
+    // Attempt database connection
+    const connected = await connectDB();
+    if (!connected) {
+      console.error('Failed to establish database connection');
+      // Delay exit to ensure logs are written
+      setTimeout(() => process.exit(1), 1000);
+      return;
+    }
+
+    // Start server only after successful DB connection
+    const PORT = process.env.PORT || 5000;
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+
+    // Setup graceful shutdown
+    process.on('SIGTERM', () => gracefulShutdown(server));
+    process.on('SIGINT', () => gracefulShutdown(server));
+
+    // Handle unhandled rejections
+    process.on('unhandledRejection', (err) => {
+      console.error('Unhandled rejection:', err);
+      gracefulShutdown(server);
+    });
+
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (err) => {
+      console.error('Uncaught exception:', err);
+      gracefulShutdown(server);
+    });
+
+  } catch (err) {
+    console.error('Fatal error during initialization:', err);
+    // Delay exit to ensure logs are written
+    setTimeout(() => process.exit(1), 1000);
+  }
+};
+
+// Start the application
+console.log('Beginning application startup...');
+initializeApp().catch(err => {
+  console.error('Fatal error during startup:', err);
+  // Delay exit to ensure logs are written
+  setTimeout(() => process.exit(1), 1000);
 });
 
 module.exports = app;
