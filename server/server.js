@@ -25,12 +25,17 @@ app.get('/early-health', (req, res) => {
 // Cosmos DB Connection with enhanced debug logging
 const connectDB = async (retries = 5) => {
   console.log('Starting database connection attempt...');
-  console.log('Current directory:', __dirname);
-  console.log('Environment variables:');
-  console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('PORT:', process.env.PORT);
-  console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
   
+  // Check for connection string in both places
+  const connectionString = process.env.MONGODB_URI || process.env.CUSTOMCONNSTR_MONGODB_URI;
+  console.log('Connection string exists:', !!connectionString);
+  
+  if (!connectionString) {
+    console.error('No MongoDB connection string found in environment variables');
+    console.log('Available environment variables:', Object.keys(process.env));
+    return false;
+  }
+
   while (retries) {
     try {
       console.log(`Connection attempt ${6-retries}/5`);
@@ -41,11 +46,13 @@ const connectDB = async (retries = 5) => {
         retryWrites: false,
         ssl: true,
         maxIdleTimeMS: 120000,
-        serverSelectionTimeoutMS: 30000, // Increased timeout
+        serverSelectionTimeoutMS: 30000
       };
       
+      console.log('Mongoose connection options:', JSON.stringify(options));
       console.log('Attempting mongoose connection...');
-      await mongoose.connect(process.env.MONGODB_URI, options);
+      
+      await mongoose.connect(connectionString, options);
       console.log('✅ Connected to Cosmos DB successfully');
       return true;
     } catch (err) {
@@ -53,7 +60,6 @@ const connectDB = async (retries = 5) => {
       console.error('Error name:', err.name);
       console.error('Error message:', err.message);
       console.error('Error code:', err.code);
-      console.error('Stack trace:', err.stack);
       
       retries -= 1;
       if (!retries) {
