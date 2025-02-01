@@ -1,0 +1,38 @@
+name: Azure Web App Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '18.x'
+
+    - name: Install server dependencies
+      run: |
+        cd server
+        npm install
+
+    - name: Build React app
+      run: |
+        cd client
+        npm install
+        npm run build
+        mkdir -p ../server/public
+        cp -r build/* ../server/public/
+
+    - name: 'Deploy to Azure Web App'
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'SalesIQ'
+        publish-profile: ${{ secrets.AZUREWEBAPP_PUBLISHPROFILE }}
+        package: './server'
