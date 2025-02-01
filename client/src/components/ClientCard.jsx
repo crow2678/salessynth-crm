@@ -9,9 +9,9 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
     sum + (deal.status !== 'closed_lost' ? deal.value : 0), 0) || 0;
 
   const handleBookmarkClick = (e) => {
-    e.stopPropagation();
-    onToggleBookmark(client.id);
-  };
+  e.stopPropagation();
+  onToggleBookmark(client._id); // Make sure we're using _id instead of id
+};
 
   const handleEditClick = (e) => {
     e.stopPropagation();
