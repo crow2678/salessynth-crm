@@ -25,16 +25,30 @@ app.get('/early-health', (req, res) => {
 // Cosmos DB Connection with enhanced debug logging
 const connectDB = async (retries = 5) => {
   console.log('Starting database connection attempt...');
+  console.log('Environment variables check:');
   
-  // Check for connection string in both places
-  const connectionString = process.env.MONGODB_URI || process.env.CUSTOMCONNSTR_MONGODB_URI;
-  console.log('Connection string exists:', !!connectionString);
-  
+  // Log all environment variables (excluding sensitive data)
+  Object.keys(process.env).forEach(key => {
+    if (key.includes('MONGODB') || key.includes('CUSTOM')) {
+      console.log(`${key}: ${key.includes('URI') ? '[HIDDEN]' : process.env[key]}`);
+    }
+  });
+
+  // Check all possible connection string locations
+  const connectionString = 
+    process.env.MONGODB_URI || 
+    process.env.CUSTOMCONNSTR_MONGODB_URI || 
+    process.env.MONGODBCONNSTR_MONGODB_URI;
+
   if (!connectionString) {
-    console.error('No MongoDB connection string found in environment variables');
-    console.log('Available environment variables:', Object.keys(process.env));
+    console.error('No MongoDB connection string found. Checked:');
+    console.error('- process.env.MONGODB_URI');
+    console.error('- process.env.CUSTOMCONNSTR_MONGODB_URI');
+    console.error('- process.env.MONGODBCONNSTR_MONGODB_URI');
     return false;
   }
+
+  console.log('Connection string found in configuration');
 
   while (retries) {
     try {
@@ -49,9 +63,7 @@ const connectDB = async (retries = 5) => {
         serverSelectionTimeoutMS: 30000
       };
       
-      console.log('Mongoose connection options:', JSON.stringify(options));
-      console.log('Attempting mongoose connection...');
-      
+      console.log('Attempting mongoose connection with options:', JSON.stringify(options));
       await mongoose.connect(connectionString, options);
       console.log('✅ Connected to Cosmos DB successfully');
       return true;
@@ -60,6 +72,7 @@ const connectDB = async (retries = 5) => {
       console.error('Error name:', err.name);
       console.error('Error message:', err.message);
       console.error('Error code:', err.code);
+      console.error('Full error:', err);
       
       retries -= 1;
       if (!retries) {
