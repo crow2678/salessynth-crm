@@ -21,13 +21,30 @@ const BookmarkPanel = ({ isOpen, onToggle }) => {
   });
 
   // Add bookmark mutation
-  const addBookmarkMutation = useMutation({
-    mutationFn: (newBookmark) => axios.post(`${API_URL}/bookmarks`, newBookmark),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['bookmarks']);
-      setNewBookmark({ title: '', url: '' });
-    }
-  });
+const addBookmarkMutation = useMutation({
+  mutationFn: (newBookmark) => axios.post(`${API_URL}/bookmarks`, newBookmark),
+  retry: (failureCount, error) => {
+    // Retry up to 3 times if it's a throttling error (429)
+    return failureCount < 3 && error?.response?.status === 429;
+  },
+  retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000), // exponential backoff
+  onSuccess: () => {
+    queryClient.invalidateQueries(['bookmarks']);
+    setAlert({
+      type: 'success',
+      message: 'Bookmark added successfully'
+    });
+  },
+  onError: (error) => {
+    console.error('Mutation error:', error);
+    setAlert({
+      type: 'error',
+      message: error?.response?.status === 429 
+        ? 'Service is busy, please try again in a moment'
+        : 'Failed to add bookmark'
+    });
+  }
+});
 
   // Delete bookmark mutation
   const deleteBookmarkMutation = useMutation({
@@ -37,21 +54,38 @@ const BookmarkPanel = ({ isOpen, onToggle }) => {
     }
   });
 
-  const handleAddBookmark = (e) => {
-    e.preventDefault();
-    if (!newBookmark.title.trim() || !newBookmark.url.trim()) return;
+// BookmarkPanel.jsx
+const handleAddBookmark = async (e) => {
+  e.preventDefault();
+  if (!newBookmark.title.trim() || !newBookmark.url.trim()) return;
 
-    // Add http:// if no protocol is specified
-    let url = newBookmark.url;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
-    }
+  // Add http:// if no protocol is specified
+  let url = newBookmark.url;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
 
-    addBookmarkMutation.mutate({
+  try {
+    setIsSubmitting(true);
+    await addBookmarkMutation.mutateAsync({
       title: newBookmark.title.trim(),
       url: url
     });
-  };
+    
+    setNewBookmark({ title: '', url: '' });
+  } catch (error) {
+    console.error('Error adding bookmark:', error);
+    // Show error in UI
+    if (error?.response?.status === 429) {
+      // Handle throttling error
+      setError('Service is busy, please try again in a moment');
+    } else {
+      setError('Failed to add bookmark. Please try again.');
+    }
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const deleteBookmark = (bookmarkId) => {
     deleteBookmarkMutation.mutate(bookmarkId);
