@@ -31,6 +31,12 @@ const bookmarkSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  // Add indexes for Cosmos DB
+  indexes: [
+    [{ updatedAt: -1 }]
+  ]
 });
 
 // Update the updatedAt timestamp before saving

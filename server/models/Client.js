@@ -32,7 +32,7 @@ const clientSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  isBookmarked: {    // Added for bookmark functionality
+  isBookmarked: {
     type: Boolean,
     default: false
   },
@@ -42,7 +42,7 @@ const clientSchema = new mongoose.Schema({
   followUpDate: {
     type: Date
   },
-  alerts: [{         // Added for alerts functionality
+  alerts: [{
     type: {
       type: String,
       enum: ['reminder', 'followUp', 'dealUpdate', 'custom'],
@@ -85,6 +85,14 @@ const clientSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  // Add indexes for Cosmos DB
+  indexes: [
+    [{ updatedAt: -1 }],
+    [{ isBookmarked: 1, updatedAt: -1 }],
+    [{ isActive: 1 }]
+  ]
 });
 
 // Update the updatedAt timestamp before saving

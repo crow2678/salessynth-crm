@@ -25,30 +25,16 @@ app.get('/early-health', (req, res) => {
 // Cosmos DB Connection with enhanced debug logging
 const connectDB = async (retries = 5) => {
   console.log('Starting database connection attempt...');
-  console.log('Environment variables check:');
   
-  // Log all environment variables (excluding sensitive data)
-  Object.keys(process.env).forEach(key => {
-    if (key.includes('MONGODB') || key.includes('CUSTOM')) {
-      console.log(`${key}: ${key.includes('URI') ? '[HIDDEN]' : process.env[key]}`);
-    }
-  });
-
-  // Check all possible connection string locations
   const connectionString = 
     process.env.MONGODB_URI || 
     process.env.CUSTOMCONNSTR_MONGODB_URI || 
     process.env.MONGODBCONNSTR_MONGODB_URI;
 
   if (!connectionString) {
-    console.error('No MongoDB connection string found. Checked:');
-    console.error('- process.env.MONGODB_URI');
-    console.error('- process.env.CUSTOMCONNSTR_MONGODB_URI');
-    console.error('- process.env.MONGODBCONNSTR_MONGODB_URI');
+    console.error('No MongoDB connection string found.');
     return false;
   }
-
-  console.log('Connection string found in configuration');
 
   while (retries) {
     try {
@@ -63,23 +49,16 @@ const connectDB = async (retries = 5) => {
         serverSelectionTimeoutMS: 30000
       };
       
-      console.log('Attempting mongoose connection with options:', JSON.stringify(options));
       await mongoose.connect(connectionString, options);
       console.log('✅ Connected to Cosmos DB successfully');
       return true;
     } catch (err) {
-      console.error('❌ Connection error details:');
-      console.error('Error name:', err.name);
-      console.error('Error message:', err.message);
-      console.error('Error code:', err.code);
-      console.error('Full error:', err);
-      
+      console.error('❌ Connection error:', err.message);
       retries -= 1;
       if (!retries) {
-        console.error('Failed to connect to Cosmos DB after all retries');
+        console.error('Failed to connect after all retries');
         return false;
       }
-      console.log(`Waiting 10 seconds before retry... (${retries} attempts remaining)`);
       await new Promise(resolve => setTimeout(resolve, 10000));
     }
   }
@@ -128,23 +107,29 @@ app.patch('/api/tasks/:id/complete', async (req, res) => {
   }
 });
 
-app.delete('/api/tasks/:id', async (req, res) => {
+app.get('/api/tasks', async (req, res) => {
   try {
-    const task = await Task.findByIdAndDelete(req.params.id);
-    if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
+    const { completed } = req.query;
+    let query = {};
+    if (completed !== undefined) {
+      query.completed = completed === 'true';
     }
-    res.json({ message: 'Task deleted successfully' });
+    
+    // Remove sorting by createdAt
+    const tasks = await Task.find(query);
+    res.json(tasks);
   } catch (error) {
-    console.error('Error deleting task:', error);
-    res.status(500).json({ message: 'Error deleting task', error: error.message });
+    console.error('Error fetching tasks:', error);
+    res.status(500).json({ message: 'Error fetching tasks', error: error.message });
   }
 });
 
 // Bookmark Routes
+// Modified bookmark route without sorting
 app.get('/api/bookmarks', async (req, res) => {
   try {
-    const bookmarks = await Bookmark.find().sort({ createdAt: -1 });
+    // Remove sorting by createdAt
+    const bookmarks = await Bookmark.find();
     res.json(bookmarks);
   } catch (error) {
     console.error('Error fetching bookmarks:', error);
@@ -177,6 +162,7 @@ app.delete('/api/bookmarks/:id', async (req, res) => {
 });
 
 // Client Routes
+// Modified client route with composite index support
 app.get('/api/clients', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -189,8 +175,8 @@ app.get('/api/clients', async (req, res) => {
       query.isBookmarked = true;
     }
 
+    // Remove sorting by updatedAt since it's not indexed
     const clients = await Client.find(query)
-      .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(limit);
 
