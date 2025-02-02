@@ -15,28 +15,51 @@ const BookmarkPanel = ({ isOpen, onToggle }) => {
   const { data: bookmarks = [], isLoading } = useQuery({
     queryKey: ['bookmarks'],
     queryFn: async () => {
-      const { data } = await axios.get(`${API_URL}/bookmarks`);
-      return data;
+      try {
+        const { data } = await axios.get(`${API_URL}/bookmarks`);
+        return data;
+      } catch (error) {
+        console.error('Error fetching bookmarks:', error);
+        throw error;
+      }
     }
   });
 
   // Add bookmark mutation
   const addBookmarkMutation = useMutation({
-    mutationFn: (newBookmark) => axios.post(`${API_URL}/bookmarks`, newBookmark),
-    retry: (failureCount, error) => {
-      return failureCount < 3 && error?.response?.status === 429;
+    mutationFn: async (newBookmark) => {
+      // Validate input before sending
+      if (!newBookmark.title.trim() || !newBookmark.url.trim()) {
+        throw new Error('Title and URL are required');
+      }
+
+      // Format URL if needed
+      let url = newBookmark.url.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+
+      try {
+        // Validate URL format
+        new URL(url);
+      } catch (e) {
+        throw new Error('Invalid URL format');
+      }
+
+      const response = await axios.post(`${API_URL}/bookmarks`, {
+        title: newBookmark.title.trim(),
+        url: url
+      });
+      return response.data;
     },
-    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000),
     onSuccess: () => {
       queryClient.invalidateQueries(['bookmarks']);
-      setError(null);
       setNewBookmark({ title: '', url: '' });
+      setError(null);
     },
     onError: (error) => {
       console.error('Mutation error:', error);
-      setError(error?.response?.status === 429 
-        ? 'Service is busy, please try again in a moment'
-        : 'Failed to add bookmark');
+      setError(error.response?.data?.message || error.message || 'Failed to add bookmark');
     }
   });
 
@@ -45,32 +68,23 @@ const BookmarkPanel = ({ isOpen, onToggle }) => {
     mutationFn: (bookmarkId) => axios.delete(`${API_URL}/bookmarks/${bookmarkId}`),
     onSuccess: () => {
       queryClient.invalidateQueries(['bookmarks']);
+    },
+    onError: (error) => {
+      setError('Failed to delete bookmark');
+      console.error('Error deleting bookmark:', error);
     }
   });
 
   const handleAddBookmark = async (e) => {
     e.preventDefault();
-    if (!newBookmark.title.trim() || !newBookmark.url.trim()) return;
-
-    // Add http:// if no protocol is specified
-    let url = newBookmark.url;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
-    }
-
+    setError(null);
+    
     try {
-      await addBookmarkMutation.mutateAsync({
-        title: newBookmark.title.trim(),
-        url: url
-      });
+      await addBookmarkMutation.mutateAsync(newBookmark);
     } catch (error) {
       console.error('Error adding bookmark:', error);
-      // Error handling is now in mutation config
+      // Error handling is in mutation config
     }
-  };
-
-  const deleteBookmark = (bookmarkId) => {
-    deleteBookmarkMutation.mutate(bookmarkId);
   };
 
   const copyToClipboard = async (bookmarkId, url) => {
@@ -82,6 +96,7 @@ const BookmarkPanel = ({ isOpen, onToggle }) => {
       }, 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      setError('Failed to copy URL');
     }
   };
 
@@ -169,9 +184,10 @@ const BookmarkPanel = ({ isOpen, onToggle }) => {
                     <ExternalLink size={16} className="text-gray-500" />
                   </a>
                   <button
-                    onClick={() => deleteBookmark(bookmark._id)}
+                    onClick={() => deleteBookmarkMutation.mutate(bookmark._id)}
                     className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-red-500"
                     title="Delete"
+                    disabled={deleteBookmarkMutation.isLoading}
                   >
                     <X size={16} />
                   </button>
