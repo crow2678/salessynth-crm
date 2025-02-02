@@ -7,24 +7,20 @@ const Client = require('./models/Client');
 const Task = require('./models/Task');
 const Bookmark = require('./models/Bookmark');
 
-// Initialize express but don't start listening yet
+// Initialize express
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Add early health check before DB connection
+// Early health check
 app.get('/early-health', (req, res) => {
   res.json({ status: 'starting' });
 });
 
-// Cosmos DB Connection with enhanced debug logging
-// In server.js
-
+// Cosmos DB Connection
 const connectDB = async (retries = 5) => {
   console.log('Starting database connection attempt...');
   
@@ -43,9 +39,8 @@ const connectDB = async (retries = 5) => {
     useUnifiedTopology: true,
     retryWrites: false,
     ssl: true,
-    // Moderate connection pool settings
-    maxPoolSize: 5,            // One connection per user is usually sufficient
-    minPoolSize: 1,            // Keep at least one connection alive
+    maxPoolSize: 5,
+    minPoolSize: 1,
     serverSelectionTimeoutMS: 30000,
     connectTimeoutMS: 30000,
     socketTimeoutMS: 360000
@@ -56,14 +51,25 @@ const connectDB = async (retries = 5) => {
     console.log('✅ Connected to Cosmos DB successfully');
     return true;
   } catch (err) {
+    if (retries > 0) {
+      console.log(`Connection attempt failed. Retrying... (${retries} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      return connectDB(retries - 1);
+    }
     console.error('❌ Connection error:', err.message);
     throw err;
   }
 };
 
-// Basic connection monitoring
+// Database connection monitoring
 mongoose.connection.on('error', (err) => {
   console.error('Mongoose connection error:', err);
+  if (err.name === 'MongoError' && err.code === 16500) {
+    console.log('Throughput limit reached, implementing backoff...');
+    setTimeout(() => {
+      mongoose.connect().catch(console.error);
+    }, Math.random() * 5000);
+  }
 });
 
 mongoose.connection.on('disconnected', () => {
@@ -71,22 +77,6 @@ mongoose.connection.on('disconnected', () => {
   setTimeout(() => {
     connectDB().catch(console.error);
   }, 5000);
-});
-
-// Simple error handler middleware
-app.use((error, req, res, next) => {
-  console.error('Server error:', error);
-  
-  // Handle Cosmos DB specific errors
-  if (error.code === 16500) { // Rate limit exceeded
-    return res.status(429).json({
-      message: 'Please wait a moment before trying again'
-    });
-  }
-  
-  res.status(500).json({
-    message: 'Something went wrong, please try again'
-  });
 });
 
 // Task Routes
@@ -107,6 +97,10 @@ app.get('/api/tasks', async (req, res) => {
 
 app.post('/api/tasks', async (req, res) => {
   try {
+    if (!req.body.title) {
+      return res.status(400).json({ message: 'Task title is required' });
+    }
+
     const task = new Task(req.body);
     await task.save();
     res.status(201).json(task);
@@ -116,8 +110,35 @@ app.post('/api/tasks', async (req, res) => {
   }
 });
 
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    console.log('Attempting to delete task:', req.params.id);
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.log('Invalid task ID format:', req.params.id);
+      return res.status(400).json({ message: 'Invalid task ID format' });
+    }
+
+    const task = await Task.findByIdAndDelete(req.params.id);
+    if (!task) {
+      console.log('Task not found:', req.params.id);
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    console.log('Successfully deleted task:', req.params.id);
+    res.json({ message: 'Task deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({ message: 'Error deleting task', error: error.message });
+  }
+});
+
 app.patch('/api/tasks/:id/complete', async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid task ID format' });
+    }
+
     const task = await Task.findById(req.params.id);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
@@ -130,30 +151,10 @@ app.patch('/api/tasks/:id/complete', async (req, res) => {
     res.status(400).json({ message: 'Error updating task', error: error.message });
   }
 });
-
-app.get('/api/tasks', async (req, res) => {
-  try {
-    const { completed } = req.query;
-    let query = {};
-    if (completed !== undefined) {
-      query.completed = completed === 'true';
-    }
-    
-    // Remove sorting by createdAt
-    const tasks = await Task.find(query);
-    res.json(tasks);
-  } catch (error) {
-    console.error('Error fetching tasks:', error);
-    res.status(500).json({ message: 'Error fetching tasks', error: error.message });
-  }
-});
-
 // Bookmark Routes
-// Modified bookmark route without sorting
 app.get('/api/bookmarks', async (req, res) => {
   try {
-    // Remove sorting by createdAt
-    const bookmarks = await Bookmark.find();
+    const bookmarks = await Bookmark.find().lean();
     res.json(bookmarks);
   } catch (error) {
     console.error('Error fetching bookmarks:', error);
@@ -163,17 +164,54 @@ app.get('/api/bookmarks', async (req, res) => {
 
 app.post('/api/bookmarks', async (req, res) => {
   try {
-    const bookmark = new Bookmark(req.body);
+    const { title, url } = req.body;
+    
+    // Validate required fields
+    if (!title?.trim() || !url?.trim()) {
+      return res.status(400).json({ 
+        message: 'Title and URL are required',
+        error: 'Missing required fields' 
+      });
+    }
+
+    // Format URL
+    let formattedUrl = url.trim();
+    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+      formattedUrl = 'https://' + formattedUrl;
+    }
+
+    // Validate URL format
+    try {
+      new URL(formattedUrl);
+    } catch (e) {
+      return res.status(400).json({ 
+        message: 'Invalid URL format',
+        error: 'URL validation failed' 
+      });
+    }
+
+    const bookmark = new Bookmark({
+      title: title.trim(),
+      url: formattedUrl
+    });
+
     await bookmark.save();
     res.status(201).json(bookmark);
   } catch (error) {
     console.error('Error creating bookmark:', error);
-    res.status(400).json({ message: 'Error creating bookmark', error: error.message });
+    res.status(400).json({ 
+      message: 'Error creating bookmark', 
+      error: error.message 
+    });
   }
 });
 
 app.delete('/api/bookmarks/:id', async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid bookmark ID format' });
+    }
+
     const bookmark = await Bookmark.findByIdAndDelete(req.params.id);
     if (!bookmark) {
       return res.status(404).json({ message: 'Bookmark not found' });
@@ -186,7 +224,6 @@ app.delete('/api/bookmarks/:id', async (req, res) => {
 });
 
 // Client Routes
-// Modified client route with composite index support
 app.get('/api/clients', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -199,10 +236,10 @@ app.get('/api/clients', async (req, res) => {
       query.isBookmarked = true;
     }
 
-    // Remove sorting by updatedAt since it's not indexed
     const clients = await Client.find(query)
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const total = await Client.countDocuments(query);
 
@@ -218,111 +255,30 @@ app.get('/api/clients', async (req, res) => {
   }
 });
 
-app.get('/api/clients/:id', async (req, res) => {
-  try {
-    const client = await Client.findById(req.params.id);
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-    res.json(client);
-  } catch (error) {
-    console.error('Error fetching client:', error);
-    res.status(500).json({ message: 'Error fetching client', error: error.message });
-  }
-});
-
-app.post('/api/clients', async (req, res) => {
-  try {
-    const client = new Client(req.body);
-    await client.save();
-    res.status(201).json(client);
-  } catch (error) {
-    console.error('Error creating client:', error);
-    res.status(400).json({ message: 'Error creating client', error: error.message });
-  }
-});
-
-app.put('/api/clients/:id', async (req, res) => {
-  try {
-    const client = await Client.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-    res.json(client);
-  } catch (error) {
-    console.error('Error updating client:', error);
-    res.status(400).json({ message: 'Error updating client', error: error.message });
-  }
-});
-
-app.delete('/api/clients/:id', async (req, res) => {
-  try {
-    const client = await Client.findByIdAndDelete(req.params.id);
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-    res.json({ message: 'Client deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting client:', error);
-    res.status(500).json({ message: 'Error deleting client', error: error.message });
-  }
-});
-
-app.patch('/api/clients/:id/bookmark', async (req, res) => {
-  try {
-    const client = await Client.findById(req.params.id);
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-    
-    client.isBookmarked = !client.isBookmarked;
-    await client.save();
-    
-    res.json(client);
-  } catch (error) {
-    console.error('Error toggling bookmark:', error);
-    res.status(500).json({ message: 'Error toggling bookmark', error: error.message });
-  }
-});
-
 app.get('/api/stats', async (req, res) => {
   try {
-    const totalClients = await Client.countDocuments();
-    const activeClients = await Client.countDocuments({ isActive: true });
-    const bookmarkedClients = await Client.countDocuments({ isBookmarked: true });
-    
-    const pipeline = await Client.aggregate([
-      { $unwind: '$deals' },
-      { $match: { 'deals.status': { $ne: 'closed_lost' } } },
-      { $group: { 
-        _id: null, 
-        totalValue: { $sum: '$deals.value' },
-        dealCount: { $sum: 1 }
-      }}
+    const stats = await Promise.all([
+      Client.countDocuments(),
+      Client.countDocuments({ isActive: true }),
+      Client.countDocuments({ isBookmarked: true }),
+      Client.aggregate([
+        { $unwind: { path: '$deals', preserveNullAndEmptyArrays: true } },
+        { $match: { 'deals.status': { $ne: 'closed_lost' } } },
+        { $group: { 
+          _id: null, 
+          totalValue: { $sum: '$deals.value' },
+          dealCount: { $sum: 1 }
+        }}
+      ])
     ]);
 
-    const clientsWithUnreadAlerts = await Client.find({
-      'alerts.isRead': false
+    res.json({
+      totalClients: stats[0],
+      activeClients: stats[1],
+      bookmarkedClients: stats[2],
+      totalDeals: stats[3][0]?.dealCount || 0,
+      pipelineValue: stats[3][0]?.totalValue || 0
     });
-    
-    const unreadAlertCount = clientsWithUnreadAlerts.reduce((count, client) => {
-      return count + client.alerts.filter(alert => !alert.isRead).length;
-    }, 0);
-
-    const stats = {
-      totalClients,
-      activeClients,
-      bookmarkedClients,
-      totalDeals: pipeline[0]?.dealCount || 0,
-      pipelineValue: pipeline[0]?.totalValue || 0,
-      unreadAlerts: unreadAlertCount
-    };
-
-    res.json(stats);
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ message: 'Error fetching stats', error: error.message });
@@ -331,124 +287,86 @@ app.get('/api/stats', async (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  const healthcheck = {
-    uptime: process.uptime(),
-    message: 'OK',
-    timestamp: Date.now(),
-    mongooseState: mongoose.connection.readyState
-  };
   try {
-    res.send(healthcheck);
-  } catch (e) {
-    healthcheck.message = e;
-    res.status(503).send();
+    res.json({
+      uptime: process.uptime(),
+      message: 'OK',
+      timestamp: Date.now(),
+      mongooseState: mongoose.connection.readyState
+    });
+  } catch (error) {
+    res.status(503).json({
+      message: 'Service Unavailable',
+      error: error.message
+    });
   }
 });
 
-// The "catch all" handler: for any request that doesn't
-// match one above, send back React's index.html file.
+// Catch-all route for React app
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Handle 404 errors
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
-});
-
-// Global error handler
+// Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
+  
+  // Handle Cosmos DB specific errors
+  if (err.code === 16500) {
+    return res.status(429).json({
+      message: 'Database throughput limit reached. Please try again in a moment.'
+    });
+  }
+  
   res.status(500).json({ 
     message: 'Internal server error', 
     error: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred' 
   });
 });
 
-// Graceful shutdown handler
-const gracefulShutdown = async (server) => {
-  console.log('Received shutdown signal');
-  
-  try {
-    // First close the server to stop accepting new connections
-    await new Promise((resolve, reject) => {
-      server.close((err) => {
-        if (err) {
-          console.error('Error closing server:', err);
-          reject(err);
-        } else {
-          console.log('Server closed successfully');
-          resolve();
-        }
-      });
-    });
-
-    // Then close mongoose connection
-    if (mongoose.connection.readyState !== 0) {
-      try {
-        await mongoose.connection.close();
-        console.log('MongoDB connection closed');
-      } catch (err) {
-        console.error('Error closing MongoDB connection:', err);
-      }
-    }
-
-    // Exit with success code
-    console.log('Graceful shutdown completed');
-    process.exit(0);
-  } catch (err) {
-    console.error('Error during shutdown:', err);
-    process.exit(1);
-  }
-};
-
 // Initialize application
 const initializeApp = async () => {
   try {
     console.log('Starting application initialization...');
-    
-    // Connect to database
     await connectDB();
 
-    // Start server
     const PORT = process.env.PORT || 5000;
     const server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
-    // Setup shutdown handlers
-    const shutdownSignals = ['SIGTERM', 'SIGINT', 'SIGUSR2'];
-    shutdownSignals.forEach(signal => {
-      process.on(signal, async () => {
-        try {
-          await gracefulShutdown(server);
-        } catch (err) {
-          console.error(`Error during ${signal} shutdown:`, err);
-          process.exit(1);
-        }
-      });
-    });
-
-    // Handle uncaught exceptions and rejections
-    process.on('uncaughtException', async (err) => {
-      console.error('Uncaught exception:', err);
+    // Graceful shutdown handler
+    const shutdownHandler = async () => {
+      console.log('Shutting down gracefully...');
       try {
-        await gracefulShutdown(server);
-      } catch (shutdownErr) {
-        console.error('Error during exception shutdown:', shutdownErr);
+        await new Promise(resolve => server.close(resolve));
+        console.log('Server closed');
+        
+        await mongoose.connection.close();
+        console.log('Database connection closed');
+        
+        process.exit(0);
+      } catch (err) {
+        console.error('Error during shutdown:', err);
         process.exit(1);
       }
+    };
+
+    // Setup shutdown handlers
+    ['SIGTERM', 'SIGINT', 'SIGUSR2'].forEach(signal => {
+      process.on(signal, shutdownHandler);
+    });
+
+    // Handle uncaught errors
+    process.on('uncaughtException', async (err) => {
+      console.error('Uncaught exception:', err);
+      await shutdownHandler();
     });
 
     process.on('unhandledRejection', async (err) => {
       console.error('Unhandled rejection:', err);
-      try {
-        await gracefulShutdown(server);
-      } catch (shutdownErr) {
-        console.error('Error during rejection shutdown:', shutdownErr);
-        process.exit(1);
-      }
+      await shutdownHandler();
     });
 
   } catch (err) {
