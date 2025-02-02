@@ -26,42 +26,52 @@ const BookmarkPanel = ({ isOpen, onToggle }) => {
   });
 
   // Add bookmark mutation
-  const addBookmarkMutation = useMutation({
-    mutationFn: async (newBookmark) => {
-      // Validate input before sending
-      if (!newBookmark.title.trim() || !newBookmark.url.trim()) {
-        throw new Error('Title and URL are required');
-      }
+  // In BookmarkPanel.jsx
+	const addBookmarkMutation = useMutation({
+	  mutationFn: async (newBookmark) => {
+		// Validate input
+		if (!newBookmark.title?.trim()) {
+		  throw new Error('Title is required');
+		}
 
-      // Format URL if needed
-      let url = newBookmark.url.trim();
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url;
-      }
+		let url = newBookmark.url?.trim() || '';
+		
+		// Add protocol if missing
+		if (!/^https?:\/\//i.test(url)) {
+		  url = 'https://' + url;
+		}
 
-      try {
-        // Validate URL format
-        new URL(url);
-      } catch (e) {
-        throw new Error('Invalid URL format');
-      }
+		// Basic URL validation
+		try {
+		  new URL(url);
+		} catch (e) {
+		  throw new Error('Invalid URL format');
+		}
 
-      const response = await axios.post(`${API_URL}/bookmarks`, {
-        title: newBookmark.title.trim(),
-        url: url
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['bookmarks']);
-      setNewBookmark({ title: '', url: '' });
-      setError(null);
-    },
-    onError: (error) => {
-      console.error('Mutation error:', error);
-      setError(error.response?.data?.message || error.message || 'Failed to add bookmark');
-    }
-  });
+		// Log the request data for debugging
+		console.log('Sending bookmark data:', { title: newBookmark.title.trim(), url });
+
+		try {
+		  const response = await axios.post(`${API_URL}/bookmarks`, {
+			title: newBookmark.title.trim(),
+			url
+		  });
+		  return response.data;
+		} catch (error) {
+		  // Log detailed error information
+		  console.error('Bookmark creation error:', {
+			status: error.response?.status,
+			data: error.response?.data,
+			message: error.message
+		  });
+		  throw new Error(error.response?.data?.message || 'Failed to create bookmark');
+		}
+	  },
+	  onError: (error) => {
+		console.error('Bookmark mutation error:', error);
+		setError(error.message || 'Failed to add bookmark');
+	  }
+	});
 
   // Delete bookmark mutation
   const deleteBookmarkMutation = useMutation({

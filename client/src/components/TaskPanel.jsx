@@ -75,33 +75,29 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
   });
 
   // Delete task mutation
-  const deleteTaskMutation = useMutation({
-    mutationFn: async (taskId) => {
-      if (!taskId) {
-        throw new Error('Task ID is required');
-      }
-      try {
-        const response = await axios.delete(`${API_URL}/tasks/${taskId}`);
-        return response.data;
-      } catch (error) {
-        // If task is already deleted, consider it a success
-        if (error.response?.status === 404) {
-          return { message: 'Task already deleted' };
-        }
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['tasks']);
-      setError(null);
-    },
-    onError: (error) => {
-      console.error('Error deleting task:', error);
-      setError('Failed to delete task');
-      // Refresh task list to ensure UI is in sync
-      queryClient.invalidateQueries(['tasks']);
-    }
-  });
+  // In TaskPanel.jsx
+	const deleteTaskMutation = useMutation({
+	  mutationFn: async (taskId) => {
+		if (!taskId || typeof taskId !== 'string') {
+		  console.error('Invalid task ID:', taskId);
+		  throw new Error('Invalid task ID');
+		}
+		
+		try {
+		  console.log('Deleting task with ID:', taskId); // Debug log
+		  const response = await axios.delete(`${API_URL}/tasks/${taskId}`);
+		  return response.data;
+		} catch (error) {
+		  console.error('Delete task error:', error.response?.data || error); // Debug log
+		  if (error.response?.status === 404) {
+			// Refresh the task list
+			queryClient.invalidateQueries(['tasks']);
+			return { message: 'Task already deleted' };
+		  }
+		  throw error;
+		}
+	  }
+	});
 
   const handleAddTask = (e) => {
     e.preventDefault();
