@@ -47,7 +47,8 @@ const SalesSynth = () => {
 
   // Mutations
   const createClientMutation = useMutation({
-    mutationFn: (newClient) => axios.post(`${API_URL}/clients`, newClient),
+    //mutationFn: (newClient) => axios.post(`${API_URL}/clients`, newClient),
+	mutationFn: (client) => axios.put(`${API_URL}/clients/${client._id}`, client),
     onSuccess: () => {
       queryClient.invalidateQueries(['clients']);
       queryClient.invalidateQueries(['stats']);
@@ -58,17 +59,71 @@ const SalesSynth = () => {
     }
   });
 
-  const updateClientMutation = useMutation({
-    mutationFn: (client) => axios.put(`${API_URL}/clients/${client._id}`, client),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['clients']);
-      queryClient.invalidateQueries(['stats']);
-      showAlert('success', 'Client updated successfully');
-    },
-    onError: (error) => {
-      showAlert('error', error.response?.data?.message || 'Error updating client');
+const updateClientMutation = useMutation({
+  mutationFn: async (client) => {
+    // Validate client ID
+    if (!client._id) {
+      throw new Error('Client ID is required for update');
     }
-  });
+
+    // Log the full client data being sent
+    console.log('Updating client:', {
+      clientId: client._id,
+      data: { ...client, _id: undefined } // Exclude _id from logged data to reduce noise
+    });
+
+    try {
+      // Perform the update with more detailed error catching
+      const { data } = await axios.put(`${API_URL}/clients/${client._id}`, 
+        // Remove _id from the payload to prevent potential backend issues
+        (() => {
+          const { _id, ...updateData } = client;
+          return updateData;
+        })()
+      );
+      return data;
+    } catch (error) {
+      // Detailed error logging
+      console.error('Client Update Error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: `${API_URL}/clients/${client._id}`
+      });
+
+      // Throw a more informative error
+      throw new Error(
+        error.response?.data?.message || 
+        `Failed to update client: ${error.message}`
+      );
+    }
+  },
+  onSuccess: (updatedClient) => {
+    // Invalidate and refetch queries
+    queryClient.invalidateQueries(['clients']);
+    queryClient.invalidateQueries(['stats']);
+    
+    // Show success alert with more context if possible
+    showAlert('success', `Client ${updatedClient.name || 'updated'} successfully`);
+  },
+  onError: (error) => {
+    // More detailed error alert
+    showAlert('error', error.message || 'Error updating client');
+    
+    // Optional: log to error tracking service
+    console.error('Client Update Mutation Error:', error);
+  },
+  // Add retry logic for transient errors
+  retry: (failureCount, error) => {
+    // Retry 3 times for network errors or 429 (Too Many Requests)
+    return failureCount < 3 && (
+      error.code === 'ECONNABORTED' || 
+      error.response?.status === 429
+    );
+  },
+  // Exponential backoff for retries
+  retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000)
+});
 
   const toggleBookmarkMutation = useMutation({
     mutationFn: (clientId) => axios.patch(`${API_URL}/clients/${clientId}/bookmark`),
@@ -94,15 +149,23 @@ const SalesSynth = () => {
     setShowNewClientModal(true);
   };
 
-  const handleSaveClient = async (clientData) => {
-    if (selectedClient) {
-      await updateClientMutation.mutateAsync({ ...clientData, _id: selectedClient._id });
-    } else {
-      await createClientMutation.mutateAsync(clientData);
-    }
-    setSelectedClient(null);
-    setShowNewClientModal(false);
-  };
+	const handleSaveClient = async (clientData) => {
+	  try {
+		if (selectedClient) {
+		  await updateClientMutation.mutateAsync({
+			...clientData, 
+			_id: selectedClient._id
+		  });
+		} else {
+		  await createClientMutation.mutateAsync(clientData);
+		}
+		setSelectedClient(null);
+		setShowNewClientModal(false);
+	  } catch (error) {
+		// Ensure the modal stays open if update fails
+		console.error('Save Client Error:', error);
+	  }
+	};
 
   const handleToggleBookmark = (clientId) => {
     toggleBookmarkMutation.mutate(clientId);
