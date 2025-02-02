@@ -365,17 +365,41 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Graceful shutdown function
-const gracefulShutdown = (server) => {
+// Graceful shutdown handler
+const gracefulShutdown = async (server) => {
   console.log('Received shutdown signal');
-  server.close(() => {
-    console.log('HTTP server closed');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed');
-      // Delay exit to ensure logs are written
-      setTimeout(() => process.exit(1), 1000);
+  
+  try {
+    // First close the server to stop accepting new connections
+    await new Promise((resolve, reject) => {
+      server.close((err) => {
+        if (err) {
+          console.error('Error closing server:', err);
+          reject(err);
+        } else {
+          console.log('Server closed successfully');
+          resolve();
+        }
+      });
     });
-  });
+
+    // Then close mongoose connection
+    if (mongoose.connection.readyState !== 0) {
+      try {
+        await mongoose.connection.close();
+        console.log('MongoDB connection closed');
+      } catch (err) {
+        console.error('Error closing MongoDB connection:', err);
+      }
+    }
+
+    // Exit with success code
+    console.log('Graceful shutdown completed');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
 };
 
 // Initialize application
@@ -383,42 +407,53 @@ const initializeApp = async () => {
   try {
     console.log('Starting application initialization...');
     
-    // Attempt database connection
-    const connected = await connectDB();
-    if (!connected) {
-      console.error('Failed to establish database connection');
-      // Delay exit to ensure logs are written
-      setTimeout(() => process.exit(1), 1000);
-      return;
-    }
+    // Connect to database
+    await connectDB();
 
-    // Start server only after successful DB connection
+    // Start server
     const PORT = process.env.PORT || 5000;
     const server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
-    // Setup graceful shutdown
-    process.on('SIGTERM', () => gracefulShutdown(server));
-    process.on('SIGINT', () => gracefulShutdown(server));
-
-    // Handle unhandled rejections
-    process.on('unhandledRejection', (err) => {
-      console.error('Unhandled rejection:', err);
-      gracefulShutdown(server);
+    // Setup shutdown handlers
+    const shutdownSignals = ['SIGTERM', 'SIGINT', 'SIGUSR2'];
+    shutdownSignals.forEach(signal => {
+      process.on(signal, async () => {
+        try {
+          await gracefulShutdown(server);
+        } catch (err) {
+          console.error(`Error during ${signal} shutdown:`, err);
+          process.exit(1);
+        }
+      });
     });
 
-    // Handle uncaught exceptions
-    process.on('uncaughtException', (err) => {
+    // Handle uncaught exceptions and rejections
+    process.on('uncaughtException', async (err) => {
       console.error('Uncaught exception:', err);
-      gracefulShutdown(server);
+      try {
+        await gracefulShutdown(server);
+      } catch (shutdownErr) {
+        console.error('Error during exception shutdown:', shutdownErr);
+        process.exit(1);
+      }
+    });
+
+    process.on('unhandledRejection', async (err) => {
+      console.error('Unhandled rejection:', err);
+      try {
+        await gracefulShutdown(server);
+      } catch (shutdownErr) {
+        console.error('Error during rejection shutdown:', shutdownErr);
+        process.exit(1);
+      }
     });
 
   } catch (err) {
     console.error('Fatal error during initialization:', err);
-    // Delay exit to ensure logs are written
-    setTimeout(() => process.exit(1), 1000);
+    process.exit(1);
   }
 };
 
@@ -426,8 +461,7 @@ const initializeApp = async () => {
 console.log('Beginning application startup...');
 initializeApp().catch(err => {
   console.error('Fatal error during startup:', err);
-  // Delay exit to ensure logs are written
-  setTimeout(() => process.exit(1), 1000);
+  process.exit(1);
 });
 
 module.exports = app;
