@@ -215,11 +215,11 @@ const SalesSynth = () => {
                 </div>
                 <div className="text-sm">
                   <div className="text-gray-500">Total Closed</div>
-                  <div className="text-xl font-bold">${stats.closedValue?.toLocaleString() || 0}</div>
+                  <div className="text-xl font-bold text-green-600">${stats.closedValue?.toLocaleString() || 0}</div>
                 </div>
                 <div className="text-sm">
                   <div className="text-gray-500">Active Clients</div>
-                  <div className="text-xl font-bold">{stats.activeClients || 0}</div>
+                  <div className="text-xl font-bold text-green-600">{stats.activeClients || 0}</div>
                 </div>
                 <div className="text-sm">
                   <div className="text-gray-500">Bookmarked</div>
