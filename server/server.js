@@ -291,18 +291,54 @@ app.patch('/api/clients/:id/bookmark', async (req, res) => {
 
 app.get('/api/stats', async (req, res) => {
   try {
+    const { startDate, endDate } = req.query;
+    const dateFilter = {};
+    
+    if (startDate && endDate) {
+      dateFilter['deals.expectedCloseDate'] = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
     const totalClients = await Client.countDocuments();
     const activeClients = await Client.countDocuments({ isActive: true });
     const bookmarkedClients = await Client.countDocuments({ isBookmarked: true });
     
-    const pipeline = await Client.aggregate([
+    // Pipeline aggregation for deals within date range
+    const dealsPipeline = await Client.aggregate([
       { $unwind: '$deals' },
-      { $match: { 'deals.status': { $ne: 'closed_lost' } } },
-      { $group: { 
-        _id: null, 
-        totalValue: { $sum: '$deals.value' },
-        dealCount: { $sum: 1 }
-      }}
+      {
+        $match: {
+          ...dateFilter,
+          'deals.status': { $ne: 'closed_lost' }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalValue: { $sum: '$deals.value' },
+          dealCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Separate pipeline for closed deals
+    const closedDealsPipeline = await Client.aggregate([
+      { $unwind: '$deals' },
+      {
+        $match: {
+          ...dateFilter,
+          'deals.status': 'closed_won'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          closedValue: { $sum: '$deals.value' },
+          closedDealCount: { $sum: 1 }
+        }
+      }
     ]);
 
     const clientsWithUnreadAlerts = await Client.find({
@@ -317,8 +353,10 @@ app.get('/api/stats', async (req, res) => {
       totalClients,
       activeClients,
       bookmarkedClients,
-      totalDeals: pipeline[0]?.dealCount || 0,
-      pipelineValue: pipeline[0]?.totalValue || 0,
+      totalDeals: dealsPipeline[0]?.dealCount || 0,
+      pipelineValue: dealsPipeline[0]?.totalValue || 0,
+      closedValue: closedDealsPipeline[0]?.closedValue || 0,
+      closedDealCount: closedDealsPipeline[0]?.closedDealCount || 0,
       unreadAlerts: unreadAlertCount
     };
 

@@ -7,6 +7,7 @@ import NewClientModal from './components/NewClientModal';
 import Alert from './components/Alert';
 import TaskPanel from './components/TaskPanel';
 import BookmarkPanel from './components/BookmarkPanel';
+import DateFilter from './components/DateFilter';
 import { getClientStatus, calculateMetrics } from './utils/statusUtils';
 import { STATUS_CONFIG } from './utils/statusUtils';
 
@@ -25,6 +26,10 @@ const SalesSynth = () => {
   const [alert, setAlert] = useState(null);
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(true);
   const [isBookmarkPanelOpen, setIsBookmarkPanelOpen] = useState(false);
+  const [dateFilter, setDateFilter] = useState(() => ({
+    start: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
+    end: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
+  }));
 
   // Queries
   const { data: clients = [], isLoading, error } = useQuery({
@@ -39,9 +44,14 @@ const SalesSynth = () => {
 
   // Stats Query
   const { data: stats = {} } = useQuery({
-    queryKey: ['stats'],
+    queryKey: ['stats', dateFilter],
     queryFn: async () => {
-      const { data } = await axios.get(`${API_URL}/stats`);
+      const { data } = await axios.get(`${API_URL}/stats`, {
+        params: {
+          startDate: dateFilter.start,
+          endDate: dateFilter.end
+        }
+      });
       return data;
     }
   });
@@ -71,52 +81,50 @@ const SalesSynth = () => {
     }
   });
 
-  // Updated toggleBookmarkMutation with proper error handling and retry logic
-const toggleBookmarkMutation = useMutation({
-  mutationFn: async (clientId) => {
-    if (!clientId) {
-      throw new Error('Client ID is required');
+  const toggleBookmarkMutation = useMutation({
+    mutationFn: async (clientId) => {
+      if (!clientId) {
+        throw new Error('Client ID is required');
+      }
+      const response = await axios.patch(`${API_URL}/clients/${clientId}/bookmark`);
+      return response.data;
+    },
+    retry: (failureCount, error) => {
+      return failureCount < 3 && error?.response?.status === 429;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000),
+    onMutate: async (clientId) => {
+      await queryClient.cancelQueries(['clients']);
+      const previousClients = queryClient.getQueryData(['clients']);
+      
+      if (previousClients) {
+        queryClient.setQueryData(['clients'], old => 
+          old.map(c => c._id === clientId 
+            ? { ...c, isBookmarked: !c.isBookmarked } 
+            : c
+          )
+        );
+      }
+      
+      return { previousClients };
+    },
+    onError: (error, clientId, context) => {
+      if (context?.previousClients) {
+        queryClient.setQueryData(['clients'], context.previousClients);
+      }
+      showAlert('error', error.message || 'Error toggling bookmark');
+    },
+    onSuccess: (data, clientId) => {
+      const client = clients.find(c => c._id === clientId);
+      if (client) {
+        showAlert('success', `${client.name} ${data.isBookmarked ? 'added to' : 'removed from'} bookmarks`);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries(['clients']);
+      queryClient.invalidateQueries(['stats']);
     }
-    const response = await axios.patch(`${API_URL}/clients/${clientId}/bookmark`);
-    return response.data;
-  },
-  retry: (failureCount, error) => {
-    return failureCount < 3 && error?.response?.status === 429;
-  },
-  retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000),
-  onMutate: async (clientId) => {
-    await queryClient.cancelQueries(['clients']);
-    const previousClients = queryClient.getQueryData(['clients']);
-    
-    if (previousClients) {
-      queryClient.setQueryData(['clients'], old => 
-        old.map(c => c._id === clientId 
-          ? { ...c, isBookmarked: !c.isBookmarked } 
-          : c
-        )
-      );
-    }
-    
-    return { previousClients };
-  },
-  onError: (error, clientId, context) => {
-    if (context?.previousClients) {
-      queryClient.setQueryData(['clients'], context.previousClients);
-    }
-    showAlert('error', error.message || 'Error toggling bookmark');
-  },
-  onSuccess: (data, clientId) => {
-    const client = clients.find(c => c._id === clientId);
-    if (client) {
-      showAlert('success', `${client.name} ${data.isBookmarked ? 'added to' : 'removed from'} bookmarks`);
-    }
-  },
-  onSettled: () => {
-    queryClient.invalidateQueries(['clients']);
-    queryClient.invalidateQueries(['stats']);
-  }
-});
-
+  });
   // Handlers
   const showAlert = (type, message) => {
     setAlert({ type, message });
@@ -139,19 +147,18 @@ const toggleBookmarkMutation = useMutation({
   };
 
   const handleToggleBookmark = async (clientId) => {
-	  if (!clientId) {
-		console.error('No client ID provided for bookmark toggle');
-		showAlert('error', 'Unable to update bookmark');
-		return;
-	  }
+    if (!clientId) {
+      console.error('No client ID provided for bookmark toggle');
+      showAlert('error', 'Unable to update bookmark');
+      return;
+    }
 
-	  try {
-		await toggleBookmarkMutation.mutateAsync(clientId);
-	  } catch (error) {
-		console.error('Error toggling bookmark:', error);
-		// Error is handled in mutation config
-	  }
-	};
+    try {
+      await toggleBookmarkMutation.mutateAsync(clientId);
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+    }
+  };
 
   // Filtered clients
   const filteredClients = clients.filter(client => {
@@ -173,13 +180,11 @@ const toggleBookmarkMutation = useMutation({
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Bookmark Panel */}
       <BookmarkPanel 
         isOpen={isBookmarkPanelOpen} 
         onToggle={() => setIsBookmarkPanelOpen(!isBookmarkPanelOpen)} 
       />
 
-      {/* Main Content */}
       <div className={`flex-1 flex flex-col main-content ${isTaskPanelOpen ? 'task-panel-open' : ''}`}>
         {alert && (
           <Alert
@@ -203,9 +208,14 @@ const toggleBookmarkMutation = useMutation({
                 <h1 className="text-3xl font-bold text-gray-900">SalesSynth</h1>
               </div>
               <div className="flex items-center space-x-6">
+                <DateFilter onFilterChange={setDateFilter} />
                 <div className="text-sm">
                   <div className="text-gray-500">Total Pipeline</div>
                   <div className="text-xl font-bold">${stats.pipelineValue?.toLocaleString() || 0}</div>
+                </div>
+                <div className="text-sm">
+                  <div className="text-gray-500">Total Closed</div>
+                  <div className="text-xl font-bold">${stats.closedValue?.toLocaleString() || 0}</div>
                 </div>
                 <div className="text-sm">
                   <div className="text-gray-500">Active Clients</div>
@@ -310,7 +320,6 @@ const toggleBookmarkMutation = useMutation({
         </div>
       </div>
 
-      {/* Task Panel */}
       <TaskPanel 
         isOpen={isTaskPanelOpen} 
         onToggle={() => setIsTaskPanelOpen(!isTaskPanelOpen)} 
