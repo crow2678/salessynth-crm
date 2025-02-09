@@ -8,14 +8,18 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
   const totalPipeline = client.deals?.reduce((sum, deal) => 
     sum + (deal.status !== 'closed_lost' ? deal.value : 0), 0) || 0;
 
-  // Helper function to format MongoDB dates
-  const formatDate = (dateValue) => {
+  // Helper function to format MongoDB dates with one day adjustment
+  const formatDate = (dateValue, addDay = false) => {
     if (!dateValue) return '';
     try {
       // Handle MongoDB ISODate format
-      const date = new Date(dateValue);
+      const date = new Date(dateValue.$date || dateValue);
       if (isNaN(date.getTime())) {
         return '';
+      }
+      // Add one day if needed (for follow-up dates)
+      if (addDay) {
+        date.setDate(date.getDate() + 1);
       }
       return date.toLocaleDateString();
     } catch (e) {
@@ -28,7 +32,9 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
   const isFutureDate = (dateValue) => {
     if (!dateValue) return false;
     try {
-      const date = new Date(dateValue);
+      const date = new Date(dateValue.$date || dateValue);
+      // Add one day for comparison
+      date.setDate(date.getDate() + 1);
       return !isNaN(date.getTime()) && date > new Date();
     } catch (e) {
       return false;
@@ -97,7 +103,7 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
           <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
           <span>
             {client.lastContact 
-              ? `Last Contact: ${formatDate(client.lastContact.$date || client.lastContact)}`
+              ? `Last Contact: ${formatDate(client.lastContact, false)}`
               : 'Not contacted yet'}
           </span>
         </div>
@@ -142,10 +148,10 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
       )}
 
       {/* Follow-up Alert */}
-      {client.followUpDate && isFutureDate(client.followUpDate.$date || client.followUpDate) && (
+      {client.followUpDate && isFutureDate(client.followUpDate) && (
         <div className="mt-3 flex items-center text-sm text-blue-600 bg-blue-50 p-2 rounded-md">
           <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-          <span>Follow up on {formatDate(client.followUpDate.$date || client.followUpDate)}</span>
+          <span>Follow up on {formatDate(client.followUpDate, true)}</span>
         </div>
       )}
 
