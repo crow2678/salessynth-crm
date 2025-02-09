@@ -1,177 +1,150 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Calendar } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
 const TaskPanel = ({ isOpen = true, onToggle }) => {
-  const queryClient = useQueryClient();
+  const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Fetch tasks
-  const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ['tasks', showCompleted],
-    queryFn: async () => {
-      try {
-        const { data } = await axios.get(`${API_URL}/tasks`, {
-          params: { completed: showCompleted }
-        });
-        return data;
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-        throw error;
-      }
+  const fetchTasks = async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ completed: showCompleted });
+      const response = await fetch(`${API_URL}/tasks?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch tasks');
+      const data = await response.json();
+      setTasks(data);
+    } catch (err) {
+      setError('Failed to load tasks');
+      console.error('Error fetching tasks:', err);
+    } finally {
+      setIsLoading(false);
     }
-  });
+  };
 
-  // Add task mutation
-  const addTaskMutation = useMutation({
-    mutationFn: async (newTask) => {
-      if (!newTask.title.trim()) {
-        throw new Error('Task title is required');
-      }
-      const response = await axios.post(`${API_URL}/tasks`, newTask);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['tasks']);
-      setNewTask('');
-      setDueDate('');
-      setError(null);
-    },
-    onError: (error) => {
-      console.error('Error adding task:', error);
-      setError(error.response?.data?.message || 'Failed to add task');
-    }
-  });
+  useEffect(() => {
+    fetchTasks();
+  }, [showCompleted]);
 
-  // Toggle completion mutation
-  const toggleCompletionMutation = useMutation({
-    mutationFn: async (taskId) => {
-      try {
-        const response = await axios.patch(`${API_URL}/tasks/${taskId}/complete`);
-        return response.data;
-      } catch (error) {
-        // Check if task not found
-        if (error.response?.status === 404) {
-          await queryClient.invalidateQueries(['tasks']);
-          throw new Error('Task not found');
-        }
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['tasks']);
-      setError(null);
-    },
-    onError: (error) => {
-      console.error('Error toggling task:', error);
-      setError('Failed to update task status');
-    }
-  });
+  const getDueDateColor = (dueDate) => {
+    if (!dueDate) return 'text-gray-500';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const taskDate = new Date(dueDate);
+    taskDate.setHours(0, 0, 0, 0);
+    
+    if (taskDate < today) return 'text-red-500';
+    if (taskDate > today) return 'text-green-500';
+    return 'text-yellow-500'; // Due today
+  };
 
-  // Delete task mutation
-  // In TaskPanel.jsx
-	const deleteTaskMutation = useMutation({
-	  mutationFn: async (taskId) => {
-		if (!taskId || typeof taskId !== 'string') {
-		  console.error('Invalid task ID:', taskId);
-		  throw new Error('Invalid task ID');
-		}
-		
-		try {
-		  console.log('Deleting task with ID:', taskId); // Debug log
-		  const response = await axios.delete(`${API_URL}/tasks/${taskId}`);
-		  return response.data;
-		} catch (error) {
-		  console.error('Delete task error:', error.response?.data || error); // Debug log
-		  if (error.response?.status === 404) {
-			// Refresh the task list
-			queryClient.invalidateQueries(['tasks']);
-			return { message: 'Task already deleted' };
-		  }
-		  throw error;
-		}
-	  }
-	});
-
-  const handleAddTask = (e) => {
+  const handleAddTask = async (e) => {
     e.preventDefault();
     if (!newTask.trim()) return;
 
-    addTaskMutation.mutate({
-      title: newTask.trim(),
-      dueDate: dueDate || null,
-      completed: false
-    });
-  };
-
-  const handleDeleteTask = async (taskId) => {
     try {
-      await deleteTaskMutation.mutateAsync(taskId);
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      // Error handling is in mutation config
+      const response = await fetch(`${API_URL}/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: newTask.trim(),
+          dueDate: dueDate || null,
+          completed: false
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to add task');
+      
+      setNewTask('');
+      setDueDate('');
+      fetchTasks();
+    } catch (err) {
+      setError('Failed to add task');
+      console.error('Error adding task:', err);
     }
   };
 
   const handleToggleCompletion = async (taskId) => {
     try {
-      await toggleCompletionMutation.mutateAsync(taskId);
-    } catch (error) {
-      console.error('Failed to toggle task completion:', error);
-      // Error handling is in mutation config
+      const response = await fetch(`${API_URL}/tasks/${taskId}/complete`, {
+        method: 'PATCH',
+      });
+
+      if (!response.ok) throw new Error('Failed to update task');
+      fetchTasks();
+    } catch (err) {
+      setError('Failed to update task');
+      console.error('Error toggling task:', err);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    try {
+      const response = await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete task');
+      fetchTasks();
+    } catch (err) {
+      setError('Failed to delete task');
+      console.error('Error deleting task:', err);
     }
   };
 
   return (
-    <div className={`side-panel side-panel-right ${isOpen ? 'open' : ''}`}>
+    <div className={`fixed top-0 right-0 h-screen bg-white shadow-lg transition-transform duration-300 ease-in-out transform w-80 
+      ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
       <div className="panel-header bg-white border-b">
         <h2 className="text-lg font-semibold">Tasks</h2>
         {onToggle && (
           <button 
             onClick={onToggle}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Hide Tasks Panel"
+            title={isOpen ? "Hide Tasks Panel" : "Show Tasks Panel"}
           >
             <X size={20} className="text-gray-500" />
           </button>
         )}
       </div>
 
-      <div className="panel-content">
+      <div className="p-4 h-[calc(100vh-64px)] overflow-y-auto bg-gray-50">
         {error && (
           <div className="mb-4 p-2 text-sm text-red-600 bg-red-50 rounded">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleAddTask} className="add-task-form">
+        <form onSubmit={handleAddTask} className="mb-6 bg-white rounded-lg p-4 shadow-sm">
           <input
             type="text"
             placeholder="Add a new task..."
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
-            className="add-task-input"
+            className="w-full p-2 border rounded-lg mb-2"
           />
           <div className="flex items-center space-x-2">
             <input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="add-task-input"
+              className="flex-1 p-2 border rounded-lg"
               min={new Date().toISOString().split('T')[0]}
             />
             <button
               type="submit"
-              className="btn-primary flex items-center"
-              disabled={!newTask.trim() || addTaskMutation.isLoading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center"
+              disabled={!newTask.trim() || isLoading}
             >
-              {addTaskMutation.isLoading ? (
+              {isLoading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
               ) : (
                 <>
@@ -198,28 +171,29 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
         <div className="space-y-2">
           {isLoading ? (
             <div className="flex justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
             </div>
           ) : tasks.length === 0 ? (
-            <div className="panel-empty-state">
-              <p className="text-gray-500">No tasks yet</p>
+            <div className="text-center py-8 text-gray-500">
+              <p>No tasks yet</p>
             </div>
           ) : (
             tasks.map(task => (
-              <div key={task._id} className="task-item">
+              <div key={task._id} 
+                className={`flex items-center space-x-3 p-3 bg-white rounded-lg border
+                  ${task.completed ? 'opacity-75' : ''}`}>
                 <input
                   type="checkbox"
                   checked={task.completed}
                   onChange={() => handleToggleCompletion(task._id)}
-                  className="task-checkbox"
-                  disabled={toggleCompletionMutation.isLoading}
+                  className="h-5 w-5 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
                 />
-                <div className="task-content">
-                  <p className={`task-title ${task.completed ? 'line-through text-gray-400' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                     {task.title}
                   </p>
                   {task.dueDate && (
-                    <div className="task-due-date flex items-center">
+                    <div className={`text-xs flex items-center ${getDueDateColor(task.dueDate)}`}>
                       <Calendar size={12} className="mr-1" />
                       {new Date(task.dueDate).toLocaleDateString()}
                     </div>
@@ -228,7 +202,6 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
                 <button
                   onClick={() => handleDeleteTask(task._id)}
                   className="text-gray-400 hover:text-red-500"
-                  disabled={deleteTaskMutation.isLoading}
                 >
                   <X size={16} />
                 </button>
