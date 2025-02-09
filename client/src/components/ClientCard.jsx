@@ -8,10 +8,18 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
   const totalPipeline = client.deals?.reduce((sum, deal) => 
     sum + (deal.status !== 'closed_lost' ? deal.value : 0), 0) || 0;
 
+  // Helper function to format dates consistently
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    // Ensure consistent timezone handling by appending T00:00:00
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString();
+  };
+
   const handleBookmarkClick = (e) => {
-  e.stopPropagation();
-  onToggleBookmark(client._id); // Make sure we're using _id instead of id
-};
+    e.stopPropagation();
+    onToggleBookmark(client._id);
+  };
 
   const handleEditClick = (e) => {
     e.stopPropagation();
@@ -70,7 +78,7 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
           <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
           <span>
             {client.lastContact 
-              ? `Last Contact: ${new Date(client.lastContact).toLocaleDateString()}`
+              ? `Last Contact: ${formatDate(client.lastContact)}`
               : 'Not contacted yet'}
           </span>
         </div>
@@ -115,10 +123,10 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
       )}
 
       {/* Follow-up Alert */}
-      {client.followUpDate && new Date(client.followUpDate) > new Date() && (
+      {client.followUpDate && new Date(client.followUpDate + 'T00:00:00') > new Date() && (
         <div className="mt-3 flex items-center text-sm text-blue-600 bg-blue-50 p-2 rounded-md">
           <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-          <span>Follow up on {new Date(client.followUpDate).toLocaleDateString()}</span>
+          <span>Follow up on {formatDate(client.followUpDate)}</span>
         </div>
       )}
 
