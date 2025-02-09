@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Filter, Calendar } from 'lucide-react';
+import { Calendar, Filter, ChevronDown } from 'lucide-react';
 
 const DateFilter = ({ onFilterChange }) => {
   const [isOpen, setIsOpen] = useState(false);
