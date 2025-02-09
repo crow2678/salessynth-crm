@@ -8,12 +8,31 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
   const totalPipeline = client.deals?.reduce((sum, deal) => 
     sum + (deal.status !== 'closed_lost' ? deal.value : 0), 0) || 0;
 
-  // Helper function to format dates consistently
+  // Improved date formatting helper
   const formatDate = (dateString) => {
     if (!dateString) return '';
-    // Ensure consistent timezone handling by appending T00:00:00
-    const date = new Date(dateString + 'T00:00:00');
-    return date.toLocaleDateString();
+    try {
+      const date = new Date(dateString + 'T00:00:00');
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return '';
+      }
+      return date.toLocaleDateString();
+    } catch (e) {
+      console.error('Date formatting error:', e);
+      return '';
+    }
+  };
+
+  // Helper to check if a date is valid and in the future
+  const isFutureDate = (dateString) => {
+    if (!dateString) return false;
+    try {
+      const date = new Date(dateString + 'T00:00:00');
+      return !isNaN(date.getTime()) && date > new Date();
+    } catch (e) {
+      return false;
+    }
   };
 
   const handleBookmarkClick = (e) => {
@@ -25,6 +44,10 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
     e.stopPropagation();
     onEdit(client);
   };
+
+  // Debug logging
+  console.log('Follow-up date:', client.followUpDate);
+  console.log('Last contact:', client.lastContact);
 
   return (
     <div className={`relative p-4 rounded-lg shadow-md border-l-4 ${statusConfig.classes} hover:shadow-lg transition-shadow`}>
@@ -77,7 +100,7 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
         <div className="flex items-center text-sm text-gray-600">
           <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
           <span>
-            {client.lastContact 
+            {formatDate(client.lastContact) 
               ? `Last Contact: ${formatDate(client.lastContact)}`
               : 'Not contacted yet'}
           </span>
@@ -123,7 +146,7 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
       )}
 
       {/* Follow-up Alert */}
-      {client.followUpDate && new Date(client.followUpDate + 'T00:00:00') > new Date() && (
+      {client.followUpDate && isFutureDate(client.followUpDate) && (
         <div className="mt-3 flex items-center text-sm text-blue-600 bg-blue-50 p-2 rounded-md">
           <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
           <span>Follow up on {formatDate(client.followUpDate)}</span>
