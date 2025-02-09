@@ -1,5 +1,19 @@
 import React from 'react';
-import { Calendar, Phone, Mail, DollarSign, AlertCircle, Bookmark, BookmarkCheck, Edit } from 'lucide-react';
+import { 
+  Calendar, 
+  Phone, 
+  Mail, 
+  DollarSign, 
+  AlertCircle, 
+  Bookmark, 
+  BookmarkCheck, 
+  Edit,
+  Flame,
+  CircleDollarSign,
+  Clock,
+  Snowflake,
+  TrendingDown
+} from 'lucide-react';
 import { STATUS_CONFIG, getClientStatus, getDealStatus } from '../utils/statusUtils';
 
 const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
@@ -8,37 +22,62 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
   const totalPipeline = client.deals?.reduce((sum, deal) => 
     sum + (deal.status !== 'closed_lost' ? deal.value : 0), 0) || 0;
 
-  // Helper function to format MongoDB dates with one day adjustment
-  const formatDate = (dateValue, addDay = false) => {
-    if (!dateValue) return '';
-    try {
-      // Handle MongoDB ISODate format
-      const date = new Date(dateValue.$date || dateValue);
-      if (isNaN(date.getTime())) {
-        return '';
-      }
-      // Add one day if needed (for follow-up dates)
-      if (addDay) {
-        date.setDate(date.getDate() + 1);
-      }
-      return date.toLocaleDateString();
-    } catch (e) {
-      console.error('Date formatting error:', e);
-      return '';
+  const getDealStatusIcon = () => {
+    // If no deals, return null
+    if (!client.deals || client.deals.length === 0) {
+      return { icon: null, tooltip: 'No Deals' };
     }
-  };
 
-  // Helper to check if a date is in the future
-  const isFutureDate = (dateValue) => {
-    if (!dateValue) return false;
-    try {
-      const date = new Date(dateValue.$date || dateValue);
-      // Add one day for comparison
-      date.setDate(date.getDate() + 1);
-      return !isNaN(date.getTime()) && date > new Date();
-    } catch (e) {
-      return false;
+    // Check for lost deals
+    const hasLostDeals = client.deals.some(deal => deal.status === 'closed_lost');
+    if (hasLostDeals && client.deals.every(deal => deal.status === 'closed_lost')) {
+      return { 
+        icon: <TrendingDown className="h-5 w-5 text-red-500" />, 
+        tooltip: 'Lost Deals' 
+      };
     }
+
+    // Check for active negotiations
+    const hasHotDeals = client.deals.some(deal => 
+      deal.status === 'negotiation' || deal.status === 'proposal'
+    );
+    if (hasHotDeals) {
+      return { 
+        icon: <Flame className="h-5 w-5 text-orange-500" />, 
+        tooltip: 'Hot Deals' 
+      };
+    }
+
+    // Check for active deals
+    const hasActiveDeals = client.deals.some(deal => 
+      ['prospecting', 'qualified'].includes(deal.status)
+    );
+    if (hasActiveDeals) {
+      return { 
+        icon: <CircleDollarSign className="h-5 w-5 text-green-500" />, 
+        tooltip: 'Active Deals' 
+      };
+    }
+
+    // Check for stalled deals
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+    const hasInactiveDeal = client.deals.some(deal => 
+      new Date(deal.lastUpdated) < thirtyDaysAgo
+    );
+    
+    if (hasInactiveDeal) {
+      return { 
+        icon: <Clock className="h-5 w-5 text-yellow-500" />, 
+        tooltip: 'Stalled Deals' 
+      };
+    }
+
+    // Default to inactive
+    return { 
+      icon: <Snowflake className="h-5 w-5 text-blue-500" />, 
+      tooltip: 'Inactive' 
+    };
   };
 
   const handleBookmarkClick = (e) => {
@@ -51,12 +90,21 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
     onEdit(client);
   };
 
+  const { icon: statusIcon, tooltip: statusTooltip } = getDealStatusIcon();
+
   return (
     <div className={`relative p-4 rounded-lg shadow-md border-l-4 ${statusConfig.classes} hover:shadow-lg transition-shadow`}>
       {/* Header Section */}
       <div className="flex justify-between items-start mb-4 gap-4">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-lg truncate">{client.name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-lg truncate">{client.name}</h3>
+            {statusIcon && (
+              <div title={statusTooltip} className="flex-shrink-0">
+                {statusIcon}
+              </div>
+            )}
+          </div>
           <p className="text-sm text-gray-600 truncate">{client.company || 'No Company'}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -103,7 +151,7 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
           <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
           <span>
             {client.lastContact 
-              ? `Last Contact: ${formatDate(client.lastContact, false)}`
+              ? `Last Contact: ${new Date(client.lastContact).toLocaleDateString()}`
               : 'Not contacted yet'}
           </span>
         </div>
@@ -148,10 +196,10 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
       )}
 
       {/* Follow-up Alert */}
-      {client.followUpDate && isFutureDate(client.followUpDate) && (
+      {client.followUpDate && new Date(client.followUpDate) > new Date() && (
         <div className="mt-3 flex items-center text-sm text-blue-600 bg-blue-50 p-2 rounded-md">
           <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-          <span>Follow up on {formatDate(client.followUpDate, true)}</span>
+          <span>Follow up on {new Date(client.followUpDate).toLocaleDateString()}</span>
         </div>
       )}
 
