@@ -11,6 +11,21 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Helper function to adjust date for UTC
+  const adjustDateForUTC = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    date.setDate(date.getDate() + 1);
+    return date;
+  };
+
+  // Helper function to format date for display
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return '';
+    const date = adjustDateForUTC(dateString);
+    return date.toLocaleDateString();
+  };
+
   // Fetch tasks
   const fetchTasks = async () => {
     setIsLoading(true);
@@ -34,9 +49,11 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
 
   const getDueDateColor = (dueDate) => {
     if (!dueDate) return 'text-gray-500';
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const taskDate = new Date(dueDate);
+    
+    const taskDate = adjustDateForUTC(dueDate);
     taskDate.setHours(0, 0, 0, 0);
     
     if (taskDate < today) return 'text-red-500';
@@ -49,6 +66,7 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
     if (!newTask.trim()) return;
 
     try {
+      // When sending to API, we don't adjust the date as the backend will handle UTC
       const response = await fetch(`${API_URL}/tasks`, {
         method: 'POST',
         headers: {
@@ -103,7 +121,7 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
   return (
     <div className={`fixed top-0 right-0 h-screen bg-white shadow-lg transition-transform duration-300 ease-in-out transform w-80 
       ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-      <div className="panel-header bg-white border-b">
+      <div className="flex justify-between items-center p-4 border-b">
         <h2 className="text-lg font-semibold">Tasks</h2>
         {onToggle && (
           <button 
@@ -195,7 +213,7 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
                   {task.dueDate && (
                     <div className={`text-xs flex items-center ${getDueDateColor(task.dueDate)}`}>
                       <Calendar size={12} className="mr-1" />
-                      {new Date(task.dueDate).toLocaleDateString()}
+                      {formatDateForDisplay(task.dueDate)}
                     </div>
                   )}
                 </div>
