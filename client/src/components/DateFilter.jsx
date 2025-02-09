@@ -82,12 +82,13 @@ const DateFilter = ({ onFilterChange }) => {
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-2 bg-white rounded-lg border hover:bg-gray-50"
-      >
-        <Filter size={16} />
-        <span className="text-sm">{getFilterLabel()}</span>
-      </button>
+		  onClick={() => setIsOpen(!isOpen)}
+		  className="flex items-center space-x-2 px-3 py-2 bg-white rounded-lg border hover:bg-gray-50"
+		>
+		  <Calendar size={18} className="text-gray-600" />
+		  <span className="text-sm font-medium">{getFilterLabel()}</span>
+		  <ChevronDown size={16} className="text-gray-400" />
+		</button>
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-50">

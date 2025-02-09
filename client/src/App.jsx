@@ -206,9 +206,10 @@ const SalesSynth = () => {
                   <Link2 size={20} className="text-gray-500" />
                 </button>
                 <h1 className="text-3xl font-bold text-gray-900">SalesSynth</h1>
+				<DateFilter onFilterChange={setDateFilter} />
               </div>
               <div className="flex items-center space-x-6">
-                <DateFilter onFilterChange={setDateFilter} />
+                
                 <div className="text-sm">
                   <div className="text-gray-500">Total Pipeline</div>
                   <div className="text-xl font-bold">${stats.pipelineValue?.toLocaleString() || 0}</div>
