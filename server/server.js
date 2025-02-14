@@ -3,18 +3,21 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+
+// Model imports
 const Client = require('./models/Client');
 const Task = require('./models/Task');
 const Bookmark = require('./models/Bookmark');
+const User = require('./models/User');
 
-// Initialize express but don't start listening yet
+// Initialize express
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Add early health check before DB connection
@@ -22,9 +25,53 @@ app.get('/early-health', (req, res) => {
   res.json({ status: 'starting' });
 });
 
-// Cosmos DB Connection with enhanced debug logging
-// In server.js
+// Auth Middleware
+const authMiddleware = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      throw new Error('No token provided');
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.userId;
+    next();
+  } catch (error) {
+    res.status(401).json({ message: 'Please authenticate' });
+  }
+};
 
+// Auth Routes
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+    
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '7d'
+    });
+    
+    res.json({ 
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Login failed' });
+  }
+});
+
+// DB Connection
 const connectDB = async (retries = 5) => {
   console.log('Starting database connection attempt...');
   
@@ -88,15 +135,14 @@ app.use((error, req, res, next) => {
     message: 'Something went wrong, please try again'
   });
 });
-
-// Task Routes
-app.get('/api/tasks', async (req, res) => {
+// Protected Task Routes
+app.get('/api/tasks', authMiddleware, async (req, res) => {
   try {
     const { completed } = req.query;
-    let query = {};
-    if (completed !== undefined) {
-      query.completed = completed === 'true';
-    }
+    let query = {
+      userId: req.userId,
+      completed: completed === 'true'
+    };
     const tasks = await Task.find(query).sort({ createdAt: -1 });
     res.json(tasks);
   } catch (error) {
@@ -105,9 +151,12 @@ app.get('/api/tasks', async (req, res) => {
   }
 });
 
-app.post('/api/tasks', async (req, res) => {
+app.post('/api/tasks', authMiddleware, async (req, res) => {
   try {
-    const task = new Task(req.body);
+    const task = new Task({
+      ...req.body,
+      userId: req.userId
+    });
     await task.save();
     res.status(201).json(task);
   } catch (error) {
@@ -116,9 +165,12 @@ app.post('/api/tasks', async (req, res) => {
   }
 });
 
-app.patch('/api/tasks/:id/complete', async (req, res) => {
+app.patch('/api/tasks/:id/complete', authMiddleware, async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await Task.findOne({ 
+      _id: req.params.id,
+      userId: req.userId 
+    });
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
@@ -131,29 +183,10 @@ app.patch('/api/tasks/:id/complete', async (req, res) => {
   }
 });
 
-app.get('/api/tasks', async (req, res) => {
+// Protected Bookmark Routes
+app.get('/api/bookmarks', authMiddleware, async (req, res) => {
   try {
-    const { completed } = req.query;
-    let query = {};
-    if (completed !== undefined) {
-      query.completed = completed === 'true';
-    }
-    
-    // Remove sorting by createdAt
-    const tasks = await Task.find(query);
-    res.json(tasks);
-  } catch (error) {
-    console.error('Error fetching tasks:', error);
-    res.status(500).json({ message: 'Error fetching tasks', error: error.message });
-  }
-});
-
-// Bookmark Routes
-// Modified bookmark route without sorting
-app.get('/api/bookmarks', async (req, res) => {
-  try {
-    // Remove sorting by createdAt
-    const bookmarks = await Bookmark.find();
+    const bookmarks = await Bookmark.find({ userId: req.userId });
     res.json(bookmarks);
   } catch (error) {
     console.error('Error fetching bookmarks:', error);
@@ -161,9 +194,12 @@ app.get('/api/bookmarks', async (req, res) => {
   }
 });
 
-app.post('/api/bookmarks', async (req, res) => {
+app.post('/api/bookmarks', authMiddleware, async (req, res) => {
   try {
-    const bookmark = new Bookmark(req.body);
+    const bookmark = new Bookmark({
+      ...req.body,
+      userId: req.userId
+    });
     await bookmark.save();
     res.status(201).json(bookmark);
   } catch (error) {
@@ -172,9 +208,12 @@ app.post('/api/bookmarks', async (req, res) => {
   }
 });
 
-app.delete('/api/bookmarks/:id', async (req, res) => {
+app.delete('/api/bookmarks/:id', authMiddleware, async (req, res) => {
   try {
-    const bookmark = await Bookmark.findByIdAndDelete(req.params.id);
+    const bookmark = await Bookmark.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.userId
+    });
     if (!bookmark) {
       return res.status(404).json({ message: 'Bookmark not found' });
     }
@@ -185,21 +224,19 @@ app.delete('/api/bookmarks/:id', async (req, res) => {
   }
 });
 
-// Client Routes
-// Modified client route with composite index support
-app.get('/api/clients', async (req, res) => {
+// Protected Client Routes
+app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
     const bookmarkedOnly = req.query.bookmarked === 'true';
 
-    let query = {};
+    let query = { userId: req.userId };
     if (bookmarkedOnly) {
       query.isBookmarked = true;
     }
 
-    // Remove sorting by updatedAt since it's not indexed
     const clients = await Client.find(query)
       .skip(skip)
       .limit(limit);
@@ -218,9 +255,12 @@ app.get('/api/clients', async (req, res) => {
   }
 });
 
-app.get('/api/clients/:id', async (req, res) => {
+app.get('/api/clients/:id', authMiddleware, async (req, res) => {
   try {
-    const client = await Client.findById(req.params.id);
+    const client = await Client.findOne({
+      _id: req.params.id,
+      userId: req.userId
+    });
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }
@@ -231,9 +271,12 @@ app.get('/api/clients/:id', async (req, res) => {
   }
 });
 
-app.post('/api/clients', async (req, res) => {
+app.post('/api/clients', authMiddleware, async (req, res) => {
   try {
-    const client = new Client(req.body);
+    const client = new Client({
+      ...req.body,
+      userId: req.userId
+    });
     await client.save();
     res.status(201).json(client);
   } catch (error) {
@@ -242,10 +285,10 @@ app.post('/api/clients', async (req, res) => {
   }
 });
 
-app.put('/api/clients/:id', async (req, res) => {
+app.put('/api/clients/:id', authMiddleware, async (req, res) => {
   try {
-    const client = await Client.findByIdAndUpdate(
-      req.params.id,
+    const client = await Client.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
       req.body,
       { new: true, runValidators: true }
     );
@@ -259,9 +302,12 @@ app.put('/api/clients/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/clients/:id', async (req, res) => {
+app.delete('/api/clients/:id', authMiddleware, async (req, res) => {
   try {
-    const client = await Client.findByIdAndDelete(req.params.id);
+    const client = await Client.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.userId
+    });
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }
@@ -272,9 +318,12 @@ app.delete('/api/clients/:id', async (req, res) => {
   }
 });
 
-app.patch('/api/clients/:id/bookmark', async (req, res) => {
+app.patch('/api/clients/:id/bookmark', authMiddleware, async (req, res) => {
   try {
-    const client = await Client.findById(req.params.id);
+    const client = await Client.findOne({
+      _id: req.params.id,
+      userId: req.userId
+    });
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }
@@ -289,10 +338,10 @@ app.patch('/api/clients/:id/bookmark', async (req, res) => {
   }
 });
 
-app.get('/api/stats', async (req, res) => {
+app.get('/api/stats', authMiddleware, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const dateFilter = {};
+    const dateFilter = { userId: req.userId };
     
     if (startDate && endDate) {
       dateFilter['deals.expectedCloseDate'] = {
@@ -301,12 +350,12 @@ app.get('/api/stats', async (req, res) => {
       };
     }
 
-    const totalClients = await Client.countDocuments();
-    const activeClients = await Client.countDocuments({ isActive: true });
-    const bookmarkedClients = await Client.countDocuments({ isBookmarked: true });
+    const totalClients = await Client.countDocuments({ userId: req.userId });
+    const activeClients = await Client.countDocuments({ userId: req.userId, isActive: true });
+    const bookmarkedClients = await Client.countDocuments({ userId: req.userId, isBookmarked: true });
     
-    // Pipeline aggregation for deals within date range
     const dealsPipeline = await Client.aggregate([
+      { $match: { userId: req.userId } },
       { $unwind: '$deals' },
       {
         $match: {
@@ -323,8 +372,8 @@ app.get('/api/stats', async (req, res) => {
       }
     ]);
 
-    // Separate pipeline for closed deals
     const closedDealsPipeline = await Client.aggregate([
+      { $match: { userId: req.userId } },
       { $unwind: '$deals' },
       {
         $match: {
@@ -342,6 +391,7 @@ app.get('/api/stats', async (req, res) => {
     ]);
 
     const clientsWithUnreadAlerts = await Client.find({
+      userId: req.userId,
       'alerts.isRead': false
     });
     
@@ -383,8 +433,7 @@ app.get('/health', (req, res) => {
   }
 });
 
-// The "catch all" handler: for any request that doesn't
-// match one above, send back React's index.html file.
+// Catch-all handler for React app
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -403,49 +452,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Graceful shutdown handler
-const gracefulShutdown = async (server) => {
-  console.log('Received shutdown signal');
-  
-  try {
-    // First close the server to stop accepting new connections
-    await new Promise((resolve, reject) => {
-      server.close((err) => {
-        if (err) {
-          console.error('Error closing server:', err);
-          reject(err);
-        } else {
-          console.log('Server closed successfully');
-          resolve();
-        }
-      });
-    });
-
-    // Then close mongoose connection
-    if (mongoose.connection.readyState !== 0) {
-      try {
-        await mongoose.connection.close();
-        console.log('MongoDB connection closed');
-      } catch (err) {
-        console.error('Error closing MongoDB connection:', err);
-      }
-    }
-
-    // Exit with success code
-    console.log('Graceful shutdown completed');
-    process.exit(0);
-  } catch (err) {
-    console.error('Error during shutdown:', err);
-    process.exit(1);
-  }
-};
-
 // Initialize application
 const initializeApp = async () => {
   try {
     console.log('Starting application initialization...');
-    
-    // Connect to database
     await connectDB();
 
     // Start server
@@ -459,38 +469,33 @@ const initializeApp = async () => {
     const shutdownSignals = ['SIGTERM', 'SIGINT', 'SIGUSR2'];
     shutdownSignals.forEach(signal => {
       process.on(signal, async () => {
-        try {
-          await gracefulShutdown(server);
-        } catch (err) {
-          console.error(`Error during ${signal} shutdown:`, err);
-          process.exit(1);
-        }
+        await gracefulShutdown(server);
       });
-    });
-
-    // Handle uncaught exceptions and rejections
-    process.on('uncaughtException', async (err) => {
-      console.error('Uncaught exception:', err);
-      try {
-        await gracefulShutdown(server);
-      } catch (shutdownErr) {
-        console.error('Error during exception shutdown:', shutdownErr);
-        process.exit(1);
-      }
-    });
-
-    process.on('unhandledRejection', async (err) => {
-      console.error('Unhandled rejection:', err);
-      try {
-        await gracefulShutdown(server);
-      } catch (shutdownErr) {
-        console.error('Error during rejection shutdown:', shutdownErr);
-        process.exit(1);
-      }
     });
 
   } catch (err) {
     console.error('Fatal error during initialization:', err);
+    process.exit(1);
+  }
+};
+
+// Graceful shutdown handler
+const gracefulShutdown = async (server) => {
+  console.log('Received shutdown signal');
+  
+  try {
+    await new Promise((resolve) => {
+      server.close(resolve);
+    });
+    
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+    }
+    
+    console.log('Graceful shutdown completed');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
     process.exit(1);
   }
 };

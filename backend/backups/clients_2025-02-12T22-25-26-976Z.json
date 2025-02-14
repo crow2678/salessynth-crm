@@ -1,0 +1,251 @@
+[
+{
+  "_id": "679e7cfab8037407bd4c0992",
+  "name": "ASHOK SHUKLA",
+  "email": "ashok.shukla@caliber.com",
+  "company": "Caliber Holdings",
+  "position": "SVP",
+  "phone": "",
+  "notes": "02/11 - Sarvesh reached out to Ashok for dinner in March. \n02/10 - from Ashok Thank you, Paresh! This is great news. SOWs are with Ashely and She has been travelling since last week. I'll follow up with her today and get an update for you as soon as possible. \n02/06 - Data Engineer and React SOW submitted\nMSA signed, follow up on SOW",
+  "isActive": true,
+  "isBookmarked": true,
+  "lastContact": "2025-02-05T00:00:00.000Z",
+  "followUpDate": "2025-02-17T00:00:00.000Z",
+  "deals": [
+    {
+      "title": "QE POD",
+      "value": 450000,
+      "status": "proposal",
+      "expectedCloseDate": "2025-02-07T00:00:00.000Z",
+      "_id": "679e7cfab8037407bd4c0993"
+    }
+  ],
+  "tags": [],
+  "alerts": [],
+  "createdAt": "2025-02-01T19:58:50.790Z",
+  "updatedAt": "2025-02-12T16:31:56.464Z",
+  "__v": 0
+},
+{
+  "_id": "679e7edb30b1aacbee00265f",
+  "name": "ROB LUPOLI",
+  "email": "rob.lupoli@chase.com",
+  "company": "CHASE",
+  "position": "Managing Director",
+  "phone": "904-256-6005",
+  "notes": "02/05 -- Tool information \n•\tVendor mgmt / tool understanding: Data / workflow map showing call outs to external parties\n•\tIdentification of proprietary and outsourced components of the tools / workflow ( I took notes but the visual will help)\n•\tFuture discussion on reps and warrants given outsource model\nPerformance of tool: \n•\tReporting / analysis of each analyzer\no\tTasks generated (counts) for runs, bucketed by complexity, e.g. Vanilla W2 borrower (no bonus), variable income borrower, unusual deductions on paystubs, etc. \no\tCompetence level and human in the loop additional review required\no\tPerformance time (run time) of each analyzer tool, the average and what tail times look like\nCollateral \nA collateral manager poses the following questions after limited review of Tavant’s functionality. A combo of presentation and demo may be appropriate to get into this level of discussion: \n\nFunctionality\n•\tCan the system read non-UAD compliant valuation forms?\n•\tIs there functionality that allows a user to indicate they are ready for the next review, and does the system leverage appraisal, loan, and property information to assign the next priority review to the user?\n•\tCan more than one user work on a review, such as Preflight, Analyst, Escalated Reviewer, ROV, or Repurchase Analyst? Can more than one worksheet or set of conditions be leveraged by the various levels of review? \n•\tThey indicated that they can import the SSR and appraisal data from the UCDP. Can they also obtain the risk scores, alerts, and messaging? Can they do this for FHA and VA appraisals as well\nRisk Management\n•\tHow is Tavant ensuring they will be ready for the new UAD?\n•\tIs there the ability to assign risk ratings to reviews based on appraisal, property, or GSE risk scores, alerts, and data, which could be leveraged for review assignment and contents? \n•\tWill Tavant interact with LADs 2.0? What controls are in place to ensure that the user who clears conditions and/or the product has the appropriate authority?\nWorkflow and Automation\n•\tIf the appraisal data cannot be captured from the UCDP, can the appraisal review be placed on hold until it is available to ensure the most efficient processing?\n•\tWill Tavant leverage loan-level data that may change after the appraisal is delivered to assign review priority? For example, if the anticipated closing/funding date changes.\n•\tIs there workflow functionality within Tavant that would push the review to the next level reviewer or type of review (e.g., ROV) based on a user’s attributes or loan/property attributes? Or does the user have to manually find a review?\nI am confirming our ability / appetite to send over our collateral checklist; as well as vendor management RFI. \n\nDemo completed for Correspondent and Retail Team. on Feb 5th review the open questions from Retail team and align for appraisal demo",
+  "isActive": true,
+  "isBookmarked": true,
+  "lastContact": "2025-02-05T00:00:00.000Z",
+  "followUpDate": "2025-02-13T00:00:00.000Z",
+  "deals": [
+    {
+      "title": "Touchless Automation Implementation",
+      "value": 300000,
+      "status": "proposal",
+      "expectedCloseDate": "2025-03-26T00:00:00.000Z",
+      "_id": "679e7ef230b1aacbee002669"
+    }
+  ],
+  "tags": [],
+  "alerts": [],
+  "createdAt": "2025-02-01T20:06:51.369Z",
+  "updatedAt": "2025-02-12T15:48:04.481Z",
+  "__v": 0
+},
+{
+  "_id": "679e9e40e92ef8501b0391a8",
+  "name": "SCOTT DUBNOFF",
+  "email": "scott.dubnoff@afrcorp.com",
+  "company": "American Financial Resources",
+  "position": "CTO",
+  "phone": "",
+  "notes": "02/11 - Shared Full stack developer with Rajiv waiting for the response \n02/10 -- Rajiv asking for Full Stack MSFT developer \nNeed to follow up for progress and next steps",
+  "isActive": true,
+  "isBookmarked": true,
+  "lastContact": "2025-02-10T00:00:00.000Z",
+  "followUpDate": "2025-02-14T00:00:00.000Z",
+  "deals": [
+    {
+      "title": "Encompass POD US",
+      "value": 254000,
+      "status": "closed_won",
+      "expectedCloseDate": "2025-01-13T00:00:00.000Z",
+      "_id": "679eb5e332ec1f76d39ff897"
+    },
+    {
+      "title": "Encompass POD India",
+      "value": 288000,
+      "status": "negotiation",
+      "expectedCloseDate": "2025-02-28T00:00:00.000Z",
+      "_id": "679eb61332ec1f76d39ff8a7"
+    }
+  ],
+  "tags": [],
+  "alerts": [],
+  "createdAt": "2025-02-01T22:20:48.108Z",
+  "updatedAt": "2025-02-12T15:53:54.356Z",
+  "__v": 0
+},
+{
+  "_id": "679ea532c6f2e87f958af881",
+  "name": "Erick c",
+  "email": "echave@goodleap.com",
+  "company": "Goodleap",
+  "position": "Product Manager",
+  "phone": "",
+  "notes": "Feb 4th: Erick need couple of more weeks to finalize the work order. Touchpoint schedule for Feb 25th \nCheck on org structure and ask what exciting he is working on",
+  "isActive": true,
+  "isBookmarked": true,
+  "lastContact": "2025-02-04T00:00:00.000Z",
+  "followUpDate": "2025-02-25T00:00:00.000Z",
+  "deals": [
+    {
+      "title": "Dev POD",
+      "value": 251000,
+      "status": "prospecting",
+      "expectedCloseDate": "2025-02-27T00:00:00.000Z",
+      "_id": "679ea532c6f2e87f958af882"
+    },
+    {
+      "title": "Engagement",
+      "value": 1,
+      "status": "prospecting",
+      "expectedCloseDate": "2025-02-27T00:00:00.000Z",
+      "_id": "679ea558c6f2e87f958af8c0"
+    }
+  ],
+  "tags": [],
+  "alerts": [],
+  "createdAt": "2025-02-01T22:50:26.209Z",
+  "updatedAt": "2025-02-09T09:28:30.112Z",
+  "__v": 0
+},
+{
+  "_id": "679eeb91006a33f601e014c4",
+  "name": "Gerrie Martinez",
+  "email": "gerrie@amazon.com",
+  "company": "AWS",
+  "position": "",
+  "phone": "6262336775",
+  "notes": "Michael - 1. Partner sales fox and NewsCorp \n2. He will arrange a call with Dow Jones AWS partner \n3. He will check with Gerrie for the joint blog or press release",
+  "isActive": true,
+  "isBookmarked": false,
+  "lastContact": "2025-01-29T00:00:00.000Z",
+  "followUpDate": "2025-02-17T00:00:00.000Z",
+  "deals": [
+    {
+      "title": "Explore",
+      "value": 1,
+      "status": "prospecting",
+      "expectedCloseDate": "2025-02-28T00:00:00.000Z",
+      "_id": "679eebbe006a33f601e014d3"
+    }
+  ],
+  "tags": [],
+  "alerts": [],
+  "createdAt": "2025-02-02T03:50:41.969Z",
+  "updatedAt": "2025-02-09T09:19:18.520Z",
+  "__v": 0
+},
+{
+  "_id": "679eebe9006a33f601e01514",
+  "name": "Eric Lenraz",
+  "email": "eric.lenraz@champstpo.com",
+  "company": "Champions Funding LLC",
+  "position": "SVP",
+  "phone": "",
+  "notes": "02/11 - NDA shared and working on scheduling in depth demo \nFirst Intro Meeting for our offering 9 00 AM PT",
+  "isActive": true,
+  "isBookmarked": false,
+  "lastContact": "2025-02-12T00:00:00.000Z",
+  "followUpDate": "2025-02-19T00:00:00.000Z",
+  "deals": [],
+  "tags": [],
+  "alerts": [],
+  "createdAt": "2025-02-02T03:52:09.342Z",
+  "updatedAt": "2025-02-12T15:48:33.211Z",
+  "__v": 0
+},
+{
+  "_id": "67a1415a006a33f601e01780",
+  "name": "JENNIFER STRACENSKY",
+  "email": "JennS@ccm.com",
+  "company": "Cross Country Mortgage",
+  "position": "COO",
+  "phone": "",
+  "notes": "02/11 - Followed up with Jenn, waiting for the response\n02/01 - responded to Jenn questions. \nWant to know more about K.ai",
+  "isActive": true,
+  "isBookmarked": true,
+  "lastContact": "2025-02-03T00:00:00.000Z",
+  "followUpDate": "2025-02-14T00:00:00.000Z",
+  "deals": [
+    {
+      "title": "K.AI",
+      "value": 15000,
+      "status": "prospecting",
+      "expectedCloseDate": "2025-05-05T00:00:00.000Z",
+      "_id": "67a1415a006a33f601e01781"
+    }
+  ],
+  "tags": [],
+  "alerts": [],
+  "createdAt": "2025-02-03T22:21:14.243Z",
+  "updatedAt": "2025-02-12T15:49:40.083Z",
+  "__v": 0
+},
+{
+  "_id": "67a877242ec83557fa63f530",
+  "name": "CORBAN WELLS",
+  "email": "corban.wells@prmires.com",
+  "company": "PRMI",
+  "position": "Director",
+  "phone": "",
+  "notes": "GEN AI Expansion deal",
+  "isActive": false,
+  "isBookmarked": true,
+  "lastContact": "2025-02-07T00:00:00.000Z",
+  "followUpDate": "2025-02-12T00:00:00.000Z",
+  "deals": [
+    {
+      "title": "Gen AI Expansion",
+      "value": 23000,
+      "status": "closed_lost",
+      "expectedCloseDate": "2025-02-10T00:00:00.000Z",
+      "_id": "67a877242ec83557fa63f531"
+    }
+  ],
+  "tags": [],
+  "alerts": [],
+  "createdAt": "2025-02-09T09:36:36.353Z",
+  "updatedAt": "2025-02-12T15:48:48.756Z",
+  "__v": 0
+},
+{
+  "_id": "67a87ddd19a4168957a17adf",
+  "name": "LYRA WAGGONER",
+  "email": "lyra.waggoner@movement.com",
+  "company": "Movement Mortgage",
+  "position": "CIO",
+  "phone": "",
+  "notes": "02/11 -The team identified and is waiting for Pradeep to submit SOW. Hiring onsite resource is in progress\nQE POD for pricing testing",
+  "isActive": true,
+  "isBookmarked": false,
+  "lastContact": "2025-02-09T00:00:00.000Z",
+  "followUpDate": "2025-02-14T00:00:00.000Z",
+  "deals": [
+    {
+      "title": "QE POD for Pricing ",
+      "value": 210000,
+      "status": "proposal",
+      "expectedCloseDate": "2025-02-14T00:00:00.000Z",
+      "_id": "67a87ddd19a4168957a17ae0"
+    }
+  ],
+  "tags": [],
+  "alerts": [],
+  "createdAt": "2025-02-09T10:05:17.606Z",
+  "updatedAt": "2025-02-12T15:53:14.568Z",
+  "__v": 0
+}
+]

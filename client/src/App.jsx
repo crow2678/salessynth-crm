@@ -1,7 +1,11 @@
+// App.jsx - Part 1
 import React, { useState } from 'react';
-import { Search, UserPlus, Users, Bookmark, ListTodo, Link2 } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Search, UserPlus, Users, Bookmark, ListTodo, Link2, LogOut } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+
+// Existing component imports
 import ClientCard from './components/ClientCard';
 import NewClientModal from './components/NewClientModal';
 import Alert from './components/Alert';
@@ -11,13 +15,33 @@ import DateFilter from './components/DateFilter';
 import { getClientStatus, calculateMetrics } from './utils/statusUtils';
 import { STATUS_CONFIG } from './utils/statusUtils';
 
-const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
-//const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// New auth-related imports
+import LoginPage from './components/auth/LoginPage';
+import { useAuth } from './hooks/useAuth';
 
-const SalesSynth = () => {
-  const queryClient = useQueryClient();
+const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
+
+// Private Route Component
+const PrivateRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
   
-  // State
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+  
+  return isAuthenticated ? children : <Navigate to="/login" />;
+};
+
+// Main Dashboard Component (formerly SalesSynth)
+const Dashboard = () => {
+  const queryClient = useQueryClient();
+  const { logout } = useAuth();
+  
+  // Existing state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showNewClientModal, setShowNewClientModal] = useState(false);
@@ -31,7 +55,7 @@ const SalesSynth = () => {
     end: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
   }));
 
-  // Queries
+  // Queries (kept exactly the same)
   const { data: clients = [], isLoading, error } = useQuery({
     queryKey: ['clients', showBookmarked],
     queryFn: async () => {
@@ -42,7 +66,7 @@ const SalesSynth = () => {
     }
   });
 
-  // Stats Query
+  // Stats Query (kept exactly the same)
   const { data: stats = {} } = useQuery({
     queryKey: ['stats', dateFilter],
     queryFn: async () => {
@@ -56,7 +80,7 @@ const SalesSynth = () => {
     }
   });
 
-  // Mutations
+  // Mutations (kept exactly the same)
   const createClientMutation = useMutation({
     mutationFn: (newClient) => axios.post(`${API_URL}/clients`, newClient),
     onSuccess: () => {
@@ -125,7 +149,7 @@ const SalesSynth = () => {
       queryClient.invalidateQueries(['stats']);
     }
   });
-  // Handlers
+  // Handlers (continuing from Part 1)
   const showAlert = (type, message) => {
     setAlert({ type, message });
     setTimeout(() => setAlert(null), 3000);
@@ -158,6 +182,10 @@ const SalesSynth = () => {
     } catch (error) {
       console.error('Error toggling bookmark:', error);
     }
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   // Filtered clients
@@ -206,10 +234,9 @@ const SalesSynth = () => {
                   <Link2 size={20} className="text-gray-500" />
                 </button>
                 <h1 className="text-3xl font-bold text-gray-900">SalesSynth</h1>
-				<DateFilter onFilterChange={setDateFilter} />
+                <DateFilter onFilterChange={setDateFilter} />
               </div>
               <div className="flex items-center space-x-6">
-                
                 <div className="text-sm">
                   <div className="text-gray-500">Total Pipeline</div>
                   <div className="text-xl font-bold">${stats.pipelineValue?.toLocaleString() || 0}</div>
@@ -233,12 +260,21 @@ const SalesSynth = () => {
                 >
                   <ListTodo size={20} className="text-gray-500" />
                 </button>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 hover:bg-gray-100 rounded-lg text-red-500"
+                  title="Logout"
+                >
+                  <LogOut size={20} />
+                </button>
               </div>
             </div>
           </div>
         </header>
 
+        {/* Main Content Section - Kept exactly the same */}
         <div className="max-w-7xl mx-auto px-4 py-8 flex-1">
+          {/* Search and Filter Section */}
           <div className="flex items-center justify-between mb-8">
             <div className="relative flex-1 max-w-xl">
               <Search className="absolute left-3 top-3 text-gray-400" size={20} />
@@ -288,6 +324,7 @@ const SalesSynth = () => {
             </div>
           </div>
 
+          {/* Client Grid Section */}
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -339,4 +376,23 @@ const SalesSynth = () => {
   );
 };
 
-export default SalesSynth;
+// Main App Component with Routing
+const App = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/*"
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }
+        />
+      </Routes>
+    </Router>
+  );
+};
+
+export default App;

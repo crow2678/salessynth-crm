@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const clientSchema = new mongoose.Schema({
+  userId: {
+    type: String,
+    ref: 'User',
+    required: true
+  },
   name: {
     type: String,
     required: true,
@@ -9,7 +14,6 @@ const clientSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     trim: true
   },
   company: {
@@ -74,7 +78,11 @@ const clientSchema = new mongoose.Schema({
       enum: ['prospecting', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'],
       default: 'prospecting'
     },
-    expectedCloseDate: Date
+    expectedCloseDate: Date,
+    lastUpdated: {
+      type: Date,
+      default: Date.now
+    }
   }],
   tags: [String],
   createdAt: {
@@ -86,20 +94,27 @@ const clientSchema = new mongoose.Schema({
     default: Date.now
   }
 }, {
-  timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
-  // Add indexes for Cosmos DB
-  indexes: [
-    [{ updatedAt: -1 }],
-    [{ isBookmarked: 1, updatedAt: -1 }],
-    [{ isActive: 1 }]
-  ]
+  minimize: true,
+  autoIndex: false
 });
 
-// Update the updatedAt timestamp before saving
+// Update timestamps and deal lastUpdated
 clientSchema.pre('save', function(next) {
   this.updatedAt = new Date();
+  
+  if (this.isModified('deals')) {
+    this.deals.forEach(deal => {
+      deal.lastUpdated = new Date();
+    });
+  }
   next();
 });
+
+// Optimized indexes for Cosmos DB
+clientSchema.index({ userId: 1, email: 1 });
+clientSchema.index({ userId: 1, isBookmarked: 1 });
+clientSchema.index({ userId: 1, isActive: 1 });
+clientSchema.index({ userId: 1, 'deals.status': 1 });
 
 const Client = mongoose.model('Client', clientSchema);
 
