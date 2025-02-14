@@ -18,6 +18,7 @@ import { STATUS_CONFIG } from './utils/statusUtils';
 // New auth-related imports
 import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './hooks/useAuth';
+import UserManagement from './components/admin/UserManagement';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
@@ -184,9 +185,16 @@ const Dashboard = () => {
     }
   };
 
+  //const handleLogout = () => {
+	  
+  //  logout();
+  //};
   const handleLogout = () => {
-    logout();
-  };
+	localStorage.removeItem('token');
+	window.location.href = '/login'; // Add this line to redirect
+  // OR using React Router
+  // navigate('/login');
+};
 
   // Filtered clients
   const filteredClients = clients.filter(client => {
@@ -377,11 +385,37 @@ const Dashboard = () => {
 };
 
 // Main App Component with Routing
+/*const App = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/*"
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }
+        />
+      </Routes>
+    </Router>
+  );
+}; */
+
 const App = () => {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/admin/users"
+          element={
+            <PrivateRoute>
+              <UserManagement />
+            </PrivateRoute>
+          }
+        />
         <Route
           path="/*"
           element={
