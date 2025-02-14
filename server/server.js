@@ -20,7 +20,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api', userRoutes);
+//app.use('/api', userRoutes);
 
 // Add early health check before DB connection
 app.get('/early-health', (req, res) => {
