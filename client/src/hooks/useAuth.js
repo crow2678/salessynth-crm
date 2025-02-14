@@ -1,5 +1,5 @@
 // src/hooks/useAuth.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
@@ -7,206 +7,194 @@ const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/ap
 export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [error, setError] = useState(null);
 
+  // Initialize axios default headers with stored token
   useEffect(() => {
     const token = localStorage.getItem('token');
-    setIsAuthenticated(!!token);
-    setLoading(false);
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
+  }, []);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Try to get user profile to validate token
+        const response = await axios.get(`${API_URL}/users/me`);
+        setUser(response.data);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Token validation failed:', error);
+        localStorage.removeItem('token');
+        delete axios.defaults.headers.common['Authorization'];
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (email, password) => {
     try {
+      setError(null);
+      setLoading(true);
+
+      // Attempt login
       const response = await axios.post(`${API_URL}/auth/login`, {
         email,
         password
       });
-      const { token } = response.data;
+
+      const { token, user: userData } = response.data;
+
+      // Store token and set axios default header
       localStorage.setItem('token', token);
-      setIsAuthenticated(true);
-      // Set default auth header for all future requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // Update state
+      setUser(userData);
+      setIsAuthenticated(true);
+
       return true;
     } catch (error) {
-      console.error('Login failed:', error);
+      setError(error.response?.data?.message || 'Login failed');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
-    setIsAuthenticated(false);
-  };
-
-  return { isAuthenticated, loading, login, logout };
-};
-
-// src/components/auth/LoginForm.jsx
-import React, { useState } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
-
-const LoginForm = () => {
-  const navigate = useNavigate();
-  const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    
+  const logout = useCallback(async () => {
     try {
-      await login(email, password);
-      navigate('/');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      setLoading(true);
+      // Optional: Call logout endpoint if you have one
+      // await axios.post(`${API_URL}/auth/logout`);
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clean up regardless of logout endpoint success
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
+      setUser(null);
+      setIsAuthenticated(false);
+      setLoading(false);
+    }
+  }, []);
+
+  // Axios interceptor for 401 responses
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response?.status === 401) {
+          logout();
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
+  }, [logout]);
+
+  const updateUserProfile = async (data) => {
+    try {
+      setLoading(true);
+      const response = await axios.put(`${API_URL}/users/me`, data);
+      setUser(response.data);
+      return response.data;
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to update profile');
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-center mb-6">Welcome to SalesSynth</h2>
-        
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2" htmlFor="email">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-gray-700 mb-2" htmlFor="password">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-          >
-            Sign In
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-export default LoginForm;
-
-// Update App.jsx
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './hooks/useAuth';
-import LoginForm from './components/auth/LoginForm';
-
-const PrivateRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
-  
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-  
-  return isAuthenticated ? children : <Navigate to="/login" />;
-};
-
-const App = () => {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<LoginForm />} />
-        <Route
-          path="/*"
-          element={
-            <PrivateRoute>
-              <SalesSynth />
-            </PrivateRoute>
-          }
-        />
-      </Routes>
-    </Router>
-  );
-};
-
-// Backend auth middleware (Add to server.js)
-const jwt = require('jsonwebtoken');
-
-const authMiddleware = (req, res, next) => {
-  try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      throw new Error('No token provided');
+  const checkEmailAvailability = async (email) => {
+    try {
+      await axios.post(`${API_URL}/users/check-email`, { email });
+      return true;
+    } catch (error) {
+      return false;
     }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.userId;
-    next();
-  } catch (error) {
-    res.status(401).json({ message: 'Please authenticate' });
-  }
+  };
+
+  return {
+    isAuthenticated,
+    loading,
+    user,
+    error,
+    login,
+    logout,
+    updateUserProfile,
+    checkEmailAvailability,
+    setError // Expose setError to clear errors when needed
+  };
 };
 
-// Add auth routes to server.js
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+export const createAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+// Axios request interceptor to add auth header
+axios.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '7d'
-    });
-    
-    res.json({ token });
-  } catch (error) {
-    res.status(500).json({ message: 'Login failed' });
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
   }
-});
+);
 
-// Protect API routes
-app.use('/api/clients', authMiddleware);
-app.use('/api/tasks', authMiddleware);
-app.use('/api/bookmarks', authMiddleware);
-
-// Add userId filter to existing routes
-// Example for clients route:
-app.get('/api/clients', authMiddleware, async (req, res) => {
-  try {
-    const clients = await Client.find({ userId: req.userId });
-    res.json(clients);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching clients' });
+// Axios response interceptor for error handling
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    // Handle different error scenarios
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          // Handle unauthorized access
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['Authorization'];
+          // You might want to redirect to login page here
+          break;
+        case 403:
+          // Handle forbidden access
+          console.error('Access forbidden');
+          break;
+        case 429:
+          // Handle rate limiting
+          console.error('Too many requests');
+          break;
+        default:
+          // Handle other errors
+          console.error('API Error:', error.response.data);
+      }
+    } else if (error.request) {
+      // Handle network errors
+      console.error('Network Error:', error.request);
+    } else {
+      // Handle other errors
+      console.error('Error:', error.message);
+    }
+    return Promise.reject(error);
   }
-});
+);
