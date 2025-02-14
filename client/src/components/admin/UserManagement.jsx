@@ -28,27 +28,34 @@ const UserManagement = () => {
   };
 
   // Fetch users
-  const fetchUsers = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/users`, {
-        headers: getAuthHeaders()
-      });
+const fetchUsers = async () => {
+  setIsLoading(true);
+  try {
+    const response = await fetch(`${API_URL}/users`, {
+      headers: getAuthHeaders()
+    });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
+    console.log("Response Status:", response.status);
+    console.log("Response Headers:", response.headers);
 
-      const data = await response.json();
-      setUsers(data);
-      setError(null);
-    } catch (err) {
-      setError('Failed to load users');
-      console.error('Error fetching users:', err);
-    } finally {
-      setIsLoading(false);
+    const textResponse = await response.text();
+    console.log("Raw Response:", textResponse);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch users: ${response.status}`);
     }
-  };
+
+    const data = JSON.parse(textResponse);
+    setUsers(data);
+    setError(null);
+  } catch (err) {
+    setError(`Failed to load users: ${err.message}`);
+    console.error('Error fetching users:', err);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchUsers();
