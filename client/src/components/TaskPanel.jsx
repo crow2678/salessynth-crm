@@ -11,6 +11,15 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Get auth token
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  };
+
   // Helper function to adjust date for UTC
   const adjustDateForUTC = (dateString) => {
     if (!dateString) return null;
@@ -31,10 +40,22 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ completed: showCompleted });
-      const response = await fetch(`${API_URL}/tasks?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch tasks');
+      const response = await fetch(`${API_URL}/tasks?${params}`, {
+        headers: getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized access
+          window.location.href = '/login';
+          return;
+        }
+        throw new Error('Failed to fetch tasks');
+      }
+      
       const data = await response.json();
       setTasks(data);
+      setError(null);
     } catch (err) {
       setError('Failed to load tasks');
       console.error('Error fetching tasks:', err);
@@ -66,12 +87,9 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
     if (!newTask.trim()) return;
 
     try {
-      // When sending to API, we don't adjust the date as the backend will handle UTC
       const response = await fetch(`${API_URL}/tasks`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           title: newTask.trim(),
           dueDate: dueDate || null,
@@ -79,11 +97,18 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to add task');
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
+        throw new Error('Failed to add task');
+      }
       
       setNewTask('');
       setDueDate('');
-      fetchTasks();
+      setError(null);
+      await fetchTasks();
     } catch (err) {
       setError('Failed to add task');
       console.error('Error adding task:', err);
@@ -94,10 +119,19 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
     try {
       const response = await fetch(`${API_URL}/tasks/${taskId}/complete`, {
         method: 'PATCH',
+        headers: getAuthHeaders()
       });
 
-      if (!response.ok) throw new Error('Failed to update task');
-      fetchTasks();
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
+        throw new Error('Failed to update task');
+      }
+      
+      setError(null);
+      await fetchTasks();
     } catch (err) {
       setError('Failed to update task');
       console.error('Error toggling task:', err);
@@ -108,10 +142,19 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
     try {
       const response = await fetch(`${API_URL}/tasks/${taskId}`, {
         method: 'DELETE',
+        headers: getAuthHeaders()
       });
 
-      if (!response.ok) throw new Error('Failed to delete task');
-      fetchTasks();
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
+        throw new Error('Failed to delete task');
+      }
+      
+      setError(null);
+      await fetchTasks();
     } catch (err) {
       setError('Failed to delete task');
       console.error('Error deleting task:', err);
