@@ -11,7 +11,6 @@ const Client = require('./models/Client');
 const Task = require('./models/Task');
 const Bookmark = require('./models/Bookmark');
 const User = require('./models/User');
-const userRoutes = require('./routes/userRoutes');
 
 // Initialize express
 const app = express();
@@ -20,7 +19,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-//app.use('/api', userRoutes);
 
 // Add early health check before DB connection
 app.get('/early-health', (req, res) => {
