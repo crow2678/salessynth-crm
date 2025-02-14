@@ -28,35 +28,27 @@ const UserManagement = () => {
   };
 
   // Fetch users
-const fetchUsers = async () => {
-  setIsLoading(true);
-  try {
-    const response = await fetch(`${API_URL}/users`, {
-      headers: getAuthHeaders()
-    });
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/users`, {
+        headers: getAuthHeaders()
+      });
 
-    console.log("Response URL:", response.url);
-    console.log("Response Status:", response.status);
-    console.log("Response Headers:", response.headers);
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
 
-    // Check Content-Type to ensure JSON response
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      throw new Error("Invalid JSON response (possibly an HTML page)");
+      const data = await response.json();
+      setUsers(data);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load users');
+      console.error('Error fetching users:', err);
+    } finally {
+      setIsLoading(false);
     }
-
-    const data = await response.json();
-    setUsers(data);
-    setError(null);
-  } catch (err) {
-    setError(`Failed to load users: ${err.message}`);
-    console.error("Error fetching users:", err);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-
+  };
 
   useEffect(() => {
     fetchUsers();
