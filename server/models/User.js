@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
-//const bcrypt = require('bcryptjs');
-const bcrypt = require('bcryptjs');  // Change this line
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+
+// Set random fallback for bcryptjs
+bcrypt.setRandomFallback((len) => {
+  return crypto.randomBytes(len);
+});
 
 const userSchema = new mongoose.Schema({
   email: {
