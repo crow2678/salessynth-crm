@@ -1,11 +1,13 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs/dist/bcrypt');
 const crypto = require('crypto');
 
-// Set random fallback for bcryptjs
-bcrypt.setRandomFallback((len) => {
+// Set random fallback for bcryptjs with synchronous crypto call
+const randomBytesSync = (len) => {
   return crypto.randomBytes(len);
-});
+};
+
+bcrypt.setRandomFallback(randomBytesSync);
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -47,9 +49,6 @@ const userSchema = new mongoose.Schema({
   // Disable timestamps to reduce RU cost
   timestamps: false
 });
-
-// No automatic index creation - we'll create manually later
-// userSchema.index({ email: 1 }, { unique: true });
 
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
