@@ -55,29 +55,26 @@ const UserManagement = () => {
   }, []);
 
   // Handle form submission
-  const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
     try {
-      const url = selectedUser 
-        ? `${API_URL}/users/${selectedUser._id}`
-        : `${API_URL}/users`;
-        
-      const method = selectedUser ? 'PUT' : 'POST';
+      console.log('Sending data:', formData); // Add this line
       
-      const response = await fetch(url, {
-        method,
+      const response = await fetch(`${API_URL}/users`, {
+        method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(formData)
       });
 
       if (!response.ok) {
-        throw new Error(selectedUser ? 'Failed to update user' : 'Failed to create user');
+        const errorData = await response.json();
+        console.error('Server error:', errorData); // Add this line
+        throw new Error(errorData.message || 'Failed to create user');
       }
 
+      const data = await response.json();
       await fetchUsers();
       setIsModalOpen(false);
-      setSelectedUser(null);
       setFormData({
         firstName: '',
         lastName: '',
@@ -87,8 +84,7 @@ const UserManagement = () => {
       });
     } catch (err) {
       setError(err.message);
-    } finally {
-      setIsLoading(false);
+      console.error('Complete error:', err); // Add this line
     }
   };
 
