@@ -42,6 +42,29 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
+// Admin middleware
+const adminMiddleware = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      throw new Error('No token provided');
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+    
+    req.userId = decoded.userId;
+    next();
+  } catch (error) {
+    res.status(401).json({ message: 'Please authenticate' });
+  }
+};
+
 // Auth Routes
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -62,12 +85,110 @@ app.post('/api/auth/login', async (req, res) => {
         id: user._id,
         email: user.email,
         firstName: user.firstName,
-        lastName: user.lastName
+        lastName: user.lastName,
+        role: user.role
       }
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Login failed' });
+  }
+});
+
+// User Management Routes (Admin only)
+app.get('/api/users', adminMiddleware, async (req, res) => {
+  try {
+    const users = await User.find({}, '-password');
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching users', error: error.message });
+  }
+});
+
+app.post('/api/users', adminMiddleware, async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, role = 'user' } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Create new user
+    const user = new User({
+      email,
+      password,
+      firstName,
+      lastName,
+      role,
+      isActive: true
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      message: 'User created successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(400).json({ message: 'Error creating user', error: error.message });
+  }
+});
+
+app.put('/api/users/:id', adminMiddleware, async (req, res) => {
+  try {
+    const { firstName, lastName, email, role, isActive } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { firstName, lastName, email, role, isActive },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ message: 'Error updating user', error: error.message });
+  }
+});
+
+app.delete('/api/users/:id', adminMiddleware, async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting user', error: error.message });
+  }
+});
+
+app.post('/api/users/:id/reset-password', adminMiddleware, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(400).json({ message: 'Error resetting password', error: error.message });
   }
 });
 
@@ -90,9 +211,8 @@ const connectDB = async (retries = 5) => {
     useUnifiedTopology: true,
     retryWrites: false,
     ssl: true,
-    // Moderate connection pool settings
-    maxPoolSize: 5,            // One connection per user is usually sufficient
-    minPoolSize: 1,            // Keep at least one connection alive
+    maxPoolSize: 5,
+    minPoolSize: 1,
     serverSelectionTimeoutMS: 30000,
     connectTimeoutMS: 30000,
     socketTimeoutMS: 360000
@@ -124,8 +244,7 @@ mongoose.connection.on('disconnected', () => {
 app.use((error, req, res, next) => {
   console.error('Server error:', error);
   
-  // Handle Cosmos DB specific errors
-  if (error.code === 16500) { // Rate limit exceeded
+  if (error.code === 16500) {
     return res.status(429).json({
       message: 'Please wait a moment before trying again'
     });

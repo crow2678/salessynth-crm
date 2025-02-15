@@ -385,7 +385,7 @@ const Dashboard = () => {
 };
 
 // Main App Component with Routing
-const App = () => {
+/*const App = () => {
   return (
     <Router>
       <Routes>
@@ -401,9 +401,9 @@ const App = () => {
       </Routes>
     </Router>
   );
-}; 
+}; */
 
-/*const App = () => {
+const App = () => {
   return (
     <Router>
       <Routes>
@@ -427,6 +427,6 @@ const App = () => {
       </Routes>
     </Router>
   );
-};*/
+};
 
 export default App;
