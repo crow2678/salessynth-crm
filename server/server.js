@@ -5,6 +5,8 @@ const cors = require('cors');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+//const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 // Model imports
 const Client = require('./models/Client');
@@ -190,6 +192,11 @@ app.post('/api/users/:id/reset-password', adminMiddleware, async (req, res) => {
   } catch (error) {
     res.status(400).json({ message: 'Error resetting password', error: error.message });
   }
+});
+
+// Set random fallback for bcryptjs
+bcrypt.setRandomFallback((len) => {
+  return crypto.randomBytes(len);
 });
 
 // DB Connection
