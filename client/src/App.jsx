@@ -19,6 +19,8 @@ import { STATUS_CONFIG } from './utils/statusUtils';
 import LoginPage from './components/auth/LoginPage';
 import { useAuth } from './hooks/useAuth';
 import UserManagement from './components/admin/UserManagement';
+import FlightTracker from './components/FlightTracker';
+
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
@@ -40,7 +42,8 @@ const PrivateRoute = ({ children }) => {
 // Main Dashboard Component (formerly SalesSynth)
 const Dashboard = () => {
   const queryClient = useQueryClient();
-  const { logout } = useAuth();
+ // const { logout } = useAuth();
+  const { logout, user } = useAuth(); 
   
   // Existing state
   const [searchTerm, setSearchTerm] = useState('');
@@ -231,54 +234,55 @@ const Dashboard = () => {
         )}
 
         <header className="bg-white shadow">
-          <div className="max-w-7xl mx-auto px-4 py-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setIsBookmarkPanelOpen(!isBookmarkPanelOpen)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                  title="Toggle Bookmarks"
-                >
-                  <Link2 size={20} className="text-gray-500" />
-                </button>
-                <h1 className="text-3xl font-bold text-gray-900">SalesSynth</h1>
-                <DateFilter onFilterChange={setDateFilter} />
-              </div>
-              <div className="flex items-center space-x-6">
-                <div className="text-sm">
-                  <div className="text-gray-500">Total Pipeline</div>
-                  <div className="text-xl font-bold">${stats.pipelineValue?.toLocaleString() || 0}</div>
-                </div>
-                <div className="text-sm">
-                  <div className="text-gray-500">Total Closed</div>
-                  <div className="text-xl font-bold text-green-600">${stats.closedValue?.toLocaleString() || 0}</div>
-                </div>
-                <div className="text-sm">
-                  <div className="text-gray-500">Active Clients</div>
-                  <div className="text-xl font-bold text-green-600">{stats.activeClients || 0}</div>
-                </div>
-                <div className="text-sm">
-                  <div className="text-gray-500">Bookmarked</div>
-                  <div className="text-xl font-bold">{stats.bookmarkedClients || 0}</div>
-                </div>
-                <button
-                  onClick={() => setIsTaskPanelOpen(!isTaskPanelOpen)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                  title="Toggle Tasks"
-                >
-                  <ListTodo size={20} className="text-gray-500" />
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="p-2 hover:bg-gray-100 rounded-lg text-red-500"
-                  title="Logout"
-                >
-                  <LogOut size={20} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+		  <div className="max-w-7xl mx-auto px-4 py-6">
+			<div className="flex justify-between items-center">
+			  <div className="flex items-center space-x-4">
+				<button
+				  onClick={() => setIsBookmarkPanelOpen(!isBookmarkPanelOpen)}
+				  className="p-2 hover:bg-gray-100 rounded-lg"
+				  title="Toggle Bookmarks"
+				>
+				  <Link2 size={20} className="text-gray-500" />
+				</button>
+				<h1 className="text-3xl font-bold text-gray-900">SalesSynth</h1>
+				<DateFilter onFilterChange={setDateFilter} />
+			  </div>
+			  <div className="flex items-center space-x-6">
+				<FlightTracker user={user} />
+				<div className="text-sm">
+				  <div className="text-gray-500">Total Pipeline</div>
+				  <div className="text-xl font-bold">${stats.pipelineValue?.toLocaleString() || 0}</div>
+				</div>
+				<div className="text-sm">
+				  <div className="text-gray-500">Total Closed</div>
+				  <div className="text-xl font-bold text-green-600">${stats.closedValue?.toLocaleString() || 0}</div>
+				</div>
+				<div className="text-sm">
+				  <div className="text-gray-500">Active Clients</div>
+				  <div className="text-xl font-bold text-green-600">{stats.activeClients || 0}</div>
+				</div>
+				<div className="text-sm">
+				  <div className="text-gray-500">Bookmarked</div>
+				  <div className="text-xl font-bold">{stats.bookmarkedClients || 0}</div>
+				</div>
+				<button
+				  onClick={() => setIsTaskPanelOpen(!isTaskPanelOpen)}
+				  className="p-2 hover:bg-gray-100 rounded-lg"
+				  title="Toggle Tasks"
+				>
+				  <ListTodo size={20} className="text-gray-500" />
+				</button>
+				<button
+				  onClick={handleLogout}
+				  className="p-2 hover:bg-gray-100 rounded-lg text-red-500"
+				  title="Logout"
+				>
+				  <LogOut size={20} />
+				</button>
+			  </div>
+			</div>
+		  </div>
+		</header>
 
         {/* Main Content Section - Kept exactly the same */}
         <div className="max-w-7xl mx-auto px-4 py-8 flex-1">

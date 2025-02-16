@@ -1,57 +1,62 @@
-// components/FlightTracker.jsx
-import React, { useState, useEffect } from 'react';
-import { Plane, PlaneLanding, Clock, AlertCircle, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plane, Plus, AlertCircle, X, ChevronDown } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+
+const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
 const FlightTracker = ({ user }) => {
-  const [flights, setFlights] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (user?.flightTrackingEnabled && isOpen) {
-      fetchFlights();
-      // Refresh every 5 minutes
-      const interval = setInterval(fetchFlights, 300000);
-      return () => clearInterval(interval);
+  const [showAddFlight, setShowAddFlight] = useState(false);
+  const [newFlight, setNewFlight] = useState({
+    flightNumber: '',
+    departure: {
+      airport: '',
+      scheduled: ''
+    },
+    arrival: {
+      airport: '',
+      scheduled: ''
     }
-  }, [user, isOpen]);
+  });
 
-  const fetchFlights = async () => {
-    try {
-      setIsLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/flights', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+  // Query for flights
+  const { data: flights = [], isLoading } = useQuery({
+    queryKey: ['flights'],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/flights`);
+      return data;
+    },
+    enabled: user?.flightTrackingEnabled && isOpen
+  });
+
+  // Add flight mutation
+  const queryClient = useQueryClient();
+  const addFlightMutation = useMutation({
+    mutationFn: (flightData) => axios.post(`${API_URL}/flights`, flightData),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['flights']);
+      setShowAddFlight(false);
+      setNewFlight({
+        flightNumber: '',
+        departure: { airport: '', scheduled: '' },
+        arrival: { airport: '', scheduled: '' }
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch flights');
-      }
-
-      const data = await response.json();
-      setFlights(data);
-      setError(null);
-    } catch (err) {
-      setError('Failed to fetch flight data');
-      console.error('Flight fetch error:', err);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  });
 
-  const getFlightStatusColor = (status) => {
-    const statusColors = {
-      active: 'text-blue-500',
-      scheduled: 'text-gray-500',
-      landed: 'text-green-500',
-      delayed: 'text-red-500',
-      cancelled: 'text-red-500'
-    };
-    return statusColors[status] || 'text-gray-500';
+  // Get most current flight
+  const currentFlight = flights.length > 0
+    ? flights.reduce((latest, flight) => {
+        const flightDate = new Date(flight.departure.scheduled);
+        const latestDate = new Date(latest.departure.scheduled);
+        return flightDate > latestDate ? flight : latest;
+      }, flights[0])
+    : null;
+
+  const handleAddFlight = async (e) => {
+    e.preventDefault();
+    await addFlightMutation.mutateAsync(newFlight);
   };
 
   if (!user?.flightTrackingEnabled) {
@@ -71,17 +76,18 @@ const FlightTracker = ({ user }) => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 hover:bg-gray-100 rounded-lg transition-all relative"
+        className="p-2 hover:bg-gray-100 rounded-lg flex items-center gap-2"
         title="Flight Tracker"
       >
         <Plane className={`h-5 w-5 ${isLoading ? 'animate-pulse' : ''}`} />
-        {flights.some(f => f.status === 'delayed') && (
-          <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
+        {currentFlight && (
+          <span className="text-sm font-medium">{currentFlight.flightNumber}</span>
         )}
+        <ChevronDown className="h-4 w-4" />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border z-50">
+        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border z-50">
           <div className="flex justify-between items-center p-4 border-b">
             <h3 className="text-lg font-semibold">Flight Tracker</h3>
             <button
@@ -93,43 +99,158 @@ const FlightTracker = ({ user }) => {
           </div>
 
           <div className="p-4">
-            {error ? (
-              <div className="text-red-500 flex items-center">
-                <AlertCircle className="h-4 w-4 mr-2" />
-                {error}
-              </div>
-            ) : flights.length === 0 ? (
-              <p className="text-gray-500 text-center">No flights being tracked</p>
-            ) : (
+            {!showAddFlight ? (
               <div className="space-y-4">
-                {flights.map(flight => (
-                  <div key={flight._id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-shrink-0">
-                      {flight.status === 'active' ? (
-                        <Plane className={`h-5 w-5 ${getFlightStatusColor(flight.status)}`} />
-                      ) : flight.status === 'landed' ? (
-                        <PlaneLanding className={`h-5 w-5 ${getFlightStatusColor(flight.status)}`} />
-                      ) : (
-                        <Clock className={`h-5 w-5 ${getFlightStatusColor(flight.status)}`} />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium">{flight.flightNumber}</p>
-                      <div className="text-sm text-gray-500">
-                        <p>{flight.departure.airport} → {flight.arrival.airport}</p>
-                        <p className={getFlightStatusColor(flight.status)}>
-                          Status: {flight.status.charAt(0).toUpperCase() + flight.status.slice(1)}
-                        </p>
-                        {flight.status === 'delayed' && flight.departure.actual && (
-                          <p className="text-red-500 text-xs mt-1">
-                            Delayed: {Math.round((new Date(flight.departure.actual) - new Date(flight.departure.scheduled)) / 60000)} minutes
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                {flights.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 mb-4">No flights being tracked</p>
+                    <button
+                      onClick={() => setShowAddFlight(true)}
+                      className="flex items-center justify-center w-full p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                    >
+                      <Plus className="h-5 w-5 mr-2" />
+                      Add Flight
+                    </button>
                   </div>
-                ))}
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium">Current Flight</h4>
+                      <button
+                        onClick={() => setShowAddFlight(true)}
+                        className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </button>
+                    </div>
+                    {currentFlight && (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-bold">{currentFlight.flightNumber}</span>
+                          <span className={`text-sm px-2 py-1 rounded ${
+                            currentFlight.status === 'active' ? 'bg-blue-100 text-blue-700' :
+                            currentFlight.status === 'delayed' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {currentFlight.status}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <div>
+                            <p className="font-medium">{currentFlight.departure.airport}</p>
+                            <p>{new Date(currentFlight.departure.scheduled).toLocaleTimeString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{currentFlight.arrival.airport}</p>
+                            <p>{new Date(currentFlight.arrival.scheduled).toLocaleTimeString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
+            ) : (
+              <form onSubmit={handleAddFlight} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Flight Number
+                  </label>
+                  <input
+                    type="text"
+                    value={newFlight.flightNumber}
+                    onChange={(e) => setNewFlight(prev => ({
+                      ...prev,
+                      flightNumber: e.target.value
+                    }))}
+                    className="w-full p-2 border rounded-lg"
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Departure Airport
+                    </label>
+                    <input
+                      type="text"
+                      value={newFlight.departure.airport}
+                      onChange={(e) => setNewFlight(prev => ({
+                        ...prev,
+                        departure: { ...prev.departure, airport: e.target.value }
+                      }))}
+                      className="w-full p-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Departure Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={newFlight.departure.scheduled}
+                      onChange={(e) => setNewFlight(prev => ({
+                        ...prev,
+                        departure: { ...prev.departure, scheduled: e.target.value }
+                      }))}
+                      className="w-full p-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Arrival Airport
+                    </label>
+                    <input
+                      type="text"
+                      value={newFlight.arrival.airport}
+                      onChange={(e) => setNewFlight(prev => ({
+                        ...prev,
+                        arrival: { ...prev.arrival, airport: e.target.value }
+                      }))}
+                      className="w-full p-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Arrival Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={newFlight.arrival.scheduled}
+                      onChange={(e) => setNewFlight(prev => ({
+                        ...prev,
+                        arrival: { ...prev.arrival, scheduled: e.target.value }
+                      }))}
+                      className="w-full p-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddFlight(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    disabled={addFlightMutation.isLoading}
+                  >
+                    {addFlightMutation.isLoading ? 'Adding...' : 'Add Flight'}
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </div>
