@@ -60,27 +60,30 @@ const Dashboard = () => {
   }));
 
   // Queries (kept exactly the same)
-      queryFn: async () => {
-      console.log('Fetching Clients:');
-      console.log('User ID:', user?.id);
-      console.log('Bookmarked Filter:', showBookmarked);
-      
-      const params = new URLSearchParams();
-      if (showBookmarked) params.append('bookmarked', 'true');
-      
-      try {
-        const { data } = await axios.get(`${API_URL}/clients?${params}`);
-        console.log('Clients Response:', {
-          totalClients: data.clients.length,
-          firstClient: data.clients[0],
-          allClients: data.clients
-        });
-        return data.clients;
-      } catch (error) {
-        console.error('Client fetch error:', error);
-        throw error;
-      }
-    });
+const { data: clients = [], isLoading, error } = useQuery({
+  queryKey: ['clients', showBookmarked],
+  queryFn: async () => {
+    console.log('Fetching Clients:');
+    console.log('User ID:', user?.id);
+    console.log('Bookmarked Filter:', showBookmarked);
+    
+    const params = new URLSearchParams();
+    if (showBookmarked) params.append('bookmarked', 'true');
+    
+    try {
+      const { data } = await axios.get(`${API_URL}/clients?${params}`);
+      console.log('Clients Response:', {
+        totalClients: data.clients.length,
+        firstClient: data.clients[0],
+        allClients: data.clients
+      });
+      return data.clients;
+    } catch (error) {
+      console.error('Client fetch error:', error);
+      throw error;
+    }
+  }
+});
 
   // Stats Query (kept exactly the same)
   const { data: stats = {} } = useQuery({
@@ -97,17 +100,24 @@ const Dashboard = () => {
   });
 
   // Mutations (kept exactly the same)
-  const createClientMutation = useMutation({
-    mutationFn: (newClient) => axios.post(`${API_URL}/clients`, newClient),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['clients']);
-      queryClient.invalidateQueries(['stats']);
-      showAlert('success', 'New client added successfully');
-    },
-    onError: (error) => {
-      showAlert('error', error.response?.data?.message || 'Error creating client');
-    }
-  });
+	const createClientMutation = useMutation({
+	  mutationFn: async (newClient) => {
+		console.log('Creating new client:', newClient);
+		const response = await axios.post(`${API_URL}/clients`, newClient);
+		console.log('Create client response:', response.data);
+		return response.data;
+	  },
+	  onSuccess: (data) => {
+		console.log('Client created successfully:', data);
+		queryClient.invalidateQueries(['clients']);
+		queryClient.invalidateQueries(['stats']);
+		showAlert('success', 'New client added successfully');
+	  },
+	  onError: (error) => {
+		console.error('Client creation error:', error);
+		showAlert('error', error.response?.data?.message || 'Error creating client');
+	  }
+	});
 
   const updateClientMutation = useMutation({
     mutationFn: (client) => axios.put(`${API_URL}/clients/${client._id}`, client),
