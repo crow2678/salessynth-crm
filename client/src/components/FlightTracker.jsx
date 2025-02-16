@@ -1,9 +1,24 @@
+// src/components/FlightTracker.jsx
 import React, { useState } from 'react';
 import { Plane, Plus, AlertCircle, X, ChevronDown } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
+
+// Add axios interceptor to include token
+axios.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
 
 const FlightTracker = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -20,20 +35,42 @@ const FlightTracker = ({ user }) => {
     }
   });
 
-  // Query for flights
-  const { data: flights = [], isLoading } = useQuery({
+  const queryClient = useQueryClient();
+
+  // Flight query with error handling
+  const { data: flights = [], isLoading, error } = useQuery({
     queryKey: ['flights'],
     queryFn: async () => {
-      const { data } = await axios.get(`${API_URL}/flights`);
-      return data;
+      try {
+        const response = await axios.get(`${API_URL}/flights`);
+        return response.data;
+      } catch (error) {
+        if (error.response?.status === 401) {
+          window.location.href = '/login';
+        }
+        throw error;
+      }
     },
-    enabled: user?.flightTrackingEnabled && isOpen
+    enabled: user?.flightTrackingEnabled && isOpen,
+    retry: (failureCount, error) => {
+      if (error.response?.status === 401) return false;
+      return failureCount < 3;
+    }
   });
 
   // Add flight mutation
-  const queryClient = useQueryClient();
   const addFlightMutation = useMutation({
-    mutationFn: (flightData) => axios.post(`${API_URL}/flights`, flightData),
+    mutationFn: async (flightData) => {
+      try {
+        const response = await axios.post(`${API_URL}/flights`, flightData);
+        return response.data;
+      } catch (error) {
+        if (error.response?.status === 401) {
+          window.location.href = '/login';
+        }
+        throw error;
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['flights']);
       setShowAddFlight(false);
@@ -42,10 +79,13 @@ const FlightTracker = ({ user }) => {
         departure: { airport: '', scheduled: '' },
         arrival: { airport: '', scheduled: '' }
       });
+    },
+    onError: (error) => {
+      console.error('Error adding flight:', error);
     }
   });
 
-  // Get most current flight
+  // Get current flight
   const currentFlight = flights.length > 0
     ? flights.reduce((latest, flight) => {
         const flightDate = new Date(flight.departure.scheduled);
@@ -99,7 +139,12 @@ const FlightTracker = ({ user }) => {
           </div>
 
           <div className="p-4">
-            {!showAddFlight ? (
+            {error ? (
+              <div className="text-red-500 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-2" />
+                {error.message || 'Error loading flights'}
+              </div>
+            ) : !showAddFlight ? (
               <div className="space-y-4">
                 {flights.length === 0 ? (
                   <div className="text-center py-4">
