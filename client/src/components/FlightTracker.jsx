@@ -3,24 +3,12 @@ import React, { useState } from 'react';
 import { Plane, Plus, AlertCircle, X, ChevronDown } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
-// Add axios interceptor to include token
-axios.interceptors.request.use(
-  config => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  error => {
-    return Promise.reject(error);
-  }
-);
-
 const FlightTracker = ({ user }) => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [showAddFlight, setShowAddFlight] = useState(false);
   const [newFlight, setNewFlight] = useState({
@@ -41,17 +29,26 @@ const FlightTracker = ({ user }) => {
   const { data: flights = [], isLoading, error } = useQuery({
     queryKey: ['flights'],
     queryFn: async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
       try {
-        const response = await axios.get(`${API_URL}/flights`);
+        const response = await axios.get(`${API_URL}/flights`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
         return response.data;
       } catch (error) {
         if (error.response?.status === 401) {
-          window.location.href = '/login';
+          navigate('/login');
         }
         throw error;
       }
     },
-    enabled: user?.flightTrackingEnabled && isOpen,
+    enabled: Boolean(user?.flightTrackingEnabled && isOpen && localStorage.getItem('token')),
     retry: (failureCount, error) => {
       if (error.response?.status === 401) return false;
       return failureCount < 3;
@@ -61,15 +58,17 @@ const FlightTracker = ({ user }) => {
   // Add flight mutation
   const addFlightMutation = useMutation({
     mutationFn: async (flightData) => {
-      try {
-        const response = await axios.post(`${API_URL}/flights`, flightData);
-        return response.data;
-      } catch (error) {
-        if (error.response?.status === 401) {
-          window.location.href = '/login';
-        }
-        throw error;
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token');
       }
+
+      const response = await axios.post(`${API_URL}/flights`, flightData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['flights']);
@@ -81,11 +80,14 @@ const FlightTracker = ({ user }) => {
       });
     },
     onError: (error) => {
+      if (error.response?.status === 401) {
+        navigate('/login');
+      }
       console.error('Error adding flight:', error);
     }
   });
 
-  // Get current flight
+  // Get most current flight
   const currentFlight = flights.length > 0
     ? flights.reduce((latest, flight) => {
         const flightDate = new Date(flight.departure.scheduled);
@@ -99,6 +101,7 @@ const FlightTracker = ({ user }) => {
     await addFlightMutation.mutateAsync(newFlight);
   };
 
+  // If user doesn't have flight tracking enabled, show disabled state
   if (!user?.flightTrackingEnabled) {
     return (
       <div className="relative">
@@ -112,6 +115,7 @@ const FlightTracker = ({ user }) => {
     );
   }
 
+  // Main component render
   return (
     <div className="relative">
       <button
