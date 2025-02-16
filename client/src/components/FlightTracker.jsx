@@ -103,6 +103,7 @@ const FlightTracker = ({ user }) => {
 
   // If user doesn't have flight tracking enabled, show disabled state
   if (!user?.flightTrackingEnabled) {
+    console.log('Flight tracking disabled for user:', user?.email);
     return (
       <div className="relative">
         <button

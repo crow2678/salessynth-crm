@@ -63,9 +63,15 @@ const Dashboard = () => {
   const { data: clients = [], isLoading, error } = useQuery({
     queryKey: ['clients', showBookmarked],
     queryFn: async () => {
+	  console.log('Fetching Clients:');
+	  console.log('Bookmarked Filter:', showBookmarked);
       const params = new URLSearchParams();
       if (showBookmarked) params.append('bookmarked', 'true');
       const { data } = await axios.get(`${API_URL}/clients?${params}`);
+	  console.log('Clients Fetched:', {
+		totalClients: data.clients.length,
+		firstClient: data.clients[0]
+		});
       return data.clients;
     }
   });
