@@ -4,8 +4,6 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const Flight = require('../models/Flight');
 const User = require('../models/User');
-const axios = require('axios');
-const { fetchFlightData } = require('../utils/aviationStack');
 
 // Aviation Stack API Configuration
 const AVIATION_STACK_API_KEY = process.env.AVIATION_STACK_API_KEY;
@@ -30,18 +28,14 @@ const premiumFeatureMiddleware = async (req, res, next) => {
 // Helper function to fetch flight data
 const fetchFlightData = async (flightNumber) => {
     try {
-        const response = await axios.get(`${AVIATION_STACK_API}/flights`, {
-            params: {
-                access_key: AVIATION_STACK_API_KEY,
-                flight_iata: flightNumber
-            }
-        });
+        const response = await fetch(`${AVIATION_STACK_API}/flights?access_key=${AVIATION_STACK_API_KEY}&flight_iata=${flightNumber}`);
+        const data = await response.json();
         
-        if (!response.data?.data?.[0]) {
+        if (!data?.data?.[0]) {
             throw new Error('Flight not found');
         }
         
-        return response.data.data[0];
+        return data.data[0];
     } catch (error) {
         console.error('Aviation Stack API error:', error);
         throw error;
