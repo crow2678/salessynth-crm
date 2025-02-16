@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
 const FlightTracker = ({ user }) => {
+  console.log('FlightTracker User:', user);
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [showAddFlight, setShowAddFlight] = useState(false);
