@@ -364,11 +364,18 @@ app.get('/api/clients', authMiddleware, async (req, res) => {
     if (bookmarkedOnly) {
       query.isBookmarked = true;
     }
-
+	
+	console.log('MongoDB query:', query);
     const clients = await Client.find(query)
       .skip(skip)
       .limit(limit);
 
+	console.log('Clients found:', {
+      count: clients.length,
+      firstClientId: clients[0]?._id,
+      firstClientUserId: clients[0]?.userId
+    });
+	
     const total = await Client.countDocuments(query);
 
     res.json({
