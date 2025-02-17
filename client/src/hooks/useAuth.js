@@ -17,56 +17,41 @@ export const useAuth = () => {
     };
   }, []);
 
-  // Check authentication status on mount
-  useEffect(() => {
-    const validateToken = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
+  // Validate token and fetch user data
+  const validateToken = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setIsAuthenticated(false);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/users/me`, {
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error('Token validation failed');
       }
 
-      try {
-        const response = await fetch(`${API_URL}/users/me`, {
-          headers: getAuthHeaders()
-        });
-
-        if (!response.ok) {
-          throw new Error('Token validation failed');
-        }
-
-        const userData = await response.json();
-        setUser(userData);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error('Token validation failed:', error);
-        localStorage.removeItem('token');
-        handleUnauthorized();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    validateToken();
+      const userData = await response.json();
+      setUser(userData);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error('Token validation failed:', error);
+      localStorage.removeItem('token');
+      setIsAuthenticated(false);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   }, [getAuthHeaders]);
 
-  const handleUnauthorized = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-    setIsAuthenticated(false);
-
-    // Get current path
-    const currentPath = window.location.pathname;
-    
-    // Only redirect to login if not already on login page
-    if (currentPath !== '/login') {
-      // Store the return path if not on login page
-      if (currentPath !== '/') {
-        localStorage.setItem('returnTo', currentPath);
-      }
-      window.location.replace('/login');
-    }
-  };
+  // Check authentication status on mount
+  useEffect(() => {
+    validateToken();
+  }, [validateToken]);
 
   const login = async (email, password) => {
     try {
@@ -90,16 +75,7 @@ export const useAuth = () => {
       localStorage.setItem('token', token);
       setUser(userData);
       setIsAuthenticated(true);
-
-      // Check for and handle return path
-      const returnTo = localStorage.getItem('returnTo');
-      if (returnTo) {
-        localStorage.removeItem('returnTo');
-        window.location.replace(returnTo);
-      } else {
-        window.location.replace('/');
-      }
-
+      
       return true;
     } catch (error) {
       setError(error.message || 'Login failed');
@@ -110,17 +86,13 @@ export const useAuth = () => {
   };
 
   const logout = useCallback(() => {
-    try {
-      localStorage.removeItem('token');
-      setUser(null);
-      setIsAuthenticated(false);
-      window.location.replace('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+    localStorage.removeItem('token');
+    setUser(null);
+    setIsAuthenticated(false);
+    setLoading(false);
   }, []);
 
-  // Global fetch interceptor for handling 401s
+  // Setup global fetch interceptor for handling 401s
   useEffect(() => {
     const originalFetch = window.fetch;
     
@@ -129,17 +101,13 @@ export const useAuth = () => {
         const response = await originalFetch(...args);
         
         if (response.status === 401) {
-          handleUnauthorized();
+          logout();
+          window.location.replace('/login');
           return Promise.reject(new Error('Session expired'));
         }
         
         return response;
       } catch (error) {
-        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-          console.error('Network error:', error);
-          // Handle network errors without redirect
-          return Promise.reject(error);
-        }
         return Promise.reject(error);
       }
     };
@@ -147,7 +115,7 @@ export const useAuth = () => {
     return () => {
       window.fetch = originalFetch;
     };
-  }, []);
+  }, [logout]);
 
   return {
     isAuthenticated,
