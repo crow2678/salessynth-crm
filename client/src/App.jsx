@@ -64,18 +64,18 @@ const { data: clients = [], isLoading, error } = useQuery({
   queryKey: ['clients', showBookmarked],
   queryFn: async () => {
     console.log('Fetching Clients:');
-    console.log('User ID:', user?.id);
-    console.log('Bookmarked Filter:', showBookmarked);
+    console.log('Auth User ID:', user?.id);
     
     const params = new URLSearchParams();
     if (showBookmarked) params.append('bookmarked', 'true');
+    params.append('limit', '50'); // Increase limit to show more clients
     
     try {
       const { data } = await axios.get(`${API_URL}/clients?${params}`);
       console.log('Clients Response:', {
         totalClients: data.clients.length,
         firstClient: data.clients[0],
-        allClients: data.clients
+        clientIds: data.clients.map(c => c._id)
       });
       return data.clients;
     } catch (error) {
@@ -109,8 +109,16 @@ const { data: clients = [], isLoading, error } = useQuery({
 	  },
 	  onSuccess: (data) => {
 		console.log('Client created successfully:', data);
+		// Force a refetch of all queries
 		queryClient.invalidateQueries(['clients']);
 		queryClient.invalidateQueries(['stats']);
+		
+		// Manually update the cache to include the new client
+		queryClient.setQueryData(['clients'], (old) => {
+		  const oldClients = old || [];
+		  return [data, ...oldClients];
+		});
+		
 		showAlert('success', 'New client added successfully');
 	  },
 	  onError: (error) => {

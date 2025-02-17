@@ -353,10 +353,13 @@ app.delete('/api/bookmarks/:id', authMiddleware, async (req, res) => {
 });
 
 // Protected Client Routes
+// In server.js
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
+    console.log('Fetching clients for user:', req.userId);
+    
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 50; // Increased default limit
     const skip = (page - 1) * limit;
     const bookmarkedOnly = req.query.bookmarked === 'true';
 
@@ -364,18 +367,17 @@ app.get('/api/clients', authMiddleware, async (req, res) => {
     if (bookmarkedOnly) {
       query.isBookmarked = true;
     }
-	
-	console.log('MongoDB query:', query);
-    const clients = await Client.find(query)
-      .skip(skip)
-      .limit(limit);
 
-	console.log('Clients found:', {
+    console.log('Client query:', query);
+
+    // Remove skip/limit for now to get all user's clients
+    const clients = await Client.find(query).sort({ createdAt: -1 });
+    
+    console.log('Found clients:', {
       count: clients.length,
-      firstClientId: clients[0]?._id,
-      firstClientUserId: clients[0]?.userId
+      userIdMatch: clients.filter(c => c.userId === req.userId).length
     });
-	
+
     const total = await Client.countDocuments(query);
 
     res.json({
