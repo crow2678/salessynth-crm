@@ -4,7 +4,8 @@ const clientSchema = new mongoose.Schema({
   userId: {
     type: String,
     ref: 'User',
-    required: true
+    required: true,
+    index: true // Important for Cosmos DB partitioning
   },
   name: {
     type: String,
@@ -34,11 +35,18 @@ const clientSchema = new mongoose.Schema({
   },
   isActive: {
     type: Boolean,
-    default: true
+    default: true,
+    index: true
   },
   isBookmarked: {
     type: Boolean,
-    default: false
+    default: false,
+    index: true
+  },
+  isRecent: {
+    type: Boolean,
+    default: true,
+    index: true
   },
   lastContact: {
     type: Date
@@ -87,7 +95,8 @@ const clientSchema = new mongoose.Schema({
   tags: [String],
   createdAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
+    index: true // For recent sorting
   },
   updatedAt: {
     type: Date,
@@ -95,26 +104,81 @@ const clientSchema = new mongoose.Schema({
   }
 }, {
   minimize: true,
-  autoIndex: false
+  autoIndex: false,
+  strict: true,
+  timestamps: true
 });
 
-// Update timestamps and deal lastUpdated
+// Update timestamps, deal lastUpdated, and isRecent flag
 clientSchema.pre('save', function(next) {
-  this.updatedAt = new Date();
+  const now = new Date();
+  this.updatedAt = now;
   
+  // Update isRecent flag (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  this.isRecent = this.createdAt > thirtyDaysAgo;
+  
+  // Update deals if modified
   if (this.isModified('deals')) {
     this.deals.forEach(deal => {
-      deal.lastUpdated = new Date();
+      deal.lastUpdated = now;
     });
   }
   next();
 });
 
-// Optimized indexes for Cosmos DB
-clientSchema.index({ userId: 1, email: 1 });
-clientSchema.index({ userId: 1, isBookmarked: 1 });
-clientSchema.index({ userId: 1, isActive: 1 });
-clientSchema.index({ userId: 1, 'deals.status': 1 });
+// Background task to update isRecent flag periodically
+clientSchema.statics.updateRecentFlags = async function() {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  await this.updateMany(
+    { 
+      isRecent: true,
+      createdAt: { $lt: thirtyDaysAgo }
+    },
+    { 
+      $set: { isRecent: false }
+    }
+  );
+};
+
+// Compound indexes optimized for Cosmos DB
+clientSchema.index({ userId: 1, createdAt: -1 }); // For recent clients
+clientSchema.index({ userId: 1, isRecent: 1 }); // For filtering recent
+clientSchema.index({ userId: 1, isBookmarked: 1 }); // For bookmarked clients
+clientSchema.index({ userId: 1, isActive: 1 }); // For active clients
+clientSchema.index({ userId: 1, 'deals.status': 1 }); // For deal status queries
+
+// Method to get recent clients
+clientSchema.statics.getRecentClients = function(userId, limit = 5) {
+  return this.find({ 
+    userId,
+    isRecent: true 
+  })
+  .sort({ createdAt: -1 })
+  .limit(limit)
+  .lean();
+};
+
+// Method to get paginated clients
+clientSchema.statics.getPaginatedClients = function(userId, page = 1, limit = 10, filters = {}) {
+  const query = { 
+    userId,
+    isRecent: false,
+    ...filters
+  };
+  
+  return Promise.all([
+    this.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    this.countDocuments(query)
+  ]);
+};
 
 const Client = mongoose.model('Client', clientSchema);
 

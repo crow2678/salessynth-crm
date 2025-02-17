@@ -1,3 +1,4 @@
+// Part 1: Imports and Setup
 import React from 'react';
 import { 
   Calendar, 
@@ -12,7 +13,8 @@ import {
   CircleDollarSign,
   Clock,
   Snowflake,
-  TrendingDown
+  TrendingDown,
+  Star
 } from 'lucide-react';
 import { STATUS_CONFIG, getClientStatus, getDealStatus } from '../utils/statusUtils';
 
@@ -22,12 +24,11 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
   const totalPipeline = client.deals?.reduce((sum, deal) => 
     sum + (deal.status !== 'closed_lost' ? deal.value : 0), 0) || 0;
 
-  // Helper function to format dates with timezone adjustment
+  // Helper Functions
   const formatDate = (dateValue) => {
     if (!dateValue) return '';
     try {
       const date = new Date(dateValue);
-      // Add timezone offset to show correct local date
       date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
       return date.toLocaleDateString();
     } catch (e) {
@@ -36,7 +37,6 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
     }
   };
 
-  // Helper to check if a date is in the future
   const isFutureDate = (dateValue) => {
     if (!dateValue) return false;
     try {
@@ -47,11 +47,19 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
       return false;
     }
   };
-
+  // Part 2: Status and Event Handlers
   const getDealStatusIcon = () => {
     // If no deals, return null
     if (!client.deals || client.deals.length === 0) {
       return { icon: null, tooltip: 'No Deals' };
+    }
+
+    // Prioritize recent status
+    if (client.isRecent) {
+      return {
+        icon: <Star className="h-5 w-5 text-blue-500" />,
+        tooltip: 'Recent Client'
+      };
     }
 
     // Check for lost deals
@@ -117,9 +125,13 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
   };
 
   const { icon: statusIcon, tooltip: statusTooltip } = getDealStatusIcon();
-
+  // Part 3: Component Render
   return (
-    <div className={`relative p-4 rounded-lg shadow-md border-l-4 ${statusConfig.classes} hover:shadow-lg transition-shadow`}>
+    <div className={`relative p-4 rounded-lg shadow-md border-l-4 
+      ${client.isRecent ? 'border-t-2 border-t-blue-500' : ''} 
+      ${statusConfig.classes} 
+      hover:shadow-lg transition-shadow`}
+    >
       {/* Header Section */}
       <div className="flex justify-between items-start mb-4 gap-4">
         <div className="flex-1 min-w-0">
@@ -129,6 +141,11 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
               <div title={statusTooltip} className="flex-shrink-0">
                 {statusIcon}
               </div>
+            )}
+            {client.isRecent && (
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                New
+              </span>
             )}
           </div>
           <p className="text-sm text-gray-600 truncate">{client.company || 'No Company'}</p>
