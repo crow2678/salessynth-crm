@@ -18,10 +18,11 @@ const Flight = require('./models/Flight');
 // Initialize express
 const app = express();
 
-// Middleware
+// Core Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Flight routes - specific API route
 app.use('/api/flights', require('./routes/flightRoutes'));
 
 // Early health check
@@ -85,7 +86,7 @@ const adminMiddleware = async (req, res, next) => {
   }
 };
 
-// Cosmos DB Connection
+// Database Connection and Error Handling
 const connectDB = async (retries = 5) => {
   console.log('Starting Cosmos DB connection attempt...');
   
@@ -133,29 +134,6 @@ mongoose.connection.on('disconnected', () => {
   }, 5000);
 });
 
-// Generic error handler for Cosmos DB specific errors
-app.use((error, req, res, next) => {
-  console.error('Server error:', error);
-  
-  // Handle Cosmos DB specific errors
-  if (error.code === 16500) { // Rate limit exceeded
-    return res.status(429).json({
-      message: 'Please wait a moment before trying again'
-    });
-  }
-  
-  // Handle other Cosmos DB errors
-  if (error.code >= 10000 && error.code < 20000) {
-    return res.status(500).json({
-      message: 'Database operation failed, please try again'
-    });
-  }
-  
-  res.status(500).json({
-    message: 'Something went wrong, please try again'
-  });
-});
-
 // Set bcrypt fallback for Cosmos DB compatibility
 bcrypt.setRandomFallback((len) => {
   return crypto.randomBytes(len);
@@ -192,20 +170,30 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// User Profile Route
+app.get('/api/users/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching user profile' });
+  }
+});
+
 // Client Routes with Cosmos DB optimization
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
     const { recent } = req.query;
-	//const query = { userId: req.userId };
     const bookmarkedOnly = req.query.bookmarked === 'true';
     
-    // Base query with partition key (userId)
     let query = { userId: req.userId.toString() };
     if (bookmarkedOnly) {
       query.isBookmarked = true;
     }
 
-    // Handle recent vs paginated clients
     if (recent === 'true') {
       const recentClients = await Client.find(query)
         .sort({ createdAt: -1 })
@@ -214,12 +202,10 @@ app.get('/api/clients', authMiddleware, async (req, res) => {
       return res.json({ clients: recentClients });
     }
 
-    // Regular paginated query
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // Execute queries in parallel for better performance
     const [clients, total] = await Promise.all([
       Client.find(query)
         .sort({ createdAt: -1 })
@@ -315,7 +301,7 @@ app.patch('/api/clients/:id/bookmark', authMiddleware, async (req, res) => {
   }
 });
 
-// Stats endpoint optimized for Cosmos DB
+// Stats endpoint
 app.get('/api/stats', authMiddleware, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -328,7 +314,6 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
       };
     }
 
-    // Run all queries in parallel for better performance
     const [
       totalClients,
       activeClients,
@@ -446,7 +431,7 @@ app.post('/api/bookmarks', authMiddleware, async (req, res) => {
   }
 });
 
-// Health check endpoint with Cosmos DB status
+// Health check endpoint
 app.get('/health', async (req, res) => {
   try {
     const healthcheck = {
@@ -465,50 +450,45 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Add this endpoint to server.js
-app.get('/api/users/me', authMiddleware, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching user profile' });
+// Cosmos DB specific error handler
+app.use((error, req, res, next) => {
+  console.error('Server error:', error);
+  
+  if (error.code === 16500) {
+    return res.status(429).json({
+      message: 'Please wait a moment before trying again'
+    });
   }
+  
+  if (error.code >= 10000 && error.code < 20000) {
+    return res.status(500).json({
+      message: 'Database operation failed, please try again'
+    });
+  }
+  
+  res.status(500).json({
+    message: 'Something went wrong, please try again'
+  });
 });
 
-// Graceful shutdown handler
-const gracefulShutdown = async (server) => {
-  console.log('Initiating graceful shutdown...');
-  
-  try {
-    // First close server
-    await new Promise((resolve) => {
-      server.close(resolve);
-    });
-    console.log('Server closed');
+// Static file serving - after API routes but before catch-all
+app.use(express.static(path.join(__dirname, 'public')));
 
-    // Then close Cosmos DB connection
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.connection.close();
-      console.log('Cosmos DB connection closed');
-    }
-
-    console.log('Graceful shutdown completed');
-    process.exit(0);
-  } catch (err) {
-    console.error('Error during shutdown:', err);
-    process.exit(1);
+// Catch-all handler for React app - must be after API routes
+app.get('*', (req, res) => {
+  // Only handle non-API routes with this catch-all
+  if (!req.path.startsWith('/api/')) {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  } else {
+    next();
   }
-};
+});
 
 // Application initialization
 const initializeApp = async () => {
   try {
     console.log('Starting application initialization...');
     
-    // Connect to Cosmos DB with retries
     let connected = false;
     const maxRetries = 5;
     
@@ -528,14 +508,13 @@ const initializeApp = async () => {
       throw new Error('Failed to connect to Cosmos DB after multiple attempts');
     }
 
-    // Start server
     const PORT = process.env.PORT || 5000;
     const server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
-    // Setup shutdown handlers
+    // Shutdown handlers
     ['SIGTERM', 'SIGINT', 'SIGUSR2'].forEach(signal => {
       process.on(signal, async () => {
         try {
@@ -547,7 +526,7 @@ const initializeApp = async () => {
       });
     });
 
-    // Handle uncaught errors
+    // Error handlers
     process.on('uncaughtException', async (err) => {
       console.error('Uncaught exception:', err);
       try {
