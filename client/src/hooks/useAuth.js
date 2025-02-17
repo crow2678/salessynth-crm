@@ -1,4 +1,4 @@
-// Part 1: Core Authentication Hook and Setup
+// src/hooks/useAuth.js
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useQueryClient } from '@tanstack/react-query';
@@ -17,6 +17,13 @@ const CACHE_CONFIG = {
   }
 };
 
+// Helper function for auth headers - moved to top level
+export const createAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+// Main auth hook
 export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -31,6 +38,14 @@ export const useAuth = () => {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
   }, []);
+
+  const handleAuthError = () => {
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
+    setUser(null);
+    setIsAuthenticated(false);
+    queryClient.clear(); // Clear all cached data
+  };
 
   // Check authentication status on mount
   useEffect(() => {
@@ -62,14 +77,6 @@ export const useAuth = () => {
 
     checkAuth();
   }, [queryClient]);
-
-  const handleAuthError = () => {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
-    setUser(null);
-    setIsAuthenticated(false);
-    queryClient.clear(); // Clear all cached data
-  };
 
   const login = async (email, password) => {
     try {
@@ -117,122 +124,78 @@ export const useAuth = () => {
       setLoading(false);
     }
   }, [queryClient]);
-  // Part 1: Core Authentication Hook and Setup
-import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { useQueryClient } from '@tanstack/react-query';
 
-const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
-
-// Cache configuration
-const CACHE_CONFIG = {
-  recentClients: {
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    cacheTime: 1000 * 60 * 30 // 30 minutes
-  },
-  paginatedClients: {
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    cacheTime: 1000 * 60 * 15 // 15 minutes
-  }
-};
-
-export const useAuth = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [error, setError] = useState(null);
-  const queryClient = useQueryClient();
-
-  // Initialize axios default headers with stored token
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-  }, []);
-
-  // Check authentication status on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await axios.get(`${API_URL}/users/me`);
-        setUser(response.data);
-        setIsAuthenticated(true);
-        
-        // Prefetch recent clients
-        queryClient.prefetchQuery(
-          ['clients', 'recent'],
-          () => axios.get(`${API_URL}/clients?recent=true`),
-          CACHE_CONFIG.recentClients
-        );
-      } catch (error) {
-        console.error('Token validation failed:', error);
-        handleAuthError();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [queryClient]);
-
-  const handleAuthError = () => {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
-    setUser(null);
-    setIsAuthenticated(false);
-    queryClient.clear(); // Clear all cached data
-  };
-
-  const login = async (email, password) => {
+  const updateUserProfile = async (data) => {
     try {
-      setError(null);
       setLoading(true);
-
-      const response = await axios.post(`${API_URL}/auth/login`, {
-        email,
-        password
-      });
-
-      const { token, user: userData } = response.data;
-
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-      setUser(userData);
-      setIsAuthenticated(true);
-
-      // Prefetch initial data
-      await queryClient.prefetchQuery(
-        ['clients', 'recent'],
-        () => axios.get(`${API_URL}/clients?recent=true`),
-        CACHE_CONFIG.recentClients
-      );
-
-      return true;
+      const response = await axios.put(`${API_URL}/users/me`, data);
+      setUser(response.data);
+      return response.data;
     } catch (error) {
-      setError(error.response?.data?.message || 'Login failed');
+      setError(error.response?.data?.message || 'Failed to update profile');
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = useCallback(async () => {
+  const checkEmailAvailability = async (email) => {
     try {
-      setLoading(true);
-      await queryClient.cancelQueries();
-      queryClient.clear();
-      handleAuthError();
+      await axios.post(`${API_URL}/users/check-email`, { email });
+      return true;
     } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      setLoading(false);
+      return false;
     }
-  }, [queryClient]);
+  };
+
+  return {
+    isAuthenticated,
+    loading,
+    user,
+    error,
+    login,
+    logout,
+    updateUserProfile,
+    checkEmailAvailability,
+    setError
+  };
+};
+
+// Axios request interceptor
+axios.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => Promise.reject(error)
+);
+
+// Axios response interceptor
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['Authorization'];
+          window.location.href = '/login';
+          break;
+        case 403:
+          console.error('Access forbidden');
+          break;
+        case 429:
+          console.error('Rate limit exceeded');
+          break;
+        default:
+          console.error('API Error:', error.response.data);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default useAuth;
