@@ -196,7 +196,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
     const { recent } = req.query;
-	const query = { userId: req.userId };
+	//const query = { userId: req.userId };
     const bookmarkedOnly = req.query.bookmarked === 'true';
     
     // Base query with partition key (userId)
