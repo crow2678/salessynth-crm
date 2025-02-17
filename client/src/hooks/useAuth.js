@@ -49,31 +49,37 @@ export const useAuth = () => {
 
   // Check authentication status on mount
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
+    // In useAuth.js, modify the checkAuth function
+		const checkAuth = async () => {
+		  const token = localStorage.getItem('token');
+		  if (!token) {
+			setLoading(false);
+			return;
+		  }
 
-      try {
-        const response = await axios.get(`${API_URL}/users/me`);
-        setUser(response.data);
-        setIsAuthenticated(true);
-        
-        // Prefetch recent clients
-        queryClient.prefetchQuery(
-          ['clients', 'recent'],
-          () => axios.get(`${API_URL}/clients?recent=true`),
-          CACHE_CONFIG.recentClients
-        );
-      } catch (error) {
-        console.error('Token validation failed:', error);
-        handleAuthError();
-      } finally {
-        setLoading(false);
-      }
-    };
+		  // Instead of fetching /me endpoint, validate token and proceed
+		  try {
+			const decoded = jwt.decode(token);
+			if (decoded && decoded.userId) {
+			  setUser({ id: decoded.userId });
+			  setIsAuthenticated(true);
+			  
+			  // Prefetch recent clients
+			  queryClient.prefetchQuery(
+				['clients', 'recent'],
+				() => axios.get(`${API_URL}/clients?recent=true`),
+				CACHE_CONFIG.recentClients
+			  );
+			} else {
+			  handleAuthError();
+			}
+		  } catch (error) {
+			console.error('Token validation failed:', error);
+			handleAuthError();
+		  } finally {
+			setLoading(false);
+		  }
+		};
 
     checkAuth();
   }, [queryClient]);

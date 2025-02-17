@@ -196,6 +196,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
     const { recent } = req.query;
+	const query = { userId: req.userId };
     const bookmarkedOnly = req.query.bookmarked === 'true';
     
     // Base query with partition key (userId)
@@ -461,6 +462,19 @@ app.get('/health', async (req, res) => {
       message: 'Health check failed',
       error: error.message
     });
+  }
+});
+
+// Add this endpoint to server.js
+app.get('/api/users/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching user profile' });
   }
 });
 
