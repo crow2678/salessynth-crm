@@ -17,7 +17,7 @@ export const useAuth = () => {
     };
   }, []);
 
-  // Check if token is valid on mount
+  // Check authentication status on mount
   useEffect(() => {
     const validateToken = async () => {
       const token = localStorage.getItem('token');
@@ -41,6 +41,7 @@ export const useAuth = () => {
       } catch (error) {
         console.error('Token validation failed:', error);
         localStorage.removeItem('token');
+        handleUnauthorized();
       } finally {
         setLoading(false);
       }
@@ -48,6 +49,24 @@ export const useAuth = () => {
 
     validateToken();
   }, [getAuthHeaders]);
+
+  const handleUnauthorized = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+    setIsAuthenticated(false);
+
+    // Get current path
+    const currentPath = window.location.pathname;
+    
+    // Only redirect to login if not already on login page
+    if (currentPath !== '/login') {
+      // Store the return path if not on login page
+      if (currentPath !== '/') {
+        localStorage.setItem('returnTo', currentPath);
+      }
+      window.location.replace('/login');
+    }
+  };
 
   const login = async (email, password) => {
     try {
@@ -68,13 +87,18 @@ export const useAuth = () => {
       }
 
       const { token, user: userData } = await response.json();
-
-      // Store token
       localStorage.setItem('token', token);
-      
-      // Update state
       setUser(userData);
       setIsAuthenticated(true);
+
+      // Check for and handle return path
+      const returnTo = localStorage.getItem('returnTo');
+      if (returnTo) {
+        localStorage.removeItem('returnTo');
+        window.location.replace(returnTo);
+      } else {
+        window.location.replace('/');
+      }
 
       return true;
     } catch (error) {
@@ -87,41 +111,39 @@ export const useAuth = () => {
 
   const logout = useCallback(() => {
     try {
-      // Clear token and state
       localStorage.removeItem('token');
       setUser(null);
       setIsAuthenticated(false);
-      
-      // Redirect to login
-      window.location.href = '/login';
+      window.location.replace('/login');
     } catch (error) {
       console.error('Logout error:', error);
     }
   }, []);
 
-  // Setup global fetch interceptor for handling 401s
+  // Global fetch interceptor for handling 401s
   useEffect(() => {
     const originalFetch = window.fetch;
+    
     window.fetch = async (...args) => {
       try {
         const response = await originalFetch(...args);
         
         if (response.status === 401) {
-          // Clear auth state and redirect to login
-          localStorage.removeItem('token');
-          setUser(null);
-          setIsAuthenticated(false);
-          window.location.href = '/login';
+          handleUnauthorized();
           return Promise.reject(new Error('Session expired'));
         }
         
         return response;
       } catch (error) {
+        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+          console.error('Network error:', error);
+          // Handle network errors without redirect
+          return Promise.reject(error);
+        }
         return Promise.reject(error);
       }
     };
 
-    // Cleanup
     return () => {
       window.fetch = originalFetch;
     };
