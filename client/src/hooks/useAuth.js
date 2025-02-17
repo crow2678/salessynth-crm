@@ -1,6 +1,4 @@
-// src/hooks/useAuth.js
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
@@ -10,17 +8,18 @@ export const useAuth = () => {
   const [user, setUser] = useState(null);
   const [error, setError] = useState(null);
 
-  // Initialize axios default headers with stored token
-  useEffect(() => {
+  // Helper to get auth headers
+  const getAuthHeaders = useCallback(() => {
     const token = localStorage.getItem('token');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
   }, []);
 
-  // Check authentication status on mount
+  // Check if token is valid on mount
   useEffect(() => {
-    const checkAuth = async () => {
+    const validateToken = async () => {
       const token = localStorage.getItem('token');
       if (!token) {
         setLoading(false);
@@ -28,63 +27,104 @@ export const useAuth = () => {
       }
 
       try {
-        const response = await axios.get(`${API_URL}/users/me`);
-        setUser(response.data);
+        const response = await fetch(`${API_URL}/users/me`, {
+          headers: getAuthHeaders()
+        });
+
+        if (!response.ok) {
+          throw new Error('Token validation failed');
+        }
+
+        const userData = await response.json();
+        setUser(userData);
         setIsAuthenticated(true);
       } catch (error) {
         console.error('Token validation failed:', error);
         localStorage.removeItem('token');
-        delete axios.defaults.headers.common['Authorization'];
       } finally {
         setLoading(false);
       }
     };
 
-    checkAuth();
-  }, []);
+    validateToken();
+  }, [getAuthHeaders]);
 
   const login = async (email, password) => {
     try {
       setError(null);
       setLoading(true);
 
-      // Attempt login
-      const response = await axios.post(`${API_URL}/auth/login`, {
-        email,
-        password
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
       });
 
-      const { token, user: userData } = response.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
+      }
 
-      // Store token and set axios default header
+      const { token, user: userData } = await response.json();
+
+      // Store token
       localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
+      
       // Update state
       setUser(userData);
       setIsAuthenticated(true);
 
       return true;
     } catch (error) {
-      setError(error.response?.data?.message || 'Login failed');
+      setError(error.message || 'Login failed');
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(() => {
     try {
-      setLoading(true);
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      // Clear token and state
       localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
       setUser(null);
       setIsAuthenticated(false);
-      setLoading(false);
+      
+      // Redirect to login
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
     }
+  }, []);
+
+  // Setup global fetch interceptor for handling 401s
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      try {
+        const response = await originalFetch(...args);
+        
+        if (response.status === 401) {
+          // Clear auth state and redirect to login
+          localStorage.removeItem('token');
+          setUser(null);
+          setIsAuthenticated(false);
+          window.location.href = '/login';
+          return Promise.reject(new Error('Session expired'));
+        }
+        
+        return response;
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    };
+
+    // Cleanup
+    return () => {
+      window.fetch = originalFetch;
+    };
   }, []);
 
   return {
@@ -94,55 +134,17 @@ export const useAuth = () => {
     error,
     login,
     logout,
-    setError
+    getAuthHeaders
   };
 };
 
+// Helper for creating auth headers
 export const createAuthHeaders = () => {
   const token = localStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token ? {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  } : {
+    'Content-Type': 'application/json'
+  };
 };
-
-// Axios request interceptor to add auth header
-axios.interceptors.request.use(
-  config => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  error => {
-    return Promise.reject(error);
-  }
-);
-
-// Axios response interceptor for error handling
-axios.interceptors.response.use(
-  response => response,
-  error => {
-    if (error.response) {
-      switch (error.response.status) {
-        case 401:
-          localStorage.removeItem('token');
-          delete axios.defaults.headers.common['Authorization'];
-          break;
-        case 403:
-          console.error('Access forbidden');
-          break;
-        case 429:
-          console.error('Too many requests');
-          break;
-        default:
-          console.error('API Error:', error.response.data);
-      }
-    } else if (error.request) {
-      console.error('Network Error:', error.request);
-    } else {
-      console.error('Error:', error.message);
-    }
-    return Promise.reject(error);
-  }
-);
-
-export default useAuth;
