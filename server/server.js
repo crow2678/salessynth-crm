@@ -30,19 +30,40 @@ app.get('/early-health', (req, res) => {
 });
 
 // Auth Middleware
+// In server.js - Updated auth middleware
 const authMiddleware = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
-      throw new Error('No token provided');
+      console.log('No token provided in request');
+      return res.status(401).json({ message: 'Please authenticate' });
     }
     
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.userId;
-    next();
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('Token decoded:', {
+        userId: decoded.userId,
+        exp: new Date(decoded.exp * 1000)
+      });
+      
+      // Verify user exists
+      const user = await User.findById(decoded.userId);
+      if (!user) {
+        console.log('User not found:', decoded.userId);
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      req.userId = decoded.userId;
+      req.user = user;
+      next();
+    } catch (err) {
+      console.log('Token verification failed:', err.message);
+      return res.status(401).json({ message: 'Invalid token' });
+    }
   } catch (error) {
-    res.status(401).json({ message: 'Please authenticate' });
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ message: 'Server error in auth' });
   }
 };
 
@@ -354,41 +375,62 @@ app.delete('/api/bookmarks/:id', authMiddleware, async (req, res) => {
 
 // Protected Client Routes
 // In server.js
+// In server.js - Updated client fetch endpoint
 app.get('/api/clients', authMiddleware, async (req, res) => {
   try {
-    console.log('Fetching clients for user:', req.userId);
-    
+    console.log('Client fetch request details:', {
+      userId: req.userId,
+      userIdType: typeof req.userId,
+      headers: req.headers
+    });
+
+    // Ensure we have a valid userId
+    if (!req.userId) {
+      return res.status(401).json({ message: 'User ID not found in request' });
+    }
+
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50; // Increased default limit
+    const limit = parseInt(req.query.limit) || 50;
     const skip = (page - 1) * limit;
     const bookmarkedOnly = req.query.bookmarked === 'true';
 
-    let query = { userId: req.userId };
+    // Build query
+    let query = { userId: req.userId.toString() }; // Ensure userId is a string
     if (bookmarkedOnly) {
       query.isBookmarked = true;
     }
 
-    console.log('Client query:', query);
+    console.log('MongoDB query:', query);
 
-    // Remove skip/limit for now to get all user's clients
-    const clients = await Client.find(query).sort({ createdAt: -1 });
-    
-    console.log('Found clients:', {
-      count: clients.length,
-      userIdMatch: clients.filter(c => c.userId === req.userId).length
+    // Execute query with better error handling
+    const [clients, total] = await Promise.all([
+      Client.find(query)
+        .sort({ createdAt: -1 })
+        .select('-__v')
+        .lean(),
+      Client.countDocuments(query)
+    ]);
+
+    console.log('Query results:', {
+      totalFound: clients.length,
+      firstClientId: clients[0]?._id,
+      query
     });
 
-    const total = await Client.countDocuments(query);
-
-    res.json({
+    return res.json({
       clients,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalClients: total
     });
+
   } catch (error) {
-    console.error('Error fetching clients:', error);
-    res.status(500).json({ message: 'Error fetching clients', error: error.message });
+    console.error('Error in /api/clients:', error);
+    res.status(500).json({
+      message: 'Error fetching clients',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

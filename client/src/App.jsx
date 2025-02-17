@@ -60,29 +60,49 @@ const Dashboard = () => {
   }));
 
   // Queries (kept exactly the same)
+// In App.jsx - Updated client query
 const { data: clients = [], isLoading, error } = useQuery({
   queryKey: ['clients', showBookmarked],
   queryFn: async () => {
-    console.log('Fetching Clients:');
-    console.log('Auth User ID:', user?.id);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    console.log('Fetching Clients:', {
+      userId: user?.id,
+      hasToken: !!token,
+      bookmarked: showBookmarked
+    });
     
     const params = new URLSearchParams();
     if (showBookmarked) params.append('bookmarked', 'true');
-    params.append('limit', '50'); // Increase limit to show more clients
+    params.append('limit', '50');
     
     try {
-      const { data } = await axios.get(`${API_URL}/clients?${params}`);
+      const { data } = await axios.get(`${API_URL}/clients?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
       console.log('Clients Response:', {
         totalClients: data.clients.length,
-        firstClient: data.clients[0],
-        clientIds: data.clients.map(c => c._id)
+        firstClient: data.clients[0]?._id,
+        totalPages: data.totalPages
       });
+
       return data.clients;
     } catch (error) {
-      console.error('Client fetch error:', error);
+      console.error('Client fetch error:', {
+        message: error.message,
+        response: error.response?.data
+      });
       throw error;
     }
-  }
+  },
+  retry: 1,
+  refetchOnWindowFocus: false
 });
 
   // Stats Query (kept exactly the same)
