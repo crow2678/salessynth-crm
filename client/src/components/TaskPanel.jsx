@@ -131,10 +131,20 @@ const handleToggleCompletion = async (taskId) => {
         )
       );
 
-      const response = await fetch(`${API_URL}/tasks/${taskId}/complete`, {
+      // Make sure there are no trailing slashes and the endpoint matches server route
+      const endpoint = `${API_URL}/tasks/${taskId.trim()}/complete`;
+      console.log('Calling endpoint:', endpoint); // Debug log
+
+      const response = await fetch(endpoint, {
         method: 'PATCH',
-        headers: getAuthHeaders()
+        headers: {
+          ...getAuthHeaders(),
+          'Accept': 'application/json'
+        }
       });
+
+      // Debug log
+      console.log('Response status:', response.status);
 
       if (!response.ok) {
         // Revert optimistic update on error
@@ -151,13 +161,18 @@ const handleToggleCompletion = async (taskId) => {
           return;
         }
 
-        // Handle specific error cases
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to update task');
+        // Try to get error details from response
+        const errorText = await response.text();
+        console.log('Error response:', errorText); // Debug log
+        
+        const errorData = errorText ? JSON.parse(errorText) : {};
+        throw new Error(errorData.message || `Failed to update task (${response.status})`);
       }
 
       // Get the updated task data
       const updatedTask = await response.json();
+      
+      // Update the specific task in the list
       setTasks(prevTasks => 
         prevTasks.map(task => 
           task._id === taskId ? updatedTask : task
@@ -167,8 +182,8 @@ const handleToggleCompletion = async (taskId) => {
       setError(null);
     } catch (err) {
       console.error('Error toggling task:', err);
-      setError(err.message || 'Failed to update task status');
-      // Refresh tasks to ensure consistency
+      setError(`Failed to update task: ${err.message}`);
+      // Refresh the full task list to ensure consistency
       await fetchTasks();
     }
   };
