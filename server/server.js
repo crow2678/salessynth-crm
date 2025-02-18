@@ -194,21 +194,23 @@ app.get('/api/clients', authMiddleware, async (req, res) => {
       query.isBookmarked = true;
     }
 
+    // Handle recent vs paginated clients
     if (recent === 'true') {
       const recentClients = await Client.find(query)
-        .sort({ createdAt: -1 })
+        // Remove .sort() for Cosmos DB compatibility
         .limit(5)
         .lean();
       return res.json({ clients: recentClients });
     }
 
+    // Regular paginated query
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
     const [clients, total] = await Promise.all([
       Client.find(query)
-        .sort({ createdAt: -1 })
+        // Remove .sort() for Cosmos DB compatibility
         .skip(skip)
         .limit(limit)
         .lean(),
