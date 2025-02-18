@@ -404,6 +404,29 @@ app.post('/api/tasks', authMiddleware, async (req, res) => {
   }
 });
 
+// Add this route to server.js
+app.patch('/api/tasks/:id/toggle', authMiddleware, async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    task.completed = !task.completed;
+    if (task.completed) {
+      task.completedAt = new Date();
+    } else {
+      task.completedAt = null;
+    }
+
+    await task.save();
+    res.json(task);
+  } catch (error) {
+    console.error('Error updating task:', error);
+    res.status(500).json({ message: 'Error updating task', error: error.message });
+  }
+});
+
 // Bookmark Routes with Cosmos DB optimization
 app.get('/api/bookmarks', authMiddleware, async (req, res) => {
   try {
