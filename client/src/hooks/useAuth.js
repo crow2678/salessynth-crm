@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';  // Add this import
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
@@ -15,6 +16,14 @@ export const useAuth = () => {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     };
+  }, []);
+
+  // Add this effect to initialize axios headers
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
   }, []);
 
   // Validate token and fetch user data
@@ -73,6 +82,8 @@ export const useAuth = () => {
 
       const { token, user: userData } = await response.json();
       localStorage.setItem('token', token);
+      // Add this line to set axios header after login
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(userData);
       setIsAuthenticated(true);
       
@@ -87,6 +98,8 @@ export const useAuth = () => {
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
+    // Add this line to remove axios header on logout
+    delete axios.defaults.headers.common['Authorization'];
     setUser(null);
     setIsAuthenticated(false);
     setLoading(false);
