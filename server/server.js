@@ -456,6 +456,24 @@ app.post('/api/bookmarks', authMiddleware, async (req, res) => {
   }
 });
 
+app.delete('/api/bookmarks/:id', authMiddleware, async (req, res) => {
+  try {
+    const bookmark = await Bookmark.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.userId
+    });
+
+    if (!bookmark) {
+      return res.status(404).json({ message: 'Bookmark not found' });
+    }
+
+    res.json({ message: 'Bookmark deleted successfully', bookmark });
+  } catch (error) {
+    console.error('Error deleting bookmark:', error);
+    res.status(500).json({ message: 'Error deleting bookmark', error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/health', async (req, res) => {
   try {

@@ -275,47 +275,49 @@ const handleDeleteTask = async (taskId) => {
           </button>
         </div>
 
-        <div className="space-y-2">
-          {isLoading ? (
-            <div className="flex justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
-            </div>
-          ) : tasks.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>No tasks yet</p>
-            </div>
-          ) : (
-            tasks.map(task => (
-              <div key={task._id} 
-                className={`flex items-center space-x-3 p-3 bg-white rounded-lg border
-                  ${task.completed ? 'opacity-75' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={task.completed}
-                  onChange={() => handleToggleCompletion(task._id)}
-                  className="h-5 w-5 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                    {task.title}
-                  </p>
-                  {task.dueDate && (
-                    <div className={`text-xs flex items-center ${getDueDateColor(task.dueDate)}`}>
-                      <Calendar size={12} className="mr-1" />
-                      {formatDateForDisplay(task.dueDate)}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => handleDeleteTask(task._id)}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
+		<div className="space-y-2">
+				  {isLoading ? (
+					<div className="flex justify-center py-4">
+					  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
+					</div>
+				  ) : tasks.filter(task => showCompleted || !task.completed).length === 0 ? (
+					<div className="text-center py-8 text-gray-500">
+					  <p>No tasks yet</p>
+					</div>
+				  ) : (
+					tasks
+					  .filter(task => showCompleted || !task.completed)
+					  .map(task => (
+						<div key={task._id} 
+						  className={`flex items-center space-x-3 p-3 bg-white rounded-lg border
+							${task.completed ? 'opacity-75' : ''}`}>
+						  <input
+							type="checkbox"
+							checked={task.completed}
+							onChange={() => handleToggleCompletion(task._id)}
+							className="h-5 w-5 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
+						  />
+						  <div className="flex-1 min-w-0">
+							<p className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+							  {task.title}
+							</p>
+							{task.dueDate && (
+							  <div className={`text-xs flex items-center ${getDueDateColor(task.dueDate)}`}>
+								<Calendar size={12} className="mr-1" />
+								{formatDateForDisplay(task.dueDate)}
+							  </div>
+							)}
+						  </div>
+						  <button
+							onClick={() => handleDeleteTask(task._id)}
+							className="text-gray-400 hover:text-red-500"
+						  >
+							<X size={16} />
+						  </button>
+						</div>
+					  ))
+				  )}
+			</div>
       </div>
     </div>
   );
