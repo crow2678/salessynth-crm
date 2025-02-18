@@ -116,17 +116,20 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
   };
 
 const handleToggleCompletion = async (taskId) => {
-    try {
-      // First check if task exists
-      const checkResponse = await fetch(`${API_URL}/tasks/${taskId}`, {
-        headers: getAuthHeaders()
-      });
+    if (!taskId) {
+      setError('Invalid task ID');
+      return;
+    }
 
-      if (checkResponse.status === 404) {
-        setError('Task not found. The list will be refreshed.');
-        await fetchTasks();
-        return;
-      }
+    try {
+      // Optimistically update the UI
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          task._id === taskId 
+            ? { ...task, completed: !task.completed }
+            : task
+        )
+      );
 
       const response = await fetch(`${API_URL}/tasks/${taskId}/complete`, {
         method: 'PATCH',
@@ -134,49 +137,77 @@ const handleToggleCompletion = async (taskId) => {
       });
 
       if (!response.ok) {
+        // Revert optimistic update on error
+        setTasks(prevTasks => 
+          prevTasks.map(task => 
+            task._id === taskId 
+              ? { ...task, completed: !task.completed }
+              : task
+          )
+        );
+
         if (response.status === 401) {
           window.location.href = '/login';
           return;
         }
-        if (response.status === 404) {
-          setError('Task not found. The list will be refreshed.');
-          await fetchTasks();
-          return;
-        }
-        const errorData = await response.json();
+
+        // Handle specific error cases
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to update task');
       }
+
+      // Get the updated task data
+      const updatedTask = await response.json();
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          task._id === taskId ? updatedTask : task
+        )
+      );
       
       setError(null);
-      await fetchTasks();
     } catch (err) {
-      setError(err.message || 'Failed to update task status');
       console.error('Error toggling task:', err);
-      // Refresh the task list to ensure it's in sync
+      setError(err.message || 'Failed to update task status');
+      // Refresh tasks to ensure consistency
       await fetchTasks();
     }
   };
 
-  const handleDeleteTask = async (taskId) => {
+const handleDeleteTask = async (taskId) => {
+    if (!taskId) {
+      setError('Invalid task ID');
+      return;
+    }
+
     try {
+      // Optimistically remove the task from UI
+      const taskToDelete = tasks.find(task => task._id === taskId);
+      setTasks(prevTasks => prevTasks.filter(task => task._id !== taskId));
+
       const response = await fetch(`${API_URL}/tasks/${taskId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
 
       if (!response.ok) {
+        // Revert optimistic delete if there's an error
+        setTasks(prevTasks => [...prevTasks, taskToDelete]);
+
         if (response.status === 401) {
           window.location.href = '/login';
           return;
         }
-        throw new Error('Failed to delete task');
+
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete task');
       }
       
       setError(null);
-      await fetchTasks();
     } catch (err) {
-      setError('Failed to delete task');
       console.error('Error deleting task:', err);
+      setError(err.message || 'Failed to delete task');
+      // Refresh tasks to ensure consistency
+      await fetchTasks();
     }
   };
 
