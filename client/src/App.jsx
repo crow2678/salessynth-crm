@@ -226,7 +226,52 @@ const Dashboard = () => {
         {/* Header Section */}
         <header className="bg-white shadow">
           <div className="max-w-7xl mx-auto px-4 py-6">
-            {/* Header Content - Same as before */}
+			<div className="flex justify-between items-center">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setIsBookmarkPanelOpen(!isBookmarkPanelOpen)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  title="Toggle Bookmarks"
+                >
+                  <Link2 size={20} className="text-gray-500" />
+                </button>
+                <h1 className="text-3xl font-bold text-gray-900">SalesSynth</h1>
+                <DateFilter onFilterChange={setDateFilter} />
+              </div>
+              <div className="flex items-center space-x-6">
+                <div className="text-sm">
+                  <div className="text-gray-500">Total Pipeline</div>
+                  <div className="text-xl font-bold">${stats.pipelineValue?.toLocaleString() || 0}</div>
+                </div>
+                <div className="text-sm">
+                  <div className="text-gray-500">Total Closed</div>
+                  <div className="text-xl font-bold text-green-600">${stats.closedValue?.toLocaleString() || 0}</div>
+                </div>
+                <div className="text-sm">
+                  <div className="text-gray-500">Active Clients</div>
+                  <div className="text-xl font-bold text-green-600">{stats.activeClients || 0}</div>
+                </div>
+                <div className="text-sm">
+                  <div className="text-gray-500">Bookmarked</div>
+                  <div className="text-xl font-bold">{stats.bookmarkedClients || 0}</div>
+                </div>
+                <button
+                  onClick={() => setIsTaskPanelOpen(!isTaskPanelOpen)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  title="Toggle Tasks"
+                >
+                  <ListTodo size={20} className="text-gray-500" />
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 hover:bg-gray-100 rounded-lg text-red-500"
+                  title="Logout"
+                >
+                  <LogOut size={20} />
+                </button>
+              </div>
+            </div>
+         
           </div>
         </header>
 
