@@ -115,8 +115,19 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
     }
   };
 
-  const handleToggleCompletion = async (taskId) => {
+const handleToggleCompletion = async (taskId) => {
     try {
+      // First check if task exists
+      const checkResponse = await fetch(`${API_URL}/tasks/${taskId}`, {
+        headers: getAuthHeaders()
+      });
+
+      if (checkResponse.status === 404) {
+        setError('Task not found. The list will be refreshed.');
+        await fetchTasks();
+        return;
+      }
+
       const response = await fetch(`${API_URL}/tasks/${taskId}/complete`, {
         method: 'PATCH',
         headers: getAuthHeaders()
@@ -127,14 +138,22 @@ const TaskPanel = ({ isOpen = true, onToggle }) => {
           window.location.href = '/login';
           return;
         }
-        throw new Error('Failed to update task');
+        if (response.status === 404) {
+          setError('Task not found. The list will be refreshed.');
+          await fetchTasks();
+          return;
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update task');
       }
       
       setError(null);
       await fetchTasks();
     } catch (err) {
-      setError('Failed to update task');
+      setError(err.message || 'Failed to update task status');
       console.error('Error toggling task:', err);
+      // Refresh the task list to ensure it's in sync
+      await fetchTasks();
     }
   };
 
