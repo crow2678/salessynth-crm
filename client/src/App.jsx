@@ -25,7 +25,7 @@ import FlightTracker from './components/FlightTracker';
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 const CLIENTS_PER_PAGE = 10;
 const RECENT_CLIENTS_COUNT = 5;
-const [showRecentClients, setShowRecentClients] = useState(true);
+//const [showRecentClients, setShowRecentClients] = useState(true);
 
 // PrivateRoute Component
 const PrivateRoute = ({ children }) => {
@@ -56,6 +56,7 @@ const Dashboard = () => {
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(true);
   const [isBookmarkPanelOpen, setIsBookmarkPanelOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showRecentClients, setShowRecentClients] = useState(true);
 
   // Date Filter State
   const [dateFilter, setDateFilter] = useState(() => ({
