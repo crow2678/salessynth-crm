@@ -1,7 +1,7 @@
 // Part 1: Imports and Initial Setup
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Search, UserPlus, Users, Bookmark, ListTodo, Link2, LogOut } from 'lucide-react';
+import { Search, UserPlus, Users, Bookmark, ListTodo, Link2, LogOut,ChevronDown } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -25,7 +25,7 @@ import FlightTracker from './components/FlightTracker';
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 const CLIENTS_PER_PAGE = 10;
 const RECENT_CLIENTS_COUNT = 5;
-const [isRecentExpanded, setIsRecentExpanded] = useState(true);
+const [showRecentClients, setShowRecentClients] = useState(true);
 
 // PrivateRoute Component
 const PrivateRoute = ({ children }) => {
@@ -302,40 +302,31 @@ const Dashboard = () => {
           ) : (
             <>
               {/* Recent Clients Section */}
-			{recentClients.length > 0 && (
-			  <div className="mb-8">
-				<button 
-				  onClick={() => setIsRecentExpanded(prev => !prev)}
-				  className="w-full flex items-center justify-between p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
-				>
-				  <div className="flex items-center space-x-2">
-					<h2 className="text-lg font-semibold text-gray-900">
-					  Recent Clients
-					</h2>
-					<span className="px-2 py-1 bg-blue-100 text-blue-600 rounded-full text-sm">
-					  {recentClients.length}
-					</span>
-				  </div>
-				  <ChevronDown 
-					className={`w-5 h-5 text-gray-500 transform transition-transform duration-200 ${
-					  isRecentExpanded ? 'rotate-180' : ''
-					}`}
-				  />
-				</button>
-
-				<div className={`mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-300 
-				  ${isRecentExpanded ? 'opacity-100 max-h-[2000px]' : 'opacity-0 max-h-0 overflow-hidden'}`}>
-				  {recentClients.map(client => (
-					<ClientCard 
-					  key={client._id} 
-					  client={client} 
-					  onEdit={handleEditClient}
-					  onToggleBookmark={handleToggleBookmark}
-					/>
-				  ))}
+              {recentClients.length > 0 && (
+				<div className="flex justify-between items-center mb-4">
+				  <h2 className="text-lg font-semibold text-gray-900">Recent Clients</h2>
+				  <button
+					onClick={() => setShowRecentClients(!showRecentClients)}
+					className="text-blue-600 hover:text-blue-700"
+				  >
+					{showRecentClients ? 'Hide Recent' : 'Show Recent'}
+				  </button>
 				</div>
-			  </div>
-			)}
+				{showRecentClients && recentClients.length > 0 && (
+				  <div className="mb-8">
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+					  {recentClients.map(client => (
+						<ClientCard 
+						  key={client._id} 
+						  client={client} 
+						  onEdit={handleEditClient}
+						  onToggleBookmark={handleToggleBookmark}
+						/>
+					  ))}
+					</div>
+				  </div>
+				)}
+              )}
 
               {/* Paginated Clients Section */}
               <div>
