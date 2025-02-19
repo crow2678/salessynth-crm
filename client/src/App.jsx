@@ -55,7 +55,7 @@ const Dashboard = () => {
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(true);
   const [isBookmarkPanelOpen, setIsBookmarkPanelOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [showRecentClients, setShowRecentClients] = useState(true);
+  const [showRecentClients, setShowRecentClients] = useState(false);
 
   // Date Filter State
   const [dateFilter, setDateFilter] = useState(() => ({
