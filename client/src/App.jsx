@@ -301,8 +301,9 @@ const Dashboard = () => {
             </div>
           ) : (
             <>
-              {/* Recent Clients Section */}
-             // {recentClients.length > 0 && (
+			{/* Recent Clients Section */}
+			{recentClients.length > 0 && (
+			  <>
 				<div className="flex justify-between items-center mb-4">
 				  <h2 className="text-lg font-semibold text-gray-900">Recent Clients</h2>
 				  <button
@@ -312,7 +313,7 @@ const Dashboard = () => {
 					{showRecentClients ? 'Hide Recent' : 'Show Recent'}
 				  </button>
 				</div>
-				{showRecentClients && recentClients.length > 0 && (
+				{showRecentClients && (
 				  <div className="mb-8">
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					  {recentClients.map(client => (
@@ -326,7 +327,8 @@ const Dashboard = () => {
 					</div>
 				  </div>
 				)}
-             // )}
+			  </>
+			)}
 
               {/* Paginated Clients Section */}
               <div>
