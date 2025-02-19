@@ -302,7 +302,7 @@ const Dashboard = () => {
           ) : (
             <>
               {/* Recent Clients Section */}
-              {recentClients.length > 0 && (
+             // {recentClients.length > 0 && (
 				<div className="flex justify-between items-center mb-4">
 				  <h2 className="text-lg font-semibold text-gray-900">Recent Clients</h2>
 				  <button
@@ -326,7 +326,7 @@ const Dashboard = () => {
 					</div>
 				  </div>
 				)}
-              )}
+             // )}
 
               {/* Paginated Clients Section */}
               <div>
