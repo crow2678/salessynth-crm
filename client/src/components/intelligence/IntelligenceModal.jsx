@@ -60,7 +60,7 @@ const NoReportDisplay = ({ companyName }) => (
   </div>
 );
 
-const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
+const IntelligenceModal = ({ isOpen, onClose, clientId, companyName }) => {
   const [activeTab, setActiveTab] = useState('ai');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -135,7 +135,7 @@ return (
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report - {clientName}</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report - {companyName}</h2>
             <p className="text-sm text-gray-500 mt-1">
               Last updated: {new Date().toLocaleDateString('en-US', {
                 year: 'numeric',
@@ -222,7 +222,7 @@ return (
               <LoadingSkeleton />
             ) : error ? (
               error === 'REPORT_GENERATING' ? (
-                <NoReportDisplay companyName={clientName} />
+                <NoReportDisplay companyName={companyName} />
               ) : (
                 <ErrorDisplay message="Unable to load the intelligence report. Please try again later." />
               )
@@ -233,7 +233,7 @@ return (
                     <div className="mb-6">
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Analysis Summary</h3>
                       <p className="text-sm text-gray-500">
-                        Key insights and recommendations for {clientName}
+                        Key insights and recommendations for {companyName}
                       </p>
                     </div>
 
