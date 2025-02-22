@@ -1,9 +1,42 @@
 // src/components/intelligence/IntelligenceModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Brain, Search, MessageCircle, BarChart2, X, Download, ExternalLink } from 'lucide-react';
+import { 
+  Brain, 
+  Search, 
+  MessageCircle, 
+  BarChart2, 
+  X, 
+  Download, 
+  ExternalLink,
+  AlertCircle 
+} from 'lucide-react';
 import axios from 'axios';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
+
+// Loading Skeleton Component
+const LoadingSkeleton = () => (
+  <div className="p-8 space-y-6">
+    <div className="animate-pulse">
+      <div className="h-6 w-1/3 bg-gray-200 rounded mb-4"></div>
+      <div className="space-y-3">
+        <div className="h-4 w-full bg-gray-200 rounded"></div>
+        <div className="h-4 w-5/6 bg-gray-200 rounded"></div>
+        <div className="h-4 w-4/6 bg-gray-200 rounded"></div>
+      </div>
+    </div>
+  </div>
+);
+
+// Error Display Component
+const ErrorDisplay = ({ message }) => (
+  <div className="h-full flex items-center justify-center">
+    <div className="text-center">
+      <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+      <div className="text-red-500 font-medium">{message}</div>
+    </div>
+  </div>
+);
 
 const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
   const [activeTab, setActiveTab] = useState('ai');
@@ -32,6 +65,43 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
     fetchResearchData();
   }, [clientId, isOpen]);
 
+  // Format the summary text with proper styling
+  const formatSummaryContent = (text) => {
+    if (!text) return [];
+    
+    return text.split('\n').map((point, index) => {
+      const trimmedPoint = point.trim();
+      if (!trimmedPoint) return null;
+
+      // Handle numbered points with emoji
+      const numberMatch = trimmedPoint.match(/^([1️⃣2️⃣]) /);
+      if (numberMatch) {
+        const number = numberMatch[1] === '1️⃣' ? '1' : '2';
+        const content = trimmedPoint.replace(/^[1️⃣2️⃣] /, '');
+        return {
+          type: 'numbered',
+          number,
+          content
+        };
+      }
+
+      // Handle bold sections
+      if (trimmedPoint.startsWith('**')) {
+        const parts = trimmedPoint.split('**').filter(Boolean);
+        return {
+          type: 'section',
+          title: parts[0],
+          content: parts.slice(1).join('')
+        };
+      }
+
+      return {
+        type: 'text',
+        content: trimmedPoint
+      };
+    }).filter(Boolean);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -42,13 +112,17 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
           <div>
             <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report</h2>
             <p className="text-sm text-gray-500 mt-1">
-              {clientName} • Last updated: {new Date().toLocaleDateString()}
+              {clientName} • Last updated: {new Date().toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button 
               className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center hover:bg-blue-700 transition-colors"
-              onClick={() => {/* Implement PDF export */}}
+              onClick={() => window.print()}
             >
               <Download className="w-4 h-4 mr-2" />
               Export PDF
@@ -120,25 +194,49 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
           {/* Main Content Area */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
+              <LoadingSkeleton />
             ) : error ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-red-500">{error}</div>
-              </div>
+              <ErrorDisplay message={error} />
             ) : (
               <div className="p-8">
                 {activeTab === 'ai' && researchData?.summary && (
                   <>
+                    <div className="mb-6">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Analysis Summary</h3>
+                      <p className="text-sm text-gray-500">
+                        Key insights and recommendations for {clientName}
+                      </p>
+                    </div>
+
                     {/* Summary Box */}
                     <div className="bg-gradient-to-br from-blue-50 to-blue-50/50 rounded-xl p-6 mb-8 border border-blue-100">
                       <div className="flex items-start gap-4">
-                        <Brain className="w-6 h-6 text-blue-600 mt-1" />
-                        <div 
-                          className="prose max-w-none"
-                          dangerouslySetInnerHTML={{ __html: researchData.summary }}
-                        />
+                        <Brain className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+                        <div className="prose max-w-none space-y-4">
+                          {formatSummaryContent(researchData.summary).map((item, index) => {
+                            if (item.type === 'numbered') {
+                              return (
+                                <div key={index} className="flex items-start gap-3 mb-4">
+                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-sm">
+                                    {item.number}
+                                  </span>
+                                  <div className="flex-1 text-gray-600">{item.content}</div>
+                                </div>
+                              );
+                            }
+                            if (item.type === 'section') {
+                              return (
+                                <div key={index} className="mb-4">
+                                  <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
+                                  <p className="text-gray-600">{item.content}</p>
+                                </div>
+                              );
+                            }
+                            return (
+                              <p key={index} className="text-gray-600">{item.content}</p>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
 
@@ -151,7 +249,12 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
                         <div className="space-y-4">
                           {researchData.data.google.map((article, index) => (
                             <div key={index} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                              <a href={article.url} target="_blank" rel="noopener noreferrer" className="group">
+                              <a 
+                                href={article.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="group"
+                              >
                                 <h5 className="text-lg font-medium text-blue-600 group-hover:text-blue-700 flex items-center mb-2">
                                   {article.title}
                                   <ExternalLink className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
