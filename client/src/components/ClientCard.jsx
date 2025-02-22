@@ -14,11 +14,12 @@ import {
   Clock,
   Snowflake,
   TrendingDown,
-  Star
+  Star,
+  Lightbulb  // Added for intelligence feature
 } from 'lucide-react';
 import { STATUS_CONFIG, getClientStatus, getDealStatus } from '../utils/statusUtils';
 
-const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
+const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) => {  // Added onShowIntelligence
   const status = getClientStatus(client);
   const statusConfig = STATUS_CONFIG[status];
   const totalPipeline = client.deals?.reduce((sum, deal) => 
@@ -47,7 +48,8 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
       return false;
     }
   };
-  // Part 2: Status and Event Handlers
+
+  // Status and Event Handlers
   const getDealStatusIcon = () => {
     // If no deals, return null
     if (!client.deals || client.deals.length === 0) {
@@ -124,8 +126,13 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
     onEdit(client);
   };
 
+  const handleIntelligenceClick = (e) => {  // Added handler for intelligence
+    e.stopPropagation();
+    onShowIntelligence(client);
+  };
+
   const { icon: statusIcon, tooltip: statusTooltip } = getDealStatusIcon();
-  // Part 3: Component Render
+  // Part 2: Component Render
   return (
     <div className={`relative p-4 rounded-lg shadow-md border-l-4 
       ${client.isRecent ? 'border-t-2 border-t-blue-500' : ''} 
@@ -151,6 +158,13 @@ const ClientCard = ({ client, onEdit, onToggleBookmark }) => {
           <p className="text-sm text-gray-600 truncate">{client.company || 'No Company'}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={handleIntelligenceClick}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-blue-600 hover:bg-blue-50 transition-all"
+            title="View Intelligence Report"
+          >
+            <Lightbulb className="w-5 h-5" />
+          </button>
           <button
             onClick={handleBookmarkClick}
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${

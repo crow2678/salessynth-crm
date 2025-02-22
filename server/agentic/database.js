@@ -18,13 +18,14 @@ const clientSchema = new mongoose.Schema({
     isActive: Boolean,
 });
 
-// Define Mongoose Schema for Research (New Collection)
+// Define Mongoose Schema for Research
 const researchSchema = new mongoose.Schema({
-    userId: String, // Link to SalesSynth user
-    clientId: String, // Link to client
-    insights: String, // AI-generated insights
-    companyNews: Array, // Web research results
-    createdAt: { type: Date, default: Date.now },
+    userId: { type: String, required: true },
+    clientId: { type: String, required: true },
+    company: { type: String, required: true },
+    generatedAt: { type: Date, required: true },
+    insights: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
 });
 
 // Create Mongoose Models
@@ -54,15 +55,17 @@ async function connectDB() {
 // Fetch clients due for follow-up
 async function fetchClientsForFollowUp() {
     await connectDB();
-    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000); // 12 hours ago
+    const testModeHours = 1; // Change this to control testing time
+    const twelveHoursAgo = new Date(Date.now() - testModeHours * 60 * 60 * 1000);
+    console.log('Looking for clients not researched since:', twelveHoursAgo);
 
     try {
-        console.log(`🔍 Fetching clients for follow-up who have NOT been researched in the last 12 hours...`);
+        console.log(`🔍 Fetching clients for follow-up who have NOT been researched in the last ${testModeHours} hours...`);
 
         // Get all clients due for follow-up
         const clients = await Client.find({
             isActive: true,
-            followUpDate: { $lte: new Date() }, // Follow-up due today or earlier
+            followUpDate: { $lte: new Date() }
         }).exec();
 
         if (!clients.length) {
@@ -70,10 +73,14 @@ async function fetchClientsForFollowUp() {
             return [];
         }
 
-        // Filter out clients whose research was done within the last 12 hours
+        console.log(`📊 Found ${clients.length} active clients to check...`);
+
+        // Filter out clients whose research was done within the last period
         const filteredClients = [];
         for (const client of clients) {
-            const lastResearch = await Research.findOne({ clientId: client._id }).sort({ createdAt: -1 });
+            const lastResearch = await Research.findOne({ 
+                clientId: client._id.toString() 
+            }).sort({ createdAt: -1 });
 
             if (!lastResearch || new Date(lastResearch.createdAt) < twelveHoursAgo) {
                 filteredClients.push({
@@ -84,11 +91,13 @@ async function fetchClientsForFollowUp() {
                     notes: client.notes,
                     deals: client.deals,
                 });
+                console.log(`✅ Adding ${client.company} for research`);
             } else {
-                console.log(`⏳ Skipping ${client.company}: Last research was within the last 12 hours.`);
+                console.log(`⏳ Skipping ${client.company}: Last research was ${new Date(lastResearch.createdAt)}`);
             }
         }
 
+        console.log(`📝 Final client count for research: ${filteredClients.length}`);
         return filteredClients;
     } catch (error) {
         console.error("❌ Error fetching clients for follow-up:", error.message);
@@ -96,47 +105,53 @@ async function fetchClientsForFollowUp() {
     }
 }
 
-
-// Save research insights
-async function saveSalesInsights(userId, clientId, insights, companyNews) {
-    await connectDB();
-
+// Save research insights using Mongoose
+async function saveSalesInsights(userId, clientId, insights) {
     try {
-        console.log(`💾 Attempting to store insights for User: ${userId}, Client: ${clientId}`);
-
-        // Remove duplicate company news based on title
-        const uniqueNews = companyNews.filter(
-            (news, index, self) =>
-                index === self.findIndex((n) => n.title === news.title)
-        );
-
-        // Remove duplicate insights (if any exist in similar format)
-        const existingRecord = await Research.findOne({ userId, clientId });
-
-        if (existingRecord) {
-            console.log("🔍 Existing insights found, updating instead of inserting...");
-            existingRecord.insights = insights;
-            existingRecord.companyNews = uniqueNews;
-            existingRecord.createdAt = new Date();
-            await existingRecord.save();
-            console.log(`✅ Updated insights for User: ${userId}, Client: ${clientId}`);
-        } else {
-            // Insert new record if none exists
-            const document = {
-                userId,
-                clientId,
-                insights,
-                companyNews: uniqueNews,
-                createdAt: new Date().toISOString(),
-            };
-            await Research.create(document);
-            console.log(`✅ New insights stored for User: ${userId}, Client: ${clientId}`);
+        await connectDB();
+        console.log(`💾 Starting to save insights...`);
+        console.log(`User: ${userId}, Client: ${clientId}`);
+        
+        // Validate inputs
+        if (!userId || !clientId || !insights || !insights.insights) {
+            throw new Error('Missing required parameters for saving insights');
         }
+
+        // Create new research document using Mongoose model
+        const newResearch = new Research({
+            userId,
+            clientId,
+            company: insights.company,
+            generatedAt: insights.generatedAt,
+            insights: insights.insights
+        });
+
+        // Save the document
+        const savedResearch = await newResearch.save();
+
+        console.log(`✅ Successfully stored insights for ${insights.company}`);
+        return savedResearch;
     } catch (error) {
-        console.error("❌ Error saving sales insights:", error.message);
+        console.error('❌ Error in saveSalesInsights:', error.message);
+        console.error('Error details:', error);
+        throw error;
     }
 }
 
+// Close database connection function
+async function closeConnection() {
+    try {
+        await mongoose.connection.close();
+        console.log('📡 Closed database connection');
+    } catch (error) {
+        console.error('❌ Error closing database connection:', error);
+    }
+}
 
-// Ensure functions are correctly exported
-module.exports = { fetchClientsForFollowUp, saveSalesInsights };
+// Export functions
+module.exports = { 
+    connectDB,
+    fetchClientsForFollowUp, 
+    saveSalesInsights,
+    closeConnection
+};

@@ -14,6 +14,7 @@ import BookmarkPanel from './components/BookmarkPanel';
 import DateFilter from './components/DateFilter';
 import { getClientStatus, calculateMetrics } from './utils/statusUtils';
 import { STATUS_CONFIG } from './utils/statusUtils';
+import IntelligenceModal from './components/intelligence/IntelligenceModal'; // for lightbulb 
 
 // Auth-related imports
 import LoginPage from './components/auth/LoginPage';
@@ -25,6 +26,7 @@ import FlightTracker from './components/FlightTracker';
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 const CLIENTS_PER_PAGE = 10;
 const RECENT_CLIENTS_COUNT = 5;
+
 
 // PrivateRoute Component
 const PrivateRoute = ({ children }) => {
@@ -56,12 +58,23 @@ const Dashboard = () => {
   const [isBookmarkPanelOpen, setIsBookmarkPanelOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showRecentClients, setShowRecentClients] = useState(false);
+ // const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
+ // const [selectedIntelligenceClient, setSelectedIntelligenceClient] = useState(null);
+  
+  const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
+  const [selectedIntelligenceClient, setSelectedIntelligenceClient] = useState(null);
 
   // Date Filter State
   const [dateFilter, setDateFilter] = useState(() => ({
     start: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
     end: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
   }));
+
+// For intelligence modal
+	const handleShowIntelligence = (client) => {
+	  setSelectedIntelligenceClient(client);
+	  setShowIntelligenceModal(true);
+	};
 
   // Recent Clients Query
   const { data: recentClients = [] } = useQuery({
@@ -322,6 +335,7 @@ const Dashboard = () => {
 						  client={client} 
 						  onEdit={handleEditClient}
 						  onToggleBookmark={handleToggleBookmark}
+						  onShowIntelligence={handleShowIntelligence} //intelligence lightbulb
 						/>
 					  ))}
 					</div>
@@ -340,6 +354,7 @@ const Dashboard = () => {
                       client={client} 
                       onEdit={handleEditClient}
                       onToggleBookmark={handleToggleBookmark}
+					  onShowIntelligence={handleShowIntelligence} //intelligence lightbulb
                     />
                   ))}
                 </div>
@@ -386,6 +401,16 @@ const Dashboard = () => {
         onSave={handleSaveClient}
         client={selectedClient}
       />
+	  {/* Add Intelligence Modal here */}
+      <IntelligenceModal 
+			isOpen={showIntelligenceModal}
+			onClose={() => {
+			  setShowIntelligenceModal(false);
+			  setSelectedIntelligenceClient(null);
+			}}
+			clientId={selectedIntelligenceClient?._id}
+			clientName={selectedIntelligenceClient?.name}
+		  />
     </div>
   );
 };
