@@ -38,6 +38,28 @@ const ErrorDisplay = ({ message }) => (
   </div>
 );
 
+// No Report Display Component
+const NoReportDisplay = ({ companyName }) => (
+  <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+    <Brain className="w-16 h-16 text-blue-200 mb-6" />
+    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+      Generating Intelligence Report
+    </h3>
+    <p className="text-gray-600 max-w-md mb-4">
+      We're currently analyzing data for <span className="font-semibold">{companyName}</span>. 
+      This process typically takes a few minutes to ensure comprehensive insights.
+    </p>
+    <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+      <div className="animate-pulse flex space-x-1">
+        <div className="h-2 w-2 bg-blue-600 rounded-full"></div>
+        <div className="h-2 w-2 bg-blue-600 rounded-full"></div>
+        <div className="h-2 w-2 bg-blue-600 rounded-full"></div>
+      </div>
+      <span className="ml-2">Report generation in progress</span>
+    </div>
+  </div>
+);
+
 const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
   const [activeTab, setActiveTab] = useState('ai');
   const [loading, setLoading] = useState(true);
@@ -55,8 +77,13 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
         const response = await axios.get(`${API_URL}/research/${clientId}`);
         setResearchData(response.data);
       } catch (err) {
-        console.error('Error fetching research data:', err);
-        setError('Failed to load research data');
+        // Handle 404 specifically for report generation state
+        if (err.response?.status === 404) {
+          setError('REPORT_GENERATING');
+        } else {
+          console.error('Error fetching research data:', err);
+          setError('FETCH_ERROR');
+        }
       } finally {
         setLoading(false);
       }
@@ -65,7 +92,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
     fetchResearchData();
   }, [clientId, isOpen]);
 
-  // Format the summary text with proper styling
   const formatSummaryContent = (text) => {
     if (!text) return [];
     
@@ -103,16 +129,15 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
   };
 
   if (!isOpen) return null;
-
-  return (
+return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl h-[80vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report - {clientName}</h2>
             <p className="text-sm text-gray-500 mt-1">
-              {clientName} • Last updated: {new Date().toLocaleDateString('en-US', {
+              Last updated: {new Date().toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
@@ -196,7 +221,11 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
             {loading ? (
               <LoadingSkeleton />
             ) : error ? (
-              <ErrorDisplay message={error} />
+              error === 'REPORT_GENERATING' ? (
+                <NoReportDisplay companyName={clientName} />
+              ) : (
+                <ErrorDisplay message="Unable to load the intelligence report. Please try again later." />
+              )
             ) : (
               <div className="p-8">
                 {activeTab === 'ai' && researchData?.summary && (
@@ -249,12 +278,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
                         <div className="space-y-4">
                           {researchData.data.google.map((article, index) => (
                             <div key={index} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                              <a 
-                                href={article.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="group"
-                              >
+                              <a href={article.url} target="_blank" rel="noopener noreferrer" className="group">
                                 <h5 className="text-lg font-medium text-blue-600 group-hover:text-blue-700 flex items-center mb-2">
                                   {article.title}
                                   <ExternalLink className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -277,23 +301,23 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
                 )}
 
                 {activeTab === 'web' && (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-6">Web Intelligence</h3>
-                    <div className="text-gray-500">Web content coming soon...</div>
+                  <div className="text-center py-12">
+                    <h3 className="text-xl font-semibold mb-2">Web Intelligence</h3>
+                    <p className="text-gray-500">This feature is coming soon...</p>
                   </div>
                 )}
 
                 {activeTab === 'social' && (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-6">Social Intelligence</h3>
-                    <div className="text-gray-500">Social content coming soon...</div>
+                  <div className="text-center py-12">
+                    <h3 className="text-xl font-semibold mb-2">Social Intelligence</h3>
+                    <p className="text-gray-500">This feature is coming soon...</p>
                   </div>
                 )}
 
                 {activeTab === 'industry' && (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-6">Industry Insights</h3>
-                    <div className="text-gray-500">Industry content coming soon...</div>
+                  <div className="text-center py-12">
+                    <h3 className="text-xl font-semibold mb-2">Industry Insights</h3>
+                    <p className="text-gray-500">This feature is coming soon...</p>
                   </div>
                 )}
               </div>
