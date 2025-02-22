@@ -15,7 +15,7 @@ const Bookmark = require('./models/Bookmark');
 const User = require('./models/User');
 const Flight = require('./models/Flight');
 // Add with other model imports
-const Research = require('./models/Research');
+const Research = require('./agentic/database/models/Research');
 // Initialize express
 const app = express();
 
