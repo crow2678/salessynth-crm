@@ -158,18 +158,28 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
           <p className="text-sm text-gray-600 truncate">{client.company || 'No Company'}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-			  onClick={handleIntelligenceClick}
-			  className="w-8 h-8 rounded-full flex items-center justify-center text-green-600 hover:bg-green-50 transition-all group"
-			  title="View Intelligence Report"
-			>
-			  <div className="relative">
-				{/* Sharp Atom icon with a drop-shadow */}
-				<Atom className="w-5 h-5 text-green-500 drop-shadow-lg" />
-				{/* Pulsating green glow overlay */}
-				<div className="absolute inset-0 rounded-full bg-green-400 opacity-0 group-hover:opacity-70 group-hover:animate-pulse transition-all duration-300" />
-			  </div>
-			</button>
+		<button
+		  onClick={handleIntelligenceClick}
+		  className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-50 transition-all group"
+		  title="View Intelligence Report"
+		>
+		  <div className="relative">
+			<Atom className="w-5 h-5 text-green-500 drop-shadow-lg transition-transform duration-300 group-hover:animate-pulse-scale" />
+		  </div>
+		  <style jsx>{`
+			@keyframes pulse-scale {
+			  0%, 100% {
+				transform: scale(1);
+			  }
+			  50% {
+				transform: scale(1.2);
+			  }
+			}
+			.animate-pulse-scale {
+			  animation: pulse-scale 1.5s ease-in-out infinite;
+			}
+		  `}</style>
+		</button>
           <button
             onClick={handleBookmarkClick}
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
