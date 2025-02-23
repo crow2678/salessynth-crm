@@ -15,7 +15,7 @@ import {
   Snowflake,
   TrendingDown,
   Star,
-  Atom  // Added for intelligence feature
+  Rocket  // Added for intelligence feature
 } from 'lucide-react';
 import { STATUS_CONFIG, getClientStatus, getDealStatus } from '../utils/statusUtils';
 
