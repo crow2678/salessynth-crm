@@ -37,6 +37,23 @@ const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/ap
 const CLIENTS_PER_PAGE = 10;
 const RECENT_CLIENTS_COUNT = 5;
 
+// Client filtering helper function
+const getFilteredClients = (clients, searchTerm, selectedStatus) => {
+  return clients.filter(client => {
+    // Search filter
+    const searchFilter = searchTerm.toLowerCase().trim();
+    const matchesSearch = 
+      (client.name?.toLowerCase() || '').includes(searchFilter) ||
+      (client.company?.toLowerCase() || '').includes(searchFilter);
+
+    // Status filter
+    const matchesStatus = selectedStatus === 'all' || getClientStatus(client) === selectedStatus;
+
+    // Return true only if both conditions are met
+    return matchesSearch && matchesStatus;
+  });
+};
+
 // PrivateRoute Component
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -122,6 +139,23 @@ const Dashboard = () => {
     }
   });
 
+  // Display clients logic
+  const displayClients = () => {
+    // First filter recent clients
+    const filteredRecentClients = showRecentClients 
+      ? getFilteredClients(recentClients, searchTerm, selectedStatus)
+      : [];
+
+    // Then filter paginated clients
+    const filteredPaginatedClients = getFilteredClients(paginatedData.clients, searchTerm, selectedStatus);
+
+    return {
+      recentClients: filteredRecentClients,
+      paginatedClients: filteredPaginatedClients,
+      hasResults: filteredRecentClients.length > 0 || filteredPaginatedClients.length > 0
+    };
+  };
+
   // Create Client Mutation
   const createClientMutation = useMutation({
     mutationFn: async (newClient) => {
@@ -165,15 +199,6 @@ const Dashboard = () => {
     onError: (error) => {
       showAlert('error', error.response?.data?.message || 'Error toggling bookmark');
     }
-  });
-
-  // Combine and filter clients
-  const allClients = [...recentClients, ...paginatedData.clients];
-  const filteredClients = allClients.filter(client => {
-    const matchesSearch = client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.company?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = selectedStatus === 'all' || getClientStatus(client) === selectedStatus;
-    return matchesSearch && matchesStatus;
   });
 
   // Alert Handler
@@ -226,6 +251,9 @@ const Dashboard = () => {
       </div>
     );
   }
+
+  const { recentClients: filteredRecentClients, paginatedClients: filteredPaginatedClients, hasResults } = displayClients();
+  const showEmptyState = !isLoading && !hasResults;
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -353,24 +381,36 @@ const Dashboard = () => {
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
             </div>
-          ) : filteredClients.length === 0 ? (
+          ) : showEmptyState ? (
             <div className="flex flex-col items-center justify-center h-64 bg-white rounded-lg shadow-sm p-8">
-              <Users size={48} className="text-gray-300 mb-4" />
-              <h3 className="text-xl font-medium text-gray-900 mb-2">Welcome to SalesSynth</h3>
-              <p className="text-gray-500 mb-4 text-center">
-                Track your fintech sales pipeline and client relationships in one place.
-              </p>
-              <button 
-                onClick={() => setShowNewClientModal(true)} 
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-              >
-                Add Your First Client
-              </button>
+              {searchTerm ? (
+                <>
+                  <Users size={48} className="text-gray-300 mb-4" />
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">No matching clients found</h3>
+                  <p className="text-gray-500 mb-4 text-center">
+                    Try adjusting your search or filters to find what you're looking for
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Users size={48} className="text-gray-300 mb-4" />
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">Welcome to SalesSynth</h3>
+                  <p className="text-gray-500 mb-4 text-center">
+                    Track your fintech sales pipeline and client relationships in one place.
+                  </p>
+                  <button 
+                    onClick={() => setShowNewClientModal(true)} 
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Add Your First Client
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <>
               {/* Recent Clients Section */}
-              {recentClients.length > 0 && (
+              {filteredRecentClients.length > 0 && (
                 <>
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-semibold text-gray-900">Recent Clients</h2>
@@ -384,7 +424,7 @@ const Dashboard = () => {
                   {showRecentClients && (
                     <div className="mb-8">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {recentClients.map(client => (
+                        {filteredRecentClients.map(client => (
                           <ClientCard 
                             key={client._id} 
                             client={client} 
@@ -401,9 +441,11 @@ const Dashboard = () => {
 
               {/* Paginated Clients Section */}
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">All Clients</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  {searchTerm ? 'Search Results' : 'All Clients'}
+                </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {paginatedData.clients.map(client => (
+                  {filteredPaginatedClients.map(client => (
                     <ClientCard 
                       key={client._id} 
                       client={client} 
@@ -413,29 +455,6 @@ const Dashboard = () => {
                     />
                   ))}
                 </div>
-
-                {/* Pagination Controls */}
-                {paginatedData.totalPages > 1 && (
-                  <div className="mt-8 flex justify-center space-x-4">
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <span className="px-4 py-2">
-                      Page {currentPage} of {paginatedData.totalPages}
-                    </span>
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === paginatedData.totalPages}
-                      className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
               </div>
             </>
           )}
