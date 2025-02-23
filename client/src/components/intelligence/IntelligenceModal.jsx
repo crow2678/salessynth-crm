@@ -46,7 +46,7 @@ const NoReportDisplay = ({ companyName }) => (
       Generating Intelligence Report
     </h3>
     <p className="text-gray-600 max-w-md mb-4">
-      We're currently analyzing data for <span className="font-semibold">{companyName}</span>. 
+      We're currently analyzing data for <span className="font-semibold">{companyName || 'this company'}</span>. 
       This process typically takes a few minutes to ensure comprehensive insights.
     </p>
     <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
@@ -59,8 +59,7 @@ const NoReportDisplay = ({ companyName }) => (
     </div>
   </div>
 );
-
-const IntelligenceModal = ({ isOpen, onClose, clientId, companyName }) => {
+const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
   const [activeTab, setActiveTab] = useState('ai');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -77,7 +76,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, companyName }) => {
         const response = await axios.get(`${API_URL}/research/${clientId}`);
         setResearchData(response.data);
       } catch (err) {
-        // Handle 404 specifically for report generation state
         if (err.response?.status === 404) {
           setError('REPORT_GENERATING');
         } else {
@@ -111,13 +109,14 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, companyName }) => {
         };
       }
 
-      // Handle bold sections
+      // Handle bold sections, removing ** markers
       if (trimmedPoint.startsWith('**')) {
-        const parts = trimmedPoint.split('**').filter(Boolean);
+        const cleanText = trimmedPoint.replace(/\*\*/g, '');
+        const [title, ...contentParts] = cleanText.split(':');
         return {
           type: 'section',
-          title: parts[0],
-          content: parts.slice(1).join('')
+          title: title.trim(),
+          content: contentParts.join(':').trim()
         };
       }
 
@@ -129,13 +128,17 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, companyName }) => {
   };
 
   if (!isOpen) return null;
-return (
+
+  // Get company name from research data or fall back to client name
+  const displayName = researchData?.company || clientName;
+
+  return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl h-[80vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report - {companyName}</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report - {displayName}</h2>
             <p className="text-sm text-gray-500 mt-1">
               Last updated: {new Date().toLocaleDateString('en-US', {
                 year: 'numeric',
@@ -222,7 +225,7 @@ return (
               <LoadingSkeleton />
             ) : error ? (
               error === 'REPORT_GENERATING' ? (
-                <NoReportDisplay companyName={companyName} />
+                <NoReportDisplay companyName={displayName} />
               ) : (
                 <ErrorDisplay message="Unable to load the intelligence report. Please try again later." />
               )
@@ -233,7 +236,7 @@ return (
                     <div className="mb-6">
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Analysis Summary</h3>
                       <p className="text-sm text-gray-500">
-                        Key insights and recommendations for {companyName}
+                        Key insights and recommendations for {displayName}
                       </p>
                     </div>
 

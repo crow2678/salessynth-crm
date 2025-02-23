@@ -1,7 +1,7 @@
 {
   "research_modules": {
     "google": true,
-    "reddit": false,
+    "reddit": true,
     "linkedin": false,
     "futureAPI": false
   }

@@ -2,7 +2,7 @@ const { Research, Client } = require('../database/db');
 const { runResearchForClient } = require('../research/ResearchManager'); 
 require("dotenv").config();
 
-const COOLDOWN_PERIOD = 12 * 60 * 60 * 1000; 
+const COOLDOWN_PERIOD = 12 * 60 * 60 * 1000; // 12 hours
 
 async function orchestrateResearch() {
     try {
@@ -17,36 +17,39 @@ async function orchestrateResearch() {
 
         console.log(`🔄 Found ${clients.length} active clients. Checking for updates...`);
 
-        const researchTasks = clients.map(async (client) => {
+        for (const client of clients) {
             const clientId = client._id.toString();
             const userId = client.userId;
             const companyName = client.company;
 
-            console.log(`🔍 Checking if ${companyName} needs research updates...`);
+            console.log(`🔍 Checking research status for: ${companyName} (Client ID: ${clientId})`);
 
-			const lastResearch = await Research.findOne({ clientId, userId }).sort({ createdAt: -1 });
+            const lastResearch = await Research.findOne({ clientId, userId });
 
-			//const lastResearch = await Research.findOne({ clientId, userId }).sort({ _ts: -1 });
-
-            const lastResearchUpdated = lastResearch ? lastResearch.createdAt : null;
-            const clientUpdatedAt = client.updatedAt;
             const now = new Date();
-            const cooldownActive = lastResearchUpdated && (now - lastResearchUpdated) < COOLDOWN_PERIOD;
 
-            const followUpDue = client.followUpDate && client.followUpDate <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-            const lastResearchOld = !lastResearchUpdated || (now - lastResearchUpdated) >= 14 * 24 * 60 * 60 * 1000;
-            const dealInProposal = client.deals && client.deals.some(deal => deal.status === "proposal");
-            const meaningfulNoteUpdate = client.notes && client.notes.includes("contract") || client.notes.includes("pricing");
+            // ✅ Separate last research timestamps for Google & Reddit
+            const lastGoogleResearch = lastResearch?.lastUpdatedGoogle ? lastResearch.lastUpdatedGoogle : null;
+            const lastRedditResearch = lastResearch?.lastUpdatedReddit ? lastResearch.lastUpdatedReddit : null;
 
-            if ((followUpDue || lastResearchOld || dealInProposal || meaningfulNoteUpdate) && !cooldownActive) {
-                console.log(`🔄 Changes detected for ${companyName}. Running fresh research...`);
+            const googleCooldownActive = lastGoogleResearch && (now - new Date(lastGoogleResearch)) < COOLDOWN_PERIOD;
+            const redditCooldownActive = lastRedditResearch && (now - new Date(lastRedditResearch)) < COOLDOWN_PERIOD;
+
+            if (googleCooldownActive) {
+                console.log(`⏳ Google research cooldown active for ${companyName}. Skipping Google.`);
+            }
+
+            if (redditCooldownActive) {
+                console.log(`⏳ Reddit research cooldown active for ${companyName}. Skipping Reddit.`);
+            }
+
+            if (!googleCooldownActive || !redditCooldownActive) {
+                console.log(`🔄 Running research for ${companyName}...`);
                 await runResearchForClient(clientId, userId, companyName);
             } else {
-                console.log(`✅ No updates or cooldown active for ${companyName}. Skipping research.`);
+                console.log(`✅ Cooldown active for all research types. Skipping ${companyName}.`);
             }
-        });
-
-        await Promise.all(researchTasks);
+        }
 
         console.log("✅ Research refresh cycle completed.");
     } catch (error) {
