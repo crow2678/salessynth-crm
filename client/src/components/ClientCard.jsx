@@ -164,7 +164,7 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
 		  title="View Intelligence Report"
 		>
 		  <div className="relative">
-			<Atom className="icon w-5 h-5 text-red-500 drop-shadow-lg transition-transform duration-300" />
+			<Rocket className="icon w-5 h-5 text-red-500 drop-shadow-lg transition-transform duration-300" />
 		  </div>
 		  <style jsx>{`
 			/* When the button (with class 'group') is hovered, animate the .icon */
