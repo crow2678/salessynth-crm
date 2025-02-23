@@ -164,9 +164,13 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
 		  title="View Intelligence Report"
 		>
 		  <div className="relative">
-			<Atom className="w-5 h-5 text-green-500 drop-shadow-lg transition-transform duration-300 group-hover:animate-pulse-scale" />
+			<Atom className="icon w-5 h-5 text-green-500 drop-shadow-lg transition-transform duration-300" />
 		  </div>
 		  <style jsx>{`
+			/* When the button (with class 'group') is hovered, animate the .icon */
+			.group:hover .icon {
+			  animation: pulse-scale 1.5s ease-in-out infinite;
+			}
 			@keyframes pulse-scale {
 			  0%, 100% {
 				transform: scale(1);
@@ -174,9 +178,6 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
 			  50% {
 				transform: scale(1.2);
 			  }
-			}
-			.animate-pulse-scale {
-			  animation: pulse-scale 1.5s ease-in-out infinite;
 			}
 		  `}</style>
 		</button>
