@@ -109,15 +109,19 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
         };
       }
 
-      // Handle bold sections, removing ** markers
-      if (trimmedPoint.startsWith('**')) {
-        const cleanText = trimmedPoint.replace(/\*\*/g, '');
-        const [title, ...contentParts] = cleanText.split(':');
-        return {
-          type: 'section',
-          title: title.trim(),
-          content: contentParts.join(':').trim()
-        };
+      // Handle bold sections (text between ** markers)
+      if (trimmedPoint.includes('**')) {
+        const boldPattern = /\*\*(.*?)\*\*/;
+        const match = trimmedPoint.match(boldPattern);
+        if (match) {
+          const boldText = match[1];
+          const remainingText = trimmedPoint.replace(/\*\*.*?\*\*/, '').trim();
+          return {
+            type: 'section',
+            title: boldText,
+            content: remainingText.replace(/^:\s*/, '') // Remove colon and spaces after the bold text
+          };
+        }
       }
 
       return {
@@ -259,8 +263,8 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
                             if (item.type === 'section') {
                               return (
                                 <div key={index} className="mb-4">
-                                  <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
-                                  <p className="text-gray-600">{item.content}</p>
+                                  <h4 className="font-bold text-gray-900 mb-2">{item.title}</h4>
+                                  {item.content && <p className="text-gray-600 mt-1">{item.content}</p>}
                                 </div>
                               );
                             }
