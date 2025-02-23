@@ -1,7 +1,17 @@
 // Part 1: Imports and Initial Setup
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Search, UserPlus, Users, Bookmark, ListTodo, Link2, LogOut,ChevronDown } from 'lucide-react';
+import { 
+  Search, 
+  UserPlus, 
+  Users, 
+  Bookmark, 
+  ListTodo, 
+  Link2, 
+  LogOut,
+  ChevronDown,
+  BookmarkCheck
+} from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -14,7 +24,7 @@ import BookmarkPanel from './components/BookmarkPanel';
 import DateFilter from './components/DateFilter';
 import { getClientStatus, calculateMetrics } from './utils/statusUtils';
 import { STATUS_CONFIG } from './utils/statusUtils';
-import IntelligenceModal from './components/intelligence/IntelligenceModal'; // for lightbulb 
+import IntelligenceModal from './components/intelligence/IntelligenceModal';
 
 // Auth-related imports
 import LoginPage from './components/auth/LoginPage';
@@ -26,7 +36,6 @@ import FlightTracker from './components/FlightTracker';
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 const CLIENTS_PER_PAGE = 10;
 const RECENT_CLIENTS_COUNT = 5;
-
 
 // PrivateRoute Component
 const PrivateRoute = ({ children }) => {
@@ -58,9 +67,6 @@ const Dashboard = () => {
   const [isBookmarkPanelOpen, setIsBookmarkPanelOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showRecentClients, setShowRecentClients] = useState(false);
- // const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
- // const [selectedIntelligenceClient, setSelectedIntelligenceClient] = useState(null);
-  
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [selectedIntelligenceClient, setSelectedIntelligenceClient] = useState(null);
 
@@ -70,11 +76,11 @@ const Dashboard = () => {
     end: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
   }));
 
-// For intelligence modal
-	const handleShowIntelligence = (client) => {
-	  setSelectedIntelligenceClient(client);
-	  setShowIntelligenceModal(true);
-	};
+  // Intelligence Modal Handler
+  const handleShowIntelligence = (client) => {
+    setSelectedIntelligenceClient(client);
+    setShowIntelligenceModal(true);
+  };
 
   // Recent Clients Query
   const { data: recentClients = [] } = useQuery({
@@ -125,7 +131,7 @@ const Dashboard = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries(['clients', 'recent']);
       queryClient.invalidateQueries(['stats']);
-      setCurrentPage(1); // Return to first page
+      setCurrentPage(1);
       showAlert('success', 'New client added successfully');
     },
     onError: (error) => {
@@ -164,7 +170,8 @@ const Dashboard = () => {
   // Combine and filter clients
   const allClients = [...recentClients, ...paginatedData.clients];
   const filteredClients = allClients.filter(client => {
-    const matchesSearch = client.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         client.company?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || getClientStatus(client) === selectedStatus;
     return matchesSearch && matchesStatus;
   });
@@ -208,7 +215,6 @@ const Dashboard = () => {
     localStorage.removeItem('token');
     window.location.href = '/login';
   };
-  // Part 3: Dashboard JSX and Exports
   // Error State
   if (error) {
     return (
@@ -240,7 +246,7 @@ const Dashboard = () => {
         {/* Header Section */}
         <header className="bg-white shadow">
           <div className="max-w-7xl mx-auto px-4 py-6">
-			<div className="flex justify-between items-center">
+            <div className="flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => setIsBookmarkPanelOpen(!isBookmarkPanelOpen)}
@@ -252,6 +258,7 @@ const Dashboard = () => {
                 <h1 className="text-3xl font-bold text-gray-900">SalesSynth</h1>
                 <DateFilter onFilterChange={setDateFilter} />
               </div>
+              
               <div className="flex items-center space-x-6">
                 <div className="text-sm">
                   <div className="text-gray-500">Total Pipeline</div>
@@ -285,14 +292,62 @@ const Dashboard = () => {
                 </button>
               </div>
             </div>
-         
           </div>
         </header>
 
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-4 py-8 flex-1">
-          {/* Search and Filters - Same as before */}
-          
+          {/* Search and Filters Section */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="relative flex-1 max-w-xl">
+              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Search clients by name or company..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowBookmarked(!showBookmarked)}
+                className={`px-4 py-2 rounded-lg flex items-center transition-all duration-200 ${
+                  showBookmarked 
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                    : 'bg-white text-gray-700 border hover:bg-gray-50'
+                }`}
+              >
+                {showBookmarked ? (
+                  <BookmarkCheck size={20} className="mr-2 text-blue-600" />
+                ) : (
+                  <Bookmark size={20} className="mr-2 text-gray-500" />
+                )}
+                {showBookmarked ? 'Show All' : 'Show Bookmarked'}
+              </button>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-4 py-2 border rounded-lg bg-white hover:bg-gray-50 transition-colors duration-200"
+              >
+                <option value="all">All Statuses</option>
+                {Object.entries(STATUS_CONFIG).map(([key, { label }]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => {
+                  setSelectedClient(null);
+                  setShowNewClientModal(true);
+                }}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center transition-colors duration-200"
+              >
+                <UserPlus size={20} className="mr-2" />
+                Add Client
+              </button>
+            </div>
+          </div>
+
           {/* Client Display Section */}
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
@@ -314,35 +369,35 @@ const Dashboard = () => {
             </div>
           ) : (
             <>
-			{/* Recent Clients Section */}
-			{recentClients.length > 0 && (
-			  <>
-				<div className="flex justify-between items-center mb-4">
-				  <h2 className="text-lg font-semibold text-gray-900">Recent Clients</h2>
-				  <button
-					onClick={() => setShowRecentClients(!showRecentClients)}
-					className="text-blue-600 hover:text-blue-700"
-				  >
-					{showRecentClients ? 'Hide Recent' : 'Show Recent'}
-				  </button>
-				</div>
-				{showRecentClients && (
-				  <div className="mb-8">
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-					  {recentClients.map(client => (
-						<ClientCard 
-						  key={client._id} 
-						  client={client} 
-						  onEdit={handleEditClient}
-						  onToggleBookmark={handleToggleBookmark}
-						  onShowIntelligence={handleShowIntelligence} //intelligence lightbulb
-						/>
-					  ))}
-					</div>
-				  </div>
-				)}
-			  </>
-			)}
+              {/* Recent Clients Section */}
+              {recentClients.length > 0 && (
+                <>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900">Recent Clients</h2>
+                    <button
+                      onClick={() => setShowRecentClients(!showRecentClients)}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      {showRecentClients ? 'Hide Recent' : 'Show Recent'}
+                    </button>
+                  </div>
+                  {showRecentClients && (
+                    <div className="mb-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {recentClients.map(client => (
+                          <ClientCard 
+                            key={client._id} 
+                            client={client} 
+                            onEdit={handleEditClient}
+                            onToggleBookmark={handleToggleBookmark}
+                            onShowIntelligence={handleShowIntelligence}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Paginated Clients Section */}
               <div>
@@ -354,7 +409,7 @@ const Dashboard = () => {
                       client={client} 
                       onEdit={handleEditClient}
                       onToggleBookmark={handleToggleBookmark}
-					  onShowIntelligence={handleShowIntelligence} //intelligence lightbulb
+                      onShowIntelligence={handleShowIntelligence}
                     />
                   ))}
                 </div>
@@ -401,16 +456,16 @@ const Dashboard = () => {
         onSave={handleSaveClient}
         client={selectedClient}
       />
-	  {/* Add Intelligence Modal here */}
+
       <IntelligenceModal 
-			isOpen={showIntelligenceModal}
-			onClose={() => {
-			  setShowIntelligenceModal(false);
-			  setSelectedIntelligenceClient(null);
-			}}
-			clientId={selectedIntelligenceClient?._id}
-			clientName={selectedIntelligenceClient?.name}
-		  />
+        isOpen={showIntelligenceModal}
+        onClose={() => {
+          setShowIntelligenceModal(false);
+          setSelectedIntelligenceClient(null);
+        }}
+        clientId={selectedIntelligenceClient?._id}
+        clientName={selectedIntelligenceClient?.name}
+      />
     </div>
   );
 };
