@@ -15,7 +15,7 @@ import {
   Snowflake,
   TrendingDown,
   Star,
-  Lightbulb  // Added for intelligence feature
+  atom  // Added for intelligence feature
 } from 'lucide-react';
 import { STATUS_CONFIG, getClientStatus, getDealStatus } from '../utils/statusUtils';
 
@@ -159,12 +159,15 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
-            onClick={handleIntelligenceClick}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-blue-600 hover:bg-blue-50 transition-all"
-            title="View Intelligence Report"
-          >
-            <Lightbulb className="w-5 h-5" />
-          </button>
+			  onClick={handleIntelligenceClick}
+			  className="w-8 h-8 rounded-full flex items-center justify-center text-blue-600 hover:bg-blue-50 transition-all group"
+			  title="View Intelligence Report"
+			>
+			  <div className="relative">
+				<Atom className="w-5 h-5 text-blue-500 group-hover:animate-pulse" />
+				<div className="absolute inset-0 bg-blue-400 blur-sm opacity-0 group-hover:opacity-50 transition-opacity" />
+			  </div>
+		</button>
           <button
             onClick={handleBookmarkClick}
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
