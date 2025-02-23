@@ -164,10 +164,12 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
 			  title="View Intelligence Report"
 			>
 			  <div className="relative">
-				<Atom className="w-5 h-5 text-blue-500 group-hover:animate-pulse" />
-				<div className="absolute inset-0 bg-blue-400 blur-sm opacity-0 group-hover:opacity-50 transition-opacity" />
+				{/* Atom icon remains sharp with a drop-shadow */}
+				<Atom className="w-5 h-5 text-blue-500 drop-shadow-md" />
+				{/* Glowing overlay that pulsates on hover */}
+				<div className="absolute inset-0 bg-blue-400 blur-sm opacity-0 group-hover:opacity-50 group-hover:animate-pulse transition-opacity" />
 			  </div>
-		</button>
+			</button>
           <button
             onClick={handleBookmarkClick}
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
