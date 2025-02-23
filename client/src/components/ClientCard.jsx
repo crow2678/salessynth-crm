@@ -160,11 +160,11 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
         <div className="flex items-center gap-2 flex-shrink-0">
 		<button
 		  onClick={handleIntelligenceClick}
-		  className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-50 transition-all group"
+		  className="w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 transition-all group"
 		  title="View Intelligence Report"
 		>
 		  <div className="relative">
-			<Atom className="icon w-5 h-5 text-green-500 drop-shadow-lg transition-transform duration-300" />
+			<Atom className="icon w-5 h-5 text-red-500 drop-shadow-lg transition-transform duration-300" />
 		  </div>
 		  <style jsx>{`
 			/* When the button (with class 'group') is hovered, animate the .icon */
