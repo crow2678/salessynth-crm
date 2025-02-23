@@ -26,41 +26,53 @@ const OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
 const runningResearch = new Set();
 
 // Function to call GPT-4 and generate a structured sales summary
-async function generateSummary(researchData, clientDetails) {
+async function generateSummary(researchData, clientDetails) { 
     try {
         console.log("🧠 Sending research data to GPT-4 for sales-focused summarization...");
 
+        // Ensure research data is valid before sending
+        if (!researchData || Object.keys(researchData).length === 0) {
+            console.log("⚠️ No new research data available. Skipping GPT-4 call.");
+            return "No new insights available at this time.";
+        }
+
+        // Build structured prompt with research insights & client-specific context
         const prompt = `
-        You are a sales intelligence assistant. The user is a sales hunter working to close a deal with ${clientDetails.company}.
+        You are a **sales intelligence assistant** helping a sales hunter close a deal with **${clientDetails.company}**.
 
-        **Customer Details**
-        - Name: ${clientDetails.name}
-        - Position: ${clientDetails.position}
-        - Notes: ${clientDetails.notes || "No recent updates"}
+        **🔹 Customer Details**
+        - **Name:** ${clientDetails.name}
+        - **Position:** ${clientDetails.position}
+        - **Recent Notes:** ${clientDetails.notes || "No recent updates"}
+        
+        **📢 Latest Company News & Research**
+        ${JSON.stringify(researchData, null, 2) || "No recent company updates available."}
 
-        **Latest Company News**
-        ${JSON.stringify(researchData, null, 2) || "No recent news available"}
+        **📌 Active Deal Details**
+        - **Deal:** ${clientDetails.deals?.[0]?.title || "No Active Deal"}
+        - **Value:** $${clientDetails.deals?.[0]?.value || "N/A"}
+        - **Status:** ${clientDetails.deals?.[0]?.status || "N/A"}
 
-        **Active Deal**
-        - ${clientDetails.deals?.[0]?.title || "No Active Deal"}
-        - Value: $${clientDetails.deals?.[0]?.value || "N/A"}
-        - Status: ${clientDetails.deals?.[0]?.status || "N/A"}
+        ---
+        🚀 **Generate 3 actionable sales insights** tailored for this deal:
 
-        **Generate 3 actionable sales insights:**
-        1️⃣ **Best approach for the next sales conversation**  
-           - Provide a strategy for engaging the customer based on their role, company news, and active deals.
+        **1️⃣ Best Approach for the Next Sales Conversation**
+        - Provide a **specific** engagement strategy considering the customer's role, company insights, and recent discussions.
 
-        2️⃣ **Potential objections & strategies to overcome them**  
-           - Identify likely objections the customer may have and provide ways to handle them effectively.
+        **2️⃣ Potential Objections & How to Overcome Them**
+        - Identify likely objections **specific to this deal** and provide persuasive counterarguments.
 
-        3️⃣ **Competitive positioning & strategic opportunities**  
-           - Identify market trends, competitors, or internal company shifts that the sales team can use to gain an advantage.
+        **3️⃣ Competitive Positioning & Strategic Opportunities**
+        - Identify market trends, competitor gaps, or internal company shifts that give Tavant an advantage.
+
+        **🎯 Format your response clearly using markdown styling for readability.**
         `;
 
         const response = await axios.post(OPENAI_API_URL, {
             model: "gpt-4o",
             messages: [{ role: "system", content: prompt }],
-            max_tokens: 500
+            max_tokens: 800,  // Increased token limit for detailed insights
+            temperature: 0.7,  // Balanced creativity while keeping responses focused
         }, {
             headers: {
                 "Content-Type": "application/json",
@@ -77,6 +89,7 @@ async function generateSummary(researchData, clientDetails) {
         return "Summary generation failed.";
     }
 }
+
 
 // Run research for a specific client and generate a summary
 async function runResearchForClient(clientId) {
