@@ -59,12 +59,15 @@ const NoReportDisplay = ({ companyName }) => (
     </div>
   </div>
 );
-const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
+
+const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) => {
   const [activeTab, setActiveTab] = useState('ai');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [researchData, setResearchData] = useState(null);
   const [googleData, setGoogleData] = useState(null);
+  const [redditData, setRedditData] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     const fetchResearchData = async () => {
@@ -74,31 +77,51 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
       setError(null);
       
       try {
-        // First, try to get the main research document with summary and reddit data
-        const mainResponse = await axios.get(`${API_URL}/research/${clientId}`);
+        // Fetch main research document (summary & metadata)
+        const mainResponse = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
         const mainData = mainResponse.data;
-        
-        // Then, try to get the google data which might be in a separate document
+
+        // Fetch Google data separately (for Web Search tab)
         let googleResults = null;
         try {
           const googleResponse = await axios.get(`${API_URL}/research/google/${clientId}`);
           googleResults = googleResponse.data?.data?.google || null;
         } catch (googleErr) {
           console.log('Google data not found or already included in main document');
-          // This is not a critical error, we'll use any Google data from the main document
         }
-        
-        // Combine the data
+
+        // Fetch Reddit data separately (for Social tab)
+        let redditResults = null;
+        try {
+          const redditResponse = await axios.get(`${API_URL}/research/reddit/${clientId}`);
+          redditResults = redditResponse.data?.data?.reddit || null;
+        } catch (redditErr) {
+          console.log('Reddit data not found or already included in main document');
+        }
+
+        // Get last updated timestamp from CosmosDB
+        const lastUpdatedTimestamp = mainData.timestamp ? new Date(mainData.timestamp).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }) : "Not available";
+
+        // Combine fetched data
         const combinedData = {
           ...mainData,
           data: {
             ...mainData.data,
-            google: googleResults || mainData.data?.google || null
+            google: googleResults || mainData.data?.google || null,
+            reddit: redditResults || mainData.data?.reddit || null
           }
         };
-        
+
+        // Set state variables
         setResearchData(combinedData);
         setGoogleData(combinedData.data?.google || null);
+        setRedditData(combinedData.data?.reddit || null);
+        setLastUpdated(lastUpdatedTimestamp);
+
       } catch (err) {
         if (err.response?.status === 404) {
           setError('REPORT_GENERATING');
@@ -114,67 +137,11 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
     fetchResearchData();
   }, [clientId, isOpen]);
 
-  const formatSummaryContent = (text) => {
-    if (!text) return [];
-    
-    return text.split('\n').map((point, index) => {
-      const trimmedPoint = point.trim();
-      if (!trimmedPoint) return null;
-
-      // Handle numbered points with emoji
-      const numberMatch = trimmedPoint.match(/^([1️⃣2️⃣3️⃣]) /);
-      if (numberMatch) {
-        const number = numberMatch[1] === '1️⃣' ? '1' : (numberMatch[1] === '2️⃣' ? '2' : '3');
-        const content = trimmedPoint.replace(/^[1️⃣2️⃣3️⃣] /, '');
-        return {
-          type: 'numbered',
-          number,
-          content
-        };
-      }
-
-      // Handle header sections (###, ####)
-      if (trimmedPoint.startsWith('###')) {
-        return {
-          type: 'header',
-          content: trimmedPoint.replace(/^###\s+/, '')
-        };
-      }
-      
-      if (trimmedPoint.startsWith('####')) {
-        return {
-          type: 'subheader',
-          content: trimmedPoint.replace(/^####\s+/, '')
-        };
-      }
-
-      // Handle bold sections (text between ** markers)
-      if (trimmedPoint.includes('**')) {
-        const boldPattern = /\*\*(.*?)\*\*/;
-        const match = trimmedPoint.match(boldPattern);
-        if (match) {
-          const boldText = match[1];
-          const remainingText = trimmedPoint.replace(/\*\*.*?\*\*/, '').trim();
-          return {
-            type: 'section',
-            title: boldText,
-            content: remainingText.replace(/^:\s*/, '') // Remove colon and spaces after the bold text
-          };
-        }
-      }
-
-      // Default case
-      return {
-        type: 'text',
-        content: trimmedPoint
-      };
-    }).filter(Boolean);
-  };
-
   if (!isOpen) return null;
 
-  // Get company name from research data or fall back to client name
+  // Use company name instead of client name
   const displayName = researchData?.company || clientName;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl h-[80vh]">
@@ -183,11 +150,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
           <div>
             <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report - {displayName}</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Last updated: {new Date(researchData?.timestamp || Date.now()).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
+              Last updated: {lastUpdated}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -206,207 +169,133 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, clientName }) => {
             </button>
           </div>
         </div>
-
-        {/* Content Container */}
-        <div className="flex h-[calc(80vh-88px)]">
-          {/* Sidebar */}
-          <div className="w-60 border-r border-gray-200 bg-gray-50">
-            <div className="p-4">
-              <button
-                onClick={() => setActiveTab('ai')}
-                className={`w-full flex items-center p-3 rounded-lg mb-2 transition-colors ${
-                  activeTab === 'ai' 
-                    ? 'bg-blue-50 text-blue-700 font-medium' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <Brain className="w-5 h-5 mr-3" />
-                <span>AI Summary</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('web')}
-                className={`w-full flex items-center p-3 rounded-lg mb-2 transition-colors ${
-                  activeTab === 'web' 
-                    ? 'bg-blue-50 text-blue-700 font-medium' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <Search className="w-5 h-5 mr-3" />
-                <span>Web Search</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('social')}
-                className={`w-full flex items-center p-3 rounded-lg mb-2 transition-colors ${
-                  activeTab === 'social' 
-                    ? 'bg-blue-50 text-blue-700 font-medium' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <MessageCircle className="w-5 h-5 mr-3" />
-                <span>Social</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('industry')}
-                className={`w-full flex items-center p-3 rounded-lg mb-2 transition-colors ${
-                  activeTab === 'industry' 
-                    ? 'bg-blue-50 text-blue-700 font-medium' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <BarChart2 className="w-5 h-5 mr-3" />
-                <span>Industry</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Main Content Area */}
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <LoadingSkeleton />
-            ) : error ? (
-              error === 'REPORT_GENERATING' ? (
-                <NoReportDisplay companyName={displayName} />
-              ) : (
-                <ErrorDisplay message="Unable to load the intelligence report. Please try again later." />
-              )
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <LoadingSkeleton />
+          ) : error ? (
+            error === 'REPORT_GENERATING' ? (
+              <NoReportDisplay companyName={displayName} />
             ) : (
-              <div className="p-8">
-                {activeTab === 'ai' && (
-                  <>
-                    <div className="mb-6">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Analysis Summary</h3>
-                      <p className="text-sm text-gray-500">
-                        Key insights and recommendations for {displayName}
-                      </p>
-                    </div>
+              <ErrorDisplay message="Unable to load the intelligence report. Please try again later." />
+            )
+          ) : (
+            <div className="p-8">
+              
+              {/* AI Summary Tab */}
+              {activeTab === 'ai' && (
+                <>
+                  <div className="mb-6">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Analysis Summary</h3>
+                    <p className="text-sm text-gray-500">
+                      Key insights and recommendations for {displayName}
+                    </p>
+                  </div>
 
-                    {/* Summary Box */}
-                    {researchData?.summary ? (
-                      <div className="bg-gradient-to-br from-blue-50 to-blue-50/50 rounded-xl p-6 mb-8 border border-blue-100">
-                        <div className="flex items-start gap-4">
-                          <Brain className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
-                          <div className="prose max-w-none space-y-4">
-                            {formatSummaryContent(researchData.summary).map((item, index) => {
-                              if (item.type === 'header') {
-                                return (
-                                  <h3 key={index} className="text-xl font-bold text-gray-900 mb-4">{item.content}</h3>
-                                );
-                              }
-                              if (item.type === 'subheader') {
-                                return (
-                                  <h4 key={index} className="text-lg font-bold text-gray-800 mb-3">{item.content}</h4>
-                                );
-                              }
-                              if (item.type === 'numbered') {
-                                return (
-                                  <div key={index} className="flex items-start gap-3 mb-4">
-                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-sm">
-                                      {item.number}
-                                    </span>
-                                    <div className="flex-1 text-gray-600">{item.content}</div>
-                                  </div>
-                                );
-                              }
-                              if (item.type === 'section') {
-                                return (
-                                  <div key={index} className="mb-4">
-                                    <h4 className="font-bold text-gray-900 mb-2">{item.title}</h4>
-                                    {item.content && <p className="text-gray-600 mt-1">{item.content}</p>}
-                                  </div>
-                                );
-                              }
+                  {/* Display AI-generated Summary */}
+                  {researchData?.summary ? (
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-50/50 rounded-xl p-6 mb-8 border border-blue-100">
+                      <div className="flex items-start gap-4">
+                        <Brain className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+                        <div className="prose max-w-none space-y-4">
+                          {formatSummaryContent(researchData.summary).map((item, index) => {
+                            if (item.type === 'header') {
+                              return <h3 key={index} className="text-xl font-bold text-gray-900 mb-4">{item.content}</h3>;
+                            }
+                            if (item.type === 'subheader') {
+                              return <h4 key={index} className="text-lg font-bold text-gray-800 mb-3">{item.content}</h4>;
+                            }
+                            if (item.type === 'numbered') {
                               return (
-                                <p key={index} className="text-gray-600">{item.content}</p>
+                                <div key={index} className="flex items-start gap-3 mb-4">
+                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-sm">
+                                    {item.number}
+                                  </span>
+                                  <div className="flex-1 text-gray-600">{item.content}</div>
+                                </div>
                               );
-                            })}
-                          </div>
+                            }
+                            if (item.type === 'section') {
+                              return (
+                                <div key={index} className="mb-4">
+                                  <h4 className="font-bold text-gray-900 mb-2">{item.title}</h4>
+                                  {item.content && <p className="text-gray-600 mt-1">{item.content}</p>}
+                                </div>
+                              );
+                            }
+                            return <p key={index} className="text-gray-600">{item.content}</p>;
+                          })}
                         </div>
                       </div>
-                    ) : (
-                      <div className="bg-gray-50 rounded-xl p-6 mb-8 border border-gray-200 text-center">
-                        <p className="text-gray-500">No AI summary available for this client yet.</p>
-                      </div>
-                    )}
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-xl p-6 mb-8 border border-gray-200 text-center">
+                      <p className="text-gray-500">No AI summary available for this client yet.</p>
+                    </div>
+                  )}
+                </>
+              )}
 
-                    {/* Google Search Results */}
-                    {googleData && googleData.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">
-                          Latest Articles
-                        </h4>
-                        <div className="space-y-4">
-                          {googleData.map((article, index) => (
-                            <div key={index} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                              <a href={article.url} target="_blank" rel="noopener noreferrer" className="group">
-                                <h5 className="text-lg font-medium text-blue-600 group-hover:text-blue-700 flex items-center mb-2">
-                                  {article.title}
-                                  <ExternalLink className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </h5>
-                              </a>
-                              <p className="text-gray-600 text-sm leading-relaxed mb-3">
-                                {article.snippet !== "No snippet available" ? article.snippet : ""}
-                              </p>
-                              <div className="flex items-center text-sm text-gray-500">
-                                <span className="font-medium text-gray-900">{article.source}</span>
-                                <span className="mx-2">•</span>
-                                <span>{new Date(article.publishedDate.replace(', +0000 UTC', '')).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {activeTab === 'web' && (
-                  <div className="text-center py-12">
-                    <h3 className="text-xl font-semibold mb-2">Web Intelligence</h3>
-                    <p className="text-gray-500">This feature is coming soon...</p>
-                  </div>
-                )}
-
-                {activeTab === 'social' && (
-                  <div className="p-6">
-                    <h3 className="text-xl font-semibold mb-4">Social Media Discussions</h3>
-                    {researchData?.data?.reddit && researchData.data.reddit.length > 0 ? (
-                      <div className="space-y-5">
-                        {researchData.data.reddit.map((post, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
-                            <a href={post.url} target="_blank" rel="noopener noreferrer" className="group">
-                              <h5 className="text-md font-medium text-blue-600 group-hover:text-blue-700 flex items-center mb-2">
-                                {post.title}
-                                <ExternalLink className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </h5>
-                            </a>
-                            <div className="flex items-center text-sm text-gray-500 mt-2">
-                              <span className="font-medium text-gray-700">r/{post.subreddit}</span>
-                              <span className="mx-2">•</span>
-                              <span>{post.upvotes} upvotes</span>
-                              <span className="mx-2">•</span>
-                              <span>{post.comments} comments</span>
-                            </div>
+              {/* Web Search Tab (Google Data) */}
+              {activeTab === 'web' && (
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold mb-4">Latest Web Search Articles</h3>
+                  {googleData && googleData.length > 0 ? (
+                    <div className="space-y-5">
+                      {googleData.map((article, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                          <a href={article.url} target="_blank" rel="noopener noreferrer" className="group">
+                            <h5 className="text-md font-medium text-blue-600 group-hover:text-blue-700 flex items-center mb-2">
+                              {article.title}
+                              <ExternalLink className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </h5>
+                          </a>
+                          <div className="flex items-center text-sm text-gray-500 mt-2">
+                            <span className="font-medium text-gray-700">{article.source}</span>
+                            <span className="mx-2">•</span>
+                            <span>{new Date(article.publishedDate.replace(', +0000 UTC', '')).toLocaleDateString()}</span>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500 text-center py-8">No social media data available for this client.</p>
-                    )}
-                  </div>
-                )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">No web search data available for this client.</p>
+                  )}
+                </div>
+              )}
 
-                {activeTab === 'industry' && (
-                  <div className="text-center py-12">
-                    <h3 className="text-xl font-semibold mb-2">Industry Insights</h3>
-                    <p className="text-gray-500">This feature is coming soon...</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+              {/* Social Tab (Reddit Data) */}
+              {activeTab === 'social' && (
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold mb-4">Social Media Discussions</h3>
+                  {redditData && redditData.length > 0 ? (
+                    <div className="space-y-5">
+                      {redditData.map((post, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                          <a href={post.url} target="_blank" rel="noopener noreferrer" className="group">
+                            <h5 className="text-md font-medium text-blue-600 group-hover:text-blue-700 flex items-center mb-2">
+                              {post.title}
+                              <ExternalLink className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </h5>
+                          </a>
+                          <div className="flex items-center text-sm text-gray-500 mt-2">
+                            <span className="font-medium text-gray-700">r/{post.subreddit}</span>
+                            <span className="mx-2">•</span>
+                            <span>{post.upvotes} upvotes</span>
+                            <span className="mx-2">•</span>
+                            <span>{post.comments} comments</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">No social media data available for this client.</p>
+                  )}
+                </div>
+              )}
+
+            </div>
+          )}
         </div>
       </div>
     </div>
