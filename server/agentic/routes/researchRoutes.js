@@ -23,4 +23,17 @@ router.get("/summary/:clientId/:userId", async (req, res) => {
     }
 });
 
+router.get("/research/google/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const googleDoc = await Research.findOne({ clientId, "data.google": { $exists: true, $ne: null } });
+    if (!googleDoc) {
+      return res.status(404).json({ message: "Google data not found" });
+    }
+    res.json(googleDoc);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

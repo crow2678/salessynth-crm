@@ -14,6 +14,7 @@ const researchModules = {};
 if (config.research_modules.google) {
     researchModules.google = require('./GoogleResearch');
 }
+
 if (config.research_modules.reddit) {
     researchModules.reddit = require('./RedditResearch');
 }
@@ -119,6 +120,10 @@ async function runResearchForClient(clientId) {
 
         runningResearch.add(clientId);
 
+        // Find existing research document to properly merge data
+        const existingResearch = await Research.findOne({ clientId, userId });
+        const existingData = existingResearch?.data || {};
+
         // Run enabled research modules in parallel and pass `clientId` and `userId`
         const researchResults = {};
         await Promise.all(
@@ -130,12 +135,30 @@ async function runResearchForClient(clientId) {
 
         console.log("✅ API Research Data Collected:\n", JSON.stringify(researchResults, null, 2));
 
+        // Merge new research data with existing data
+        const mergedData = { ...existingData };
+        
+        // Update with new research data (only overwrite modules that were run)
+        Object.keys(researchResults).forEach(module => {
+            if (researchResults[module]) {
+                mergedData[module] = researchResults[module];
+            }
+        });
+
         console.log(`✅ Research completed for ${companyName}. Generating GPT-4 summary...`);
 
-        // Generate AI-powered summary
-        const summary = await generateSummary(researchResults, clientData);
+        // Generate AI-powered summary based on merged data
+        const summary = await generateSummary(mergedData, clientData);
 
-        // ✅ Ensure `clientId` and `userId` are stored in research collection
+        // Track when each data source was last updated
+        const lastUpdated = existingResearch?.lastUpdated || {};
+        Object.keys(researchResults).forEach(module => {
+            if (researchResults[module]) {
+                lastUpdated[module] = new Date();
+            }
+        });
+
+        // ✅ Update the research document with merged data
         await Research.updateOne(
             { clientId, userId },
             { 
@@ -143,8 +166,9 @@ async function runResearchForClient(clientId) {
                     clientId: clientId, 
                     userId: userId,     
                     company: companyName,
-                    data: researchResults,
+                    data: mergedData,
                     summary: summary,
+                    lastUpdated: lastUpdated,
                     timestamp: new Date()
                 }
             },
@@ -152,7 +176,6 @@ async function runResearchForClient(clientId) {
         );
 
         console.log(`✅ Research and summary stored for ${companyName} in CosmosDB.`);
-
         runningResearch.delete(clientId);
     } catch (error) {
         console.error("❌ Error in runResearchForClient:", error.message);

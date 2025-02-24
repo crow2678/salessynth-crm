@@ -1,24 +1,41 @@
 // server/scripts/add-user.js
-require('dotenv').config();
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Resolve path to .env file in parent directory (server root)
+const envPath = path.resolve(__dirname, '..', '.env');
+console.log('Looking for .env file at:', envPath);
+
+const result = dotenv.config({ path: envPath });
+if (result.error) {
+  console.error('Error loading .env file:', result.error);
+  process.exit(1);
+}
+
+// Debug: Print loaded environment variables (sanitized)
+console.log('\nLoaded environment variables:');
+console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 const mongoose = require('mongoose');
 const User = require('../models/User');
 
 // Enhanced User Configuration
 const NEW_USER = {
-  email: 'packer2009@gmail.com',    // Replace with actual email
-  password: 'Iphone@1122',          // Replace with actual password
-  firstName: 'John',                // Replace with actual first name
-  lastName: 'doe',                  // Replace with actual last name
-  role: 'user',                     // 'admin' or 'user'
+  email: 'msrkrishnan6477@gmail.com',
+  password: 'Iphone@1122',
+  firstName: 'Ram',
+  lastName: 'S',
+  role: 'user',
   isActive: true,
-  // Premium features configuration
-  flightTrackingEnabled: true,      // Enable/disable flight tracking
-  flightTrackingQuota: 10,         // Number of flights user can track
+  flightTrackingEnabled: true,
+  flightTrackingQuota: 10,
   flightTrackingSettings: {
-    refreshInterval: 3600,           // 5 minutes in seconds
+    refreshInterval: 3600,
     notifications: {
       enabled: true,
-      delayThreshold: 15,          // Minutes
+      delayThreshold: 15,
       types: ['delay', 'gate_change', 'status_change', 'cancellation']
     }
   },
@@ -43,11 +60,18 @@ const cosmosOptions = {
 async function addUser() {
   let connection;
   try {
-    console.log('Initializing user creation...');
-    console.log('Connecting to Cosmos DB...');
+    console.log('\nInitializing user creation...');
+    
+    // Verify MongoDB URI
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI is not defined in environment variables');
+    }
+
+    console.log('MongoDB URI:', process.env.MONGODB_URI.substring(0, 20) + '...');
+    console.log('Attempting to connect to MongoDB...');
     
     connection = await mongoose.connect(process.env.MONGODB_URI, cosmosOptions);
-    console.log('Connected successfully to Cosmos DB');
+    console.log('Connected successfully to MongoDB');
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: NEW_USER.email });
@@ -57,44 +81,27 @@ async function addUser() {
 
     // Create new user
     const user = new User(NEW_USER);
-
-    // Save user to database
     await user.save();
 
-    console.log('✅ User created successfully:', {
+    console.log('\n✅ User created successfully:', {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      role: user.role,
-      premiumStatus: {
-        flightTracking: {
-          enabled: user.flightTrackingEnabled,
-          quota: user.flightTrackingQuota
-        },
-        premiumFeatures: user.premiumFeatures
-      }
+      role: user.role
     });
 
-    // Log premium features status
-    console.log('\nPremium Features Configuration:');
-    console.log('--------------------------------');
-    console.log('Flight Tracking:', user.flightTrackingEnabled ? 'Enabled' : 'Disabled');
-    console.log('Flight Quota:', user.flightTrackingQuota);
-    console.log('Refresh Interval:', `${user.flightTrackingSettings.refreshInterval} seconds`);
-    console.log('Notifications:', user.flightTrackingSettings.notifications.enabled ? 'Enabled' : 'Disabled');
-    console.log('Alert Types:', user.flightTrackingSettings.notifications.types.join(', '));
-
   } catch (error) {
-    console.error('❌ Error creating user:', error.message);
-    if (error.code === 11000) {
-      console.error('User with this email already exists');
+    console.error('\n❌ Error:', error.message);
+    if (error.name === 'MongoServerError') {
+      console.error('MongoDB Error Code:', error.code);
+      console.error('MongoDB Error Details:', error.errInfo || error);
     }
   } finally {
-    // Close database connection
     if (connection) {
       await mongoose.disconnect();
-      console.log('Database connection closed');
+      console.log('\nDatabase connection closed');
     }
+    process.exit(0);
   }
 }
 

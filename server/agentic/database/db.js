@@ -7,15 +7,32 @@ const DATABASE_NAME = "test"; // Ensure this matches your CosmosDB database name
 mongoose.connect(`${MONGODB_URI}/${DATABASE_NAME}`, {});
 
 // ✅ Research Schema (Now includes `userId`, `clientId`, and `summary`)
+// In db.js
 const researchSchema = new mongoose.Schema({
-    clientId: { type: String, required: true }, // Unique client reference
-    userId: { type: String, required: true },   // Unique user reference
-    company: { type: String, required: true },  // Company name
-    source: { type: String, required: true },   // Source of research (Google, Reddit, etc.)
-    data: { type: Object, required: true },     // Raw research data
-    summary: { type: String, default: "" },     // Final AI-generated summary
-    timestamp: { type: Date, default: Date.now }
-});
+    clientId: { type: String, required: true },
+    userId: { type: String, required: true },
+    company: { type: String, required: true },
+    data: {
+        google: { type: Array, default: null },
+        reddit: { type: Array, default: null },
+        // Future API integrations can be added here:
+        // linkedin: { type: Array, default: null },
+        // twitter: { type: Array, default: null },
+        // crunchbase: { type: Array, default: null },
+        // etc.
+    },
+    summary: { type: String, default: "" },
+    timestamp: { type: Date, default: Date.now },
+    // Track when each data source was last updated
+    lastUpdated: {
+        google: { type: Date, default: null },
+        reddit: { type: Date, default: null },
+        // Match the structure of your data field for future APIs
+    }
+}, { collection: "research" });
+
+// Add this to make the schema more flexible
+researchSchema.set('strict', false);
 const Research = mongoose.model("Research", researchSchema);
 
 // ✅ Client Schema (matches your `clients` collection structure)
