@@ -94,10 +94,10 @@ const Dashboard = () => {
   }));
 
   // Intelligence Modal Handler
-  const handleShowIntelligence = (client) => {
-    setSelectedIntelligenceClient(client);
-    setShowIntelligenceModal(true);
-  };
+	const handleShowIntelligence = (clientId, userId, clientName) => {
+	  setSelectedIntelligenceClient({ _id: clientId, userId, name: clientName });
+	  setShowIntelligenceModal(true);
+	};
 
   // Recent Clients Query
   const { data: recentClients = [] } = useQuery({
