@@ -48,6 +48,6 @@ flightSchema.index({ userId: 1, flightNumber: 1 });
 flightSchema.index({ userId: 1, status: 1 });
 flightSchema.index({ lastUpdated: 1 });
 
-const Flight = mongoose.model('Flight', flightSchema);
-
+//const Flight = mongoose.model('Flight', flightSchema);
+const Flight = mongoose.models.Flight || mongoose.model('Flight', flightSchema);
 module.exports = Flight;

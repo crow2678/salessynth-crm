@@ -9,5 +9,6 @@ const ResearchSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now }
 });
 
-const Research = mongoose.model("Research", ResearchSchema);
+//const Research = mongoose.model("Research", ResearchSchema);
+const Research = mongoose.models.Research || mongoose.model('Research', researchSchema);
 module.exports = Research;

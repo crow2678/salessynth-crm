@@ -180,6 +180,8 @@ clientSchema.statics.getPaginatedClients = function(userId, page = 1, limit = 10
   ]);
 };
 
-const Client = mongoose.model('Client', clientSchema);
+//const Client = mongoose.model('Client', clientSchema);
+const Client = mongoose.models.Client || mongoose.model('Client', clientSchema);
+
 
 module.exports = Client;

@@ -65,6 +65,7 @@ bookmarkSchema.pre('save', function(next) {
 bookmarkSchema.index({ userId: 1, createdAt: -1 });
 bookmarkSchema.index({ userId: 1, tags: 1 });
 
-const Bookmark = mongoose.model('Bookmark', bookmarkSchema);
+//const Bookmark = mongoose.model('Bookmark', bookmarkSchema);
+const Bookmark = mongoose.models.Bookmark || mongoose.model('Bookmark', bookmarkSchema);
 
 module.exports = Bookmark;

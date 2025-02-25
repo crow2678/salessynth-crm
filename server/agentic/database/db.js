@@ -49,7 +49,9 @@ const clientSchema = new mongoose.Schema({
     userId: String
 }, { collection: "clients" }); // Ensure it targets the `clients` collection
 
-const Client = mongoose.model("Client", clientSchema);
+//const Client = mongoose.model("Client", clientSchema);
+const Client = mongoose.models.Client || mongoose.model('Client', clientSchema);
+
 
 const db = mongoose.connection;
 
