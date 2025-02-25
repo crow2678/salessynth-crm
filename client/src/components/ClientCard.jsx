@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { STATUS_CONFIG, getClientStatus, getDealStatus } from '../utils/statusUtils';
 
-const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) => {  // Added onShowIntelligence
+const ClientCard = ({ client, onEdit, onToggleBookmark, 	 }) => {  // Added onShowIntelligence
   const status = getClientStatus(client);
   const statusConfig = STATUS_CONFIG[status];
   const totalPipeline = client.deals?.reduce((sum, deal) => 
@@ -126,10 +126,21 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
     onEdit(client);
   };
 
-  const handleIntelligenceClick = (e) => {  // Added handler for intelligence
-    e.stopPropagation();
-    onShowIntelligence(client);
-  };
+	const handleIntelligenceClick = (e) => {  
+		e.stopPropagation();
+
+		console.log("🚀 Handling Intelligence Click:");
+		console.log("Client ID:", client?._id);
+		console.log("User ID:", client?.userId);  // ✅ Debugging userId before passing it
+
+		if (!client._id || !client.userId) {
+			console.error("🚨 Missing clientId or userId. Cannot open IntelligenceModal.");
+			return;
+		}
+
+		onShowIntelligence(client._id, client.userId, client.name);
+	};
+
 
   const { icon: statusIcon, tooltip: statusTooltip } = getDealStatusIcon();
   // Part 2: Component Render
