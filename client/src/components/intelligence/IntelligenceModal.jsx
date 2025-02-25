@@ -60,6 +60,7 @@ const NoReportDisplay = ({ companyName }) => (
   </div>
 );
 
+//const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) => {
 const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) => {
   const [activeTab, setActiveTab] = useState('ai');
   const [loading, setLoading] = useState(true);
@@ -78,8 +79,14 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
       
       try {
         // Fetch main research document (summary & metadata)
-        const mainResponse = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
-        const mainData = mainResponse.data;
+       // const mainResponse = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+		try {
+			const mainResponse = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+			const mainData = mainResponse.data;
+		} catch (err) {
+			console.error("❌ Error fetching research data:", err.response?.data || err.message);
+			setError(err.response?.data?.message || "Failed to load research data.");
+		}
 
         // Fetch Google data separately (for Web Search tab)
         let googleResults = null;
