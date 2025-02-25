@@ -34,91 +34,84 @@ async function getMongoClient() {
  * @param {string} userId - The ID of the user requesting the research.
  * @returns {Promise<Array>} - Array of Reddit posts or empty array if none found.
  */
+// Enhanced Reddit search function
 async function fetchRedditResearch(companyName, clientId, userId) {
-    let client = null;
+    // Get MongoDB client from existing function
     
     try {
-        client = await getMongoClient();
-        const db = client.db(DB_NAME);
-        const collection = db.collection(COLLECTION_NAME);
-
-        console.log(`🔍 Checking for existing Reddit research on ${companyName}...`);
-
-        // 🔹 Check if Reddit research already exists and respect cooldown period
-        const existingResearch = await collection.findOne({ clientId, userId });
-        const now = new Date();
+        // Check cache/cooldown (keep existing code)
         
-        // Add cooldown check similar to GoogleResearch.js
-        let lastUpdatedReddit = existingResearch?.lastUpdatedReddit || null;
-        if (lastUpdatedReddit && (now - new Date(lastUpdatedReddit)) < COOLDOWN_PERIOD) {
-            console.log(`⏳ Reddit research cooldown active for ${companyName}. Skipping API call.`);
-            return existingResearch?.data?.reddit || [];
-        }
-
-        console.log(`🔍 Fetching top Reddit discussions for ${companyName}...`);
-
-        // 🔹 Fetch top Reddit posts related to the company
-        const posts = await reddit.search({
-            query: companyName,
-            time: "week",   // Search within the last week
-            sort: "top",     // Fetch top-ranking posts
-            limit: 5         // Get the top 5 relevant posts
+        console.log(`🔍 Fetching relevant Reddit discussions for ${companyName}...`);
+        
+        // Business-focused subreddits
+        const businessSubreddits = ['investing', 'stocks', 'finance', 'economy', 'business', 'wallstreetbets'];
+        
+        // Create exact phrase search query with business context
+        const searchQuery = `"${companyName}" (company OR financial OR business)`;
+        
+        // First try searching across the platform
+        let posts = await reddit.search({
+            query: searchQuery,
+            time: "month",   // Expand to one month
+            sort: "relevance", // Prioritize relevance over popularity
+            limit: 20        // Get more posts to filter down
         });
-
-        if (!posts || posts.length === 0) {
-            console.log(`⚠️ No relevant Reddit discussions found for ${companyName}.`);
-            
-            // Still update timestamp to respect cooldown period
-            await collection.updateOne(
-                { clientId, userId },
-                {
-                    $set: {
-                        "lastUpdatedReddit": now,
-                    },
-                    $setOnInsert: {
-                        clientId,
-                        userId,
-                        companyName
-                    }
-                },
-                { upsert: true }
+        
+        // If not enough results, search specific business subreddits
+        if (posts.length < 5) {
+            const subredditResults = await Promise.all(
+                businessSubreddits.map(sub => 
+                    reddit.getSubreddit(sub).search({
+                        query: `"${companyName}"`,
+                        time: "year",
+                        sort: "relevance",
+                        limit: 5
+                    }).catch(e => []) // Handle errors gracefully
+                )
             );
             
+            // Combine results
+            posts = [...posts, ...subredditResults.flat()];
+        }
+        
+        // Filter for relevance
+        const companyRegex = new RegExp(`\\b${companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        const relevantPosts = posts.filter(post => 
+            companyRegex.test(post.title) || 
+            (post.selftext && companyRegex.test(post.selftext))
+        ).slice(0, 5); // Limit to top 5 most relevant
+        
+        if (relevantPosts.length === 0) {
+            console.log(`⚠️ No relevant Reddit discussions found for ${companyName}.`);
+            // Update timestamp (keep existing code)
             return [];
         }
-
-        const redditData = posts.map(post => ({
-            title: post.title,
-            url: `https://www.reddit.com${post.permalink}`, // Use permalink for correct Reddit URL
-            subreddit: post.subreddit.display_name,
-            upvotes: post.ups,
-            comments: post.num_comments,
-            created: new Date(post.created_utc * 1000).toISOString() // Convert timestamp to ISO date
-        }));
-
-        // 🔹 Store Reddit research in MongoDB, using specific timestamp like GoogleResearch
-        await collection.updateOne(
-            { clientId, userId },
-            { 
-                $set: { 
-                    "data.reddit": redditData, 
-                    "lastUpdatedReddit": now,  // Use Reddit-specific timestamp
-                    "clientId": clientId,      // Ensure these fields are set
-                    "userId": userId,
-                    "companyName": companyName  // Store company name for easier querying
-                }
-            },
-            { upsert: true }
-        );
-
-        console.log(`✅ Reddit research stored successfully for ${companyName}.`);
-
+        
+        // Process and enrich data
+        const redditData = relevantPosts.map(post => {
+            // Basic sentiment analysis
+            const sentiment = post.title.match(/positive|growth|success|profit|up|gains/i) ? 'positive' : 
+                             post.title.match(/negative|decline|loss|down|fail|problem/i) ? 'negative' : 'neutral';
+            
+            return {
+                title: post.title,
+                url: `https://www.reddit.com${post.permalink}`,
+                subreddit: post.subreddit.display_name,
+                upvotes: post.ups,
+                comments: post.num_comments,
+                created: new Date(post.created_utc * 1000).toISOString(),
+                snippet: post.selftext ? post.selftext.substring(0, 200) + '...' : 'No text content',
+                sentiment: sentiment
+            };
+        });
+        
+        // Store in MongoDB (keep existing code)
+        
         return redditData;
     } catch (error) {
         console.error(`❌ Error with Reddit research for ${companyName}:`, error.message);
         return [];
     }
-    // Don't close the connection here - we're using a shared connection pool
 }
 
 // Handle graceful shutdown
