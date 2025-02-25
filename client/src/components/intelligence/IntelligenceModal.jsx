@@ -70,79 +70,67 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
   const [redditData, setRedditData] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  useEffect(() => {
-    const fetchResearchData = async () => {
-      if (!clientId || !isOpen) return;
-      
-      setLoading(true);
-      setError(null);
-      
+useEffect(() => {
+  console.log("📡 Debugging IntelligenceModal Props:");
+  console.log("clientId:", clientId);
+  console.log("userId:", userId);
+  const fetchResearchData = async () => {
+    if (!clientId || !userId || !isOpen) return;  // ✅ Ensure userId is defined
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log(`📡 Fetching research summary for Client ID: ${clientId}, User ID: ${userId}`);
+
+      // ✅ Fetch main research summary
+      const mainResponse = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+      const mainData = mainResponse.data;
+
+      // ✅ Fetch Google data separately
+      let googleResults = null;
       try {
-        // Fetch main research document (summary & metadata)
-       // const mainResponse = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
-		try {
-			const mainResponse = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
-			const mainData = mainResponse.data;
-		} catch (err) {
-			console.error("❌ Error fetching research data:", err.response?.data || err.message);
-			setError(err.response?.data?.message || "Failed to load research data.");
-		}
-
-        // Fetch Google data separately (for Web Search tab)
-        let googleResults = null;
-        try {
-          const googleResponse = await axios.get(`${API_URL}/research/google/${clientId}`);
-          googleResults = googleResponse.data?.data?.google || null;
-        } catch (googleErr) {
-          console.log('Google data not found or already included in main document');
-        }
-
-        // Fetch Reddit data separately (for Social tab)
-        let redditResults = null;
-        try {
-          const redditResponse = await axios.get(`${API_URL}/research/reddit/${clientId}`);
-          redditResults = redditResponse.data?.data?.reddit || null;
-        } catch (redditErr) {
-          console.log('Reddit data not found or already included in main document');
-        }
-
-        // Get last updated timestamp from CosmosDB
-        const lastUpdatedTimestamp = mainData.timestamp ? new Date(mainData.timestamp).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }) : "Not available";
-
-        // Combine fetched data
-        const combinedData = {
-          ...mainData,
-          data: {
-            ...mainData.data,
-            google: googleResults || mainData.data?.google || null,
-            reddit: redditResults || mainData.data?.reddit || null
-          }
-        };
-
-        // Set state variables
-        setResearchData(combinedData);
-        setGoogleData(combinedData.data?.google || null);
-        setRedditData(combinedData.data?.reddit || null);
-        setLastUpdated(lastUpdatedTimestamp);
-
-      } catch (err) {
-        if (err.response?.status === 404) {
-          setError('REPORT_GENERATING');
-        } else {
-          console.error('Error fetching research data:', err);
-          setError('FETCH_ERROR');
-        }
-      } finally {
-        setLoading(false);
+        const googleResponse = await axios.get(`${API_URL}/research/google/${clientId}`);
+        googleResults = googleResponse.data?.googleData || null;
+      } catch (googleErr) {
+        console.warn("⚠️ Google data not found:", googleErr.response?.data || googleErr.message);
       }
-    };
 
-    fetchResearchData();
-  }, [clientId, isOpen]);
+      // ✅ Fetch Reddit data separately
+      let redditResults = null;
+      try {
+        const redditResponse = await axios.get(`${API_URL}/research/reddit/${clientId}`);
+        redditResults = redditResponse.data?.redditData || null;
+      } catch (redditErr) {
+        console.warn("⚠️ Reddit data not found:", redditErr.response?.data || redditErr.message);
+      }
+
+      // ✅ Combine fetched data
+      const combinedData = {
+        ...mainData,
+        data: {
+          ...mainData.data,
+          google: googleResults || mainData.data?.google || null,
+          reddit: redditResults || mainData.data?.reddit || null
+        }
+      };
+
+      // ✅ Update state
+      setResearchData(combinedData);
+      setGoogleData(combinedData.data?.google || null);
+      setRedditData(combinedData.data?.reddit || null);
+      setLastUpdated(mainData.timestamp ? new Date(mainData.timestamp).toLocaleDateString() : "Not available");
+
+    } catch (err) {
+      console.error("❌ Error fetching research data:", err.response?.data || err.message);
+      setError(err.response?.data?.message || "Failed to load research data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchResearchData();
+}, [clientId, userId, isOpen]);
 
   if (!isOpen) return null;
 
