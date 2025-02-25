@@ -299,6 +299,31 @@ app.get('/api/research/:clientId', authMiddleware, async (req, res) => {
     }
 });
 
+// Add this route to your server.js
+app.get('/api/summary/:clientId/:userId', authMiddleware, async (req, res) => {
+  try {
+    // Fetch research summary for the client
+    const research = await Research.findOne({
+      clientId: req.params.clientId,
+      userId: req.params.userId
+    }).lean();
+
+    if (!research) {
+      return res.status(404).json({ 
+        message: 'No research found for this client.' 
+      });
+    }
+
+    res.json(research);
+  } catch (error) {
+    console.error('Error fetching research summary:', error);
+    res.status(500).json({ 
+      message: 'Error fetching research summary',
+      error: error.message 
+    });
+  }
+});
+
 
 app.patch('/api/clients/:id/bookmark', authMiddleware, async (req, res) => {
   try {
@@ -544,7 +569,7 @@ app.use((error, req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Catch-all handler for React app - must be after API routes
-app.get('*', (req, res) => {
+app.get('*', (req, res, next) => {
   // Only handle non-API routes with this catch-all
   if (!req.path.startsWith('/api/')) {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
