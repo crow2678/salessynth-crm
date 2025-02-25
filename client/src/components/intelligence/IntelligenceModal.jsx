@@ -96,6 +96,35 @@ const RedditPostCard = ({ post }) => (
   </div>
 );
 
+// Format the Markdown text properly
+const formatMarkdown = (text) => {
+  if (!text) return '';
+  
+  // Handle bold text
+  let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  // Make section titles bold
+  formattedText = formattedText.replace(/(###\s+[0-9️⃣]+\s+.*?)$/gm, '<h3 class="font-bold text-lg mb-3">$1</h3>');
+  
+  // Replace newlines with <br>
+  formattedText = formattedText.replace(/\n/g, '<br>');
+  
+  return formattedText;
+};
+
+// Format the MongoDB timestamp
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return 'Not available';
+  
+  // Check if it's a MongoDB $date object
+  if (timestamp.$date) {
+    return new Date(timestamp.$date).toLocaleDateString();
+  }
+  
+  // Regular date string
+  return new Date(timestamp).toLocaleDateString();
+};
+
 const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) => {
   const [activeTab, setActiveTab] = useState('ai');
   const [loading, setLoading] = useState(true);
@@ -136,7 +165,9 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
         setResearchData(data);
         setGoogleData(data.data?.google || []);
         setRedditData(data.data?.reddit || []);
-        setLastUpdated(data.timestamp ? new Date(data.timestamp).toLocaleDateString() : "Not available");
+        
+        // Set last updated using the MongoDB timestamp format
+        setLastUpdated(data.timestamp || null);
 
       } catch (err) {
         console.error("❌ Error fetching research data:", err.response?.data || err.message);
@@ -157,7 +188,8 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
 
   if (!isOpen) return null;
 
-  const displayName = researchData?.companyName || clientName || "Company";
+  // Use companyName from the research data instead of clientName
+  const displayName = researchData?.companyName || "Company";
   const isSummaryAvailable = researchData?.summary;
   const areGoogleResultsAvailable = googleData && Array.isArray(googleData) && googleData.length > 0;
   const areRedditResultsAvailable = redditData && Array.isArray(redditData) && redditData.length > 0;
@@ -169,7 +201,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
           <div>
             <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report - {displayName}</h2>
             <p className="text-sm text-gray-500 mt-1">
-              Last updated: {lastUpdated || "N/A"}
+              Last updated: {formatTimestamp(lastUpdated)}
             </p>
           </div>
           <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" onClick={onClose}>
@@ -214,7 +246,9 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                 <div>
                   {isSummaryAvailable ? (
                     <div className="prose prose-blue max-w-none">
-                      <div dangerouslySetInnerHTML={{ __html: researchData.summary.replace(/\n/g, '<br>') }} />
+                      <div dangerouslySetInnerHTML={{ 
+                        __html: formatMarkdown(researchData.summary) 
+                      }} />
                     </div>
                   ) : (
                     <NoReportDisplay companyName={displayName} />
