@@ -93,11 +93,13 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
         // ✅ Fetch Google data separately
         let googleResults = null;
         try {
-          const googleResponse = await axios.get(`${API_URL}/research/google/${clientId}`);
-          googleResults = googleResponse.data?.googleData || null;
-        } catch (googleErr) {
-          console.warn("⚠️ Google data not found:", googleErr.response?.data || googleErr.message);
-        }
+		  const googleResponse = await axios.get(`${API_URL}/research/google/${clientId}`);
+		  googleResults = googleResponse.data?.googleData || null;
+		} catch (googleErr) {
+		  console.log("Info: Google data not available for this client");
+		  // No need to show warnings for expected 404s
+		  googleResults = null;
+		}
 
         // ✅ Fetch Reddit data separately
         let redditResults = null;
