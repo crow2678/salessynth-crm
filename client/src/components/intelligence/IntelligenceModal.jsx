@@ -60,7 +60,6 @@ const NoReportDisplay = ({ companyName }) => (
   </div>
 );
 
-//const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) => {
 const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) => {
   const [activeTab, setActiveTab] = useState('ai');
   const [loading, setLoading] = useState(true);
@@ -70,77 +69,79 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
   const [redditData, setRedditData] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-useEffect(() => {
-  console.log("📡 Debugging IntelligenceModal Props:");
-  console.log("clientId:", clientId);
-  console.log("userId:", userId);
-  const fetchResearchData = async () => {
-    if (!clientId || !userId || !isOpen) return;  // ✅ Ensure userId is defined
+  useEffect(() => {
+    console.log("📡 Debugging IntelligenceModal Props:");
+    console.log("clientId:", clientId);
+    console.log("userId:", userId);
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      console.log(`📡 Fetching research summary for Client ID: ${clientId}, User ID: ${userId}`);
-
-      // ✅ Fetch main research summary
-      const mainResponse = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
-      const mainData = mainResponse.data;
-
-      // ✅ Fetch Google data separately
-      let googleResults = null;
-      try {
-        const googleResponse = await axios.get(`${API_URL}/research/google/${clientId}`);
-        googleResults = googleResponse.data?.googleData || null;
-      } catch (googleErr) {
-        console.warn("⚠️ Google data not found:", googleErr.response?.data || googleErr.message);
-      }
-
-      // ✅ Fetch Reddit data separately
-      let redditResults = null;
-      try {
-        const redditResponse = await axios.get(`${API_URL}/research/reddit/${clientId}`);
-        redditResults = redditResponse.data?.redditData || null;
-      } catch (redditErr) {
-        console.warn("⚠️ Reddit data not found:", redditErr.response?.data || redditErr.message);
-      }
-
-      // ✅ Combine fetched data
-      const combinedData = {
-        ...mainData,
-        data: {
-          ...mainData.data,
-          google: googleResults || mainData.data?.google || null,
-          reddit: redditResults || mainData.data?.reddit || null
-        }
-      };
-
-      // ✅ Update state
-      setResearchData(combinedData);
-      setGoogleData(combinedData.data?.google || null);
-      setRedditData(combinedData.data?.reddit || null);
-      setLastUpdated(mainData.timestamp ? new Date(mainData.timestamp).toLocaleDateString() : "Not available");
-
-    } catch (err) {
-      console.error("❌ Error fetching research data:", err.response?.data || err.message);
-      setError(err.response?.data?.message || "Failed to load research data.");
-    } finally {
-      setLoading(false);
+    if (!clientId || !userId || !isOpen) {
+      console.error("🚨 Missing clientId or userId. Skipping API call.");
+      return;
     }
-  };
 
-  fetchResearchData();
-}, [clientId, userId, isOpen]);
+    const fetchResearchData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        console.log(`📡 Fetching research summary for Client ID: ${clientId}, User ID: ${userId}`);
+
+        // ✅ Fetch main research summary
+        const mainResponse = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+        const mainData = mainResponse.data;
+
+        // ✅ Fetch Google data separately
+        let googleResults = null;
+        try {
+          const googleResponse = await axios.get(`${API_URL}/research/google/${clientId}`);
+          googleResults = googleResponse.data?.googleData || null;
+        } catch (googleErr) {
+          console.warn("⚠️ Google data not found:", googleErr.response?.data || googleErr.message);
+        }
+
+        // ✅ Fetch Reddit data separately
+        let redditResults = null;
+        try {
+          const redditResponse = await axios.get(`${API_URL}/research/reddit/${clientId}`);
+          redditResults = redditResponse.data?.redditData || null;
+        } catch (redditErr) {
+          console.warn("⚠️ Reddit data not found:", redditErr.response?.data || redditErr.message);
+        }
+
+        // ✅ Combine fetched data
+        const combinedData = {
+          ...mainData,
+          data: {
+            ...mainData.data,
+            google: googleResults || mainData.data?.google || null,
+            reddit: redditResults || mainData.data?.reddit || null
+          }
+        };
+
+        // ✅ Update state
+        setResearchData(combinedData);
+        setGoogleData(combinedData.data?.google || null);
+        setRedditData(combinedData.data?.reddit || null);
+        setLastUpdated(mainData.timestamp ? new Date(mainData.timestamp).toLocaleDateString() : "Not available");
+
+      } catch (err) {
+        console.error("❌ Error fetching research data:", err.response?.data || err.message);
+        setError(err.response?.data?.message || "Failed to load research data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResearchData();
+  }, [clientId, userId, isOpen]);
 
   if (!isOpen) return null;
 
-  // Use company name instead of client name
   const displayName = researchData?.company || clientName;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl h-[80vh]">
-        {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
           <div>
             <h2 className="text-2xl font-semibold text-gray-900">Intelligence Report - {displayName}</h2>
@@ -148,149 +149,16 @@ useEffect(() => {
               Last updated: {lastUpdated}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center hover:bg-blue-700 transition-colors"
-              onClick={() => window.print()}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export PDF
-            </button>
-            <button 
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              onClick={onClose}
-            >
-              <X className="w-6 h-6 text-gray-500" />
-            </button>
-          </div>
+          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" onClick={onClose}>
+            <X className="w-6 h-6 text-gray-500" />
+          </button>
         </div>
-        {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <LoadingSkeleton />
-          ) : error ? (
-            error === 'REPORT_GENERATING' ? (
-              <NoReportDisplay companyName={displayName} />
-            ) : (
-              <ErrorDisplay message="Unable to load the intelligence report. Please try again later." />
-            )
-          ) : (
-            <div className="p-8">
-              
-              {/* AI Summary Tab */}
-              {activeTab === 'ai' && (
-                <>
-                  <div className="mb-6">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Analysis Summary</h3>
-                    <p className="text-sm text-gray-500">
-                      Key insights and recommendations for {displayName}
-                    </p>
-                  </div>
-
-                  {/* Display AI-generated Summary */}
-                  {researchData?.summary ? (
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-50/50 rounded-xl p-6 mb-8 border border-blue-100">
-                      <div className="flex items-start gap-4">
-                        <Brain className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
-                        <div className="prose max-w-none space-y-4">
-                          {formatSummaryContent(researchData.summary).map((item, index) => {
-                            if (item.type === 'header') {
-                              return <h3 key={index} className="text-xl font-bold text-gray-900 mb-4">{item.content}</h3>;
-                            }
-                            if (item.type === 'subheader') {
-                              return <h4 key={index} className="text-lg font-bold text-gray-800 mb-3">{item.content}</h4>;
-                            }
-                            if (item.type === 'numbered') {
-                              return (
-                                <div key={index} className="flex items-start gap-3 mb-4">
-                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-sm">
-                                    {item.number}
-                                  </span>
-                                  <div className="flex-1 text-gray-600">{item.content}</div>
-                                </div>
-                              );
-                            }
-                            if (item.type === 'section') {
-                              return (
-                                <div key={index} className="mb-4">
-                                  <h4 className="font-bold text-gray-900 mb-2">{item.title}</h4>
-                                  {item.content && <p className="text-gray-600 mt-1">{item.content}</p>}
-                                </div>
-                              );
-                            }
-                            return <p key={index} className="text-gray-600">{item.content}</p>;
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-50 rounded-xl p-6 mb-8 border border-gray-200 text-center">
-                      <p className="text-gray-500">No AI summary available for this client yet.</p>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Web Search Tab (Google Data) */}
-              {activeTab === 'web' && (
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold mb-4">Latest Web Search Articles</h3>
-                  {googleData && googleData.length > 0 ? (
-                    <div className="space-y-5">
-                      {googleData.map((article, index) => (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
-                          <a href={article.url} target="_blank" rel="noopener noreferrer" className="group">
-                            <h5 className="text-md font-medium text-blue-600 group-hover:text-blue-700 flex items-center mb-2">
-                              {article.title}
-                              <ExternalLink className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </h5>
-                          </a>
-                          <div className="flex items-center text-sm text-gray-500 mt-2">
-                            <span className="font-medium text-gray-700">{article.source}</span>
-                            <span className="mx-2">•</span>
-                            <span>{new Date(article.publishedDate.replace(', +0000 UTC', '')).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-8">No web search data available for this client.</p>
-                  )}
-                </div>
-              )}
-
-              {/* Social Tab (Reddit Data) */}
-              {activeTab === 'social' && (
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold mb-4">Social Media Discussions</h3>
-                  {redditData && redditData.length > 0 ? (
-                    <div className="space-y-5">
-                      {redditData.map((post, index) => (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
-                          <a href={post.url} target="_blank" rel="noopener noreferrer" className="group">
-                            <h5 className="text-md font-medium text-blue-600 group-hover:text-blue-700 flex items-center mb-2">
-                              {post.title}
-                              <ExternalLink className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </h5>
-                          </a>
-                          <div className="flex items-center text-sm text-gray-500 mt-2">
-                            <span className="font-medium text-gray-700">r/{post.subreddit}</span>
-                            <span className="mx-2">•</span>
-                            <span>{post.upvotes} upvotes</span>
-                            <span className="mx-2">•</span>
-                            <span>{post.comments} comments</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-8">No social media data available for this client.</p>
-                  )}
-                </div>
-              )}
-
-            </div>
-          )}
+          {loading ? <LoadingSkeleton /> : error ? <ErrorDisplay message={error} /> : <div className="p-8">
+            {activeTab === 'ai' && <p>AI Summary Here</p>}
+            {activeTab === 'web' && <p>Google Search Data Here</p>}
+            {activeTab === 'social' && <p>Reddit Data Here</p>}
+          </div>}
         </div>
       </div>
     </div>
