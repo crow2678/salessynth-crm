@@ -16,6 +16,7 @@ const User = require('./models/User');
 const Flight = require('./models/Flight');
 // Add with other model imports
 const Research = require('./agentic/database/models/Research');
+const researchRoutes = require('./routes/researchRoutes');
 // Initialize express
 const app = express();
 
@@ -25,6 +26,7 @@ app.use(express.json());
 
 // Flight routes - specific API route
 app.use('/api/flights', require('./routes/flightRoutes'));
+app.use('/api', researchRoutes);
 
 // Early health check
 app.get('/early-health', (req, res) => {
