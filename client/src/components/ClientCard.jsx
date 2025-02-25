@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import { STATUS_CONFIG, getClientStatus, getDealStatus } from '../utils/statusUtils';
 
-const ClientCard = ({ client, onEdit, onToggleBookmark, 	 }) => {  // Added onShowIntelligence
+//const ClientCard = ({ client, onEdit, onToggleBookmark, 	 }) => {  // Added onShowIntelligence
+const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) => {
   const status = getClientStatus(client);
   const statusConfig = STATUS_CONFIG[status];
   const totalPipeline = client.deals?.reduce((sum, deal) => 
