@@ -476,15 +476,16 @@ const Dashboard = () => {
         client={selectedClient}
       />
 
-      <IntelligenceModal 
-        isOpen={showIntelligenceModal}
-        onClose={() => {
-          setShowIntelligenceModal(false);
-          setSelectedIntelligenceClient(null);
-        }}
-        clientId={selectedIntelligenceClient?._id}
-        clientName={selectedIntelligenceClient?.name}
-      />
+	<IntelligenceModal 
+	  isOpen={showIntelligenceModal}
+	  onClose={() => {
+		setShowIntelligenceModal(false);
+		setSelectedIntelligenceClient(null);
+	  }}
+	  clientId={selectedIntelligenceClient?._id}
+	  userId={selectedIntelligenceClient?.userId}  // Add this line!
+	  clientName={selectedIntelligenceClient?.name}
+	/>
     </div>
   );
 };
