@@ -7,8 +7,8 @@ const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 const GOOGLE_SEARCH_URL = "https://serpapi.com/search.json";
 const MONGO_URI = process.env.MONGODB_URI;
 const COOLDOWN_PERIOD = 12 * 60 * 60 * 1000; // 12 hours
-const DB_NAME = "test"; // Should match with redditResearch.js
-const COLLECTION_NAME = "research"; // Should match with redditResearch.js
+const DB_NAME = "test";
+const COLLECTION_NAME = "research";
 
 // Create a connection pool instead of new connections for each call
 let mongoClient = null;
@@ -52,15 +52,14 @@ async function fetchGoogleNews(companyName, clientId, userId) {
             source: news.source?.name || "Unknown Source",
             company: companyName,
             clientId: clientId,
-            userId: userId  // ✅ Ensure userId is included in every stored item
+            userId: userId
         }));
 
         console.log(`✅ Retrieved ${extractedNews.length} articles from Google News.`);
         return extractedNews;
     } catch (error) {
         console.error("❌ Error fetching news:", error.response?.data || error.message);
-        // Return null rather than empty array to differentiate between "no results" and "error"
-        return null;
+        return [];
     }
 }
 
@@ -70,7 +69,6 @@ async function fetchGoogleNews(companyName, clientId, userId) {
  * @param {string} companyName - The name of the company.
  * @param {string} clientId - The ID of the client.
  * @param {string} userId - The ID of the user requesting the research.
- * @returns {Promise<boolean>} - Success status
  */
 async function storeGoogleResearch(companyName, clientId, userId) {
     let client = null;
@@ -89,25 +87,22 @@ async function storeGoogleResearch(companyName, clientId, userId) {
         // ✅ Prevent excessive API requests (cooldown logic)
         if (lastUpdatedGoogle && (now - new Date(lastUpdatedGoogle)) < COOLDOWN_PERIOD) {
             console.log(`⏳ Google research cooldown active for ${companyName}. Skipping Google fetch.`);
-            return true; // Success, but no update needed
+            return;
         }
 
         console.log(`🔄 Running Google research for ${companyName}...`);
         const googleData = await fetchGoogleNews(companyName, clientId, userId);
 
-        if (googleData === null) {
-            console.log(`❌ Error occurred fetching Google data for ${companyName}. Skipping storage.`);
-            return false;
-        }
-
         if (googleData.length === 0) {
-            console.log(`⚠️ No new Google data found for ${companyName}. Updating timestamp only.`);
+            console.log(`⚠️ No new Google data found for ${companyName}. Skipping storage.`);
+            
             // Still update timestamp to respect cooldown period
             await collection.updateOne(
                 { clientId, userId },
                 {
                     $set: {
                         "lastUpdatedGoogle": now,
+                        "lastUpdated.google": now // For backward compatibility
                     },
                     $setOnInsert: {
                         clientId,
@@ -117,31 +112,30 @@ async function storeGoogleResearch(companyName, clientId, userId) {
                 },
                 { upsert: true }
             );
-            return true;
+            
+            return;
         }
 
-        // ✅ Ensure `userId` is stored in the research collection
+        // ⚠️ FIX: Ensure we're storing the array of news articles, not "true"
         await collection.updateOne(
-            { clientId, userId },  // ✅ Match on both `clientId` and `userId` to avoid duplication
+            { clientId, userId },
             {
                 $set: {
                     clientId: clientId,
-                    userId: userId,  // ✅ Ensure userId is explicitly stored
-                    companyName: companyName, // ✅ Store company name for easier querying
-                    "data.google": googleData,
-                    "lastUpdatedGoogle": now,  // ✅ Store Google-specific timestamp
+                    userId: userId,
+                    companyName: companyName,
+                    "data.google": googleData,  // ✅ Store the actual array of news articles
+                    "lastUpdatedGoogle": now,
+                    "lastUpdated.google": now // For backward compatibility
                 },
             },
             { upsert: true }
         );
 
         console.log(`✅ Google research stored successfully for ${companyName}.`);
-        return true;
     } catch (error) {
         console.error(`❌ Error storing Google research for ${companyName}:`, error.message);
-        return false;
     }
-    // Don't close the connection here - we're using a shared connection pool
 }
 
 // Handle graceful shutdown
