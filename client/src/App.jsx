@@ -34,7 +34,7 @@ import FlightTracker from './components/FlightTracker';
 
 // Constants
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
-const CLIENTS_PER_PAGE = 10;
+const CLIENTS_PER_PAGE = 30;
 const RECENT_CLIENTS_COUNT = 5;
 
 // Client filtering helper function
