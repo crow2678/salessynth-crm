@@ -157,21 +157,29 @@ const Dashboard = () => {
   };
 
   // Create Client Mutation
-  const createClientMutation = useMutation({
-    mutationFn: async (newClient) => {
-      const response = await axios.post(`${API_URL}/clients`, newClient);
-      return response.data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries(['clients', 'recent']);
-      queryClient.invalidateQueries(['stats']);
-      setCurrentPage(1);
+ const createClientMutation = useMutation({
+  mutationFn: async (newClient) => {
+    const response = await axios.post(`${API_URL}/clients`, newClient);
+    return response.data;
+  },
+  onSuccess: (data) => {
+    // More aggressive invalidation of all client-related queries
+    queryClient.invalidateQueries(['clients']);
+    queryClient.invalidateQueries(['stats']);
+    
+    // Force reset to page 1
+    setCurrentPage(1);
+    
+    // Optional: Add a small delay before showing success message
+    // to give time for queries to refetch
+    setTimeout(() => {
       showAlert('success', 'New client added successfully');
-    },
-    onError: (error) => {
-      showAlert('error', error.response?.data?.message || 'Error creating client');
-    }
-  });
+    }, 100);
+  },
+  onError: (error) => {
+    showAlert('error', error.response?.data?.message || 'Error creating client');
+  }
+});
 
   // Update Client Mutation
   const updateClientMutation = useMutation({
