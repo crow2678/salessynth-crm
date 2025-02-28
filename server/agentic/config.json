@@ -3,6 +3,7 @@
     "google": true,
     "reddit": true,
     "linkedin": false,
+	"apollo": true,
     "futureAPI": false
   }
 }

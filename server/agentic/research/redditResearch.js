@@ -36,11 +36,7 @@ async function getMongoClient() {
  */
 // Enhanced Reddit search function
 async function fetchRedditResearch(companyName, clientId, userId) {
-    // Get MongoDB client from existing function
-    
     try {
-        // Check cache/cooldown (keep existing code)
-        
         console.log(`🔍 Fetching relevant Reddit discussions for ${companyName}...`);
         
         // Business-focused subreddits
@@ -83,7 +79,31 @@ async function fetchRedditResearch(companyName, clientId, userId) {
         
         if (relevantPosts.length === 0) {
             console.log(`⚠️ No relevant Reddit discussions found for ${companyName}.`);
-            // Update timestamp (keep existing code)
+            
+            // Get MongoDB client
+            const client = await getMongoClient();
+            const db = client.db(DB_NAME);
+            const collection = db.collection(COLLECTION_NAME);
+            const now = new Date();
+            
+            // Update only the timestamp fields for Reddit
+            await collection.updateOne(
+                { clientId, userId },
+                {
+                    $set: {
+                        "lastUpdatedReddit": now,
+                        "lastUpdated.reddit": now
+                    },
+                    $setOnInsert: {
+                        clientId,
+                        userId,
+                        companyName,
+                        company: companyName
+                    }
+                },
+                { upsert: true }
+            );
+            
             return [];
         }
         
@@ -105,7 +125,31 @@ async function fetchRedditResearch(companyName, clientId, userId) {
             };
         });
         
-        // Store in MongoDB (keep existing code)
+        // Store in MongoDB with field-specific update
+        const client = await getMongoClient();
+        const db = client.db(DB_NAME);
+        const collection = db.collection(COLLECTION_NAME);
+        const now = new Date();
+        
+        await collection.updateOne(
+            { clientId, userId },
+            {
+                $set: {
+                    "data.reddit": redditData,  // Only update the reddit data field
+                    "lastUpdatedReddit": now,
+                    "lastUpdated.reddit": now,
+                    "companyName": companyName,
+                    "company": companyName
+                },
+                $setOnInsert: {
+                    clientId,
+                    userId
+                }
+            },
+            { upsert: true }
+        );
+        
+        console.log(`✅ Stored ${redditData.length} Reddit posts for ${companyName}`);
         
         return redditData;
     } catch (error) {

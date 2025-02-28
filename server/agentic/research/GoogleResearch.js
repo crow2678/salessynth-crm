@@ -94,9 +94,9 @@ async function storeGoogleResearch(companyName, clientId, userId) {
         const googleData = await fetchGoogleNews(companyName, clientId, userId);
 
         if (googleData.length === 0) {
-            console.log(`⚠️ No new Google data found for ${companyName}. Skipping storage.`);
+            console.log(`⚠️ No new Google data found for ${companyName}. Updating timestamp only.`);
             
-            // Still update timestamp to respect cooldown period
+            // Still update timestamp to respect cooldown period - using field-specific updates
             await collection.updateOne(
                 { clientId, userId },
                 {
@@ -107,7 +107,8 @@ async function storeGoogleResearch(companyName, clientId, userId) {
                     $setOnInsert: {
                         clientId,
                         userId,
-                        companyName
+                        companyName,
+                        company: companyName
                     }
                 },
                 { upsert: true }
@@ -116,18 +117,21 @@ async function storeGoogleResearch(companyName, clientId, userId) {
             return;
         }
 
-        // ⚠️ FIX: Ensure we're storing the array of news articles, not "true"
+        // MODIFIED: Use field-specific update for Google data instead of whole document
         await collection.updateOne(
             { clientId, userId },
             {
                 $set: {
-                    clientId: clientId,
-                    userId: userId,
-                    companyName: companyName,
-                    "data.google": googleData,  // ✅ Store the actual array of news articles
+                    "data.google": googleData,  // Only update the google data field
                     "lastUpdatedGoogle": now,
-                    "lastUpdated.google": now // For backward compatibility
+                    "lastUpdated.google": now,
+                    "companyName": companyName,
+                    "company": companyName  // For backward compatibility
                 },
+                $setOnInsert: {
+                    clientId,
+                    userId
+                }
             },
             { upsert: true }
         );

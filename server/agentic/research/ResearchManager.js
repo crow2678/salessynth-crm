@@ -19,6 +19,10 @@ if (config.research_modules.reddit) {
     researchModules.reddit = require('./RedditResearch');
 }
 
+if (config.research_modules.apollo) {
+    researchModules.apollo = require('./ApolloResearch');
+}
+
 // GPT-4 API details
 const OPENAI_API_URL = "https://88f.openai.azure.com/openai/deployments/88FGPT4o/chat/completions?api-version=2024-02-15-preview";
 const OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
@@ -82,7 +86,7 @@ async function generateSummary(researchData, clientDetails) {
         });
 
         const summary = response.data.choices[0].message.content;
-        console.log("✅ GPT-4 Sales Intelligence Summary Generated:\n", summary);
+        console.log("✅ GPT-4 Sales Intelligence Summary Generated with enhanced data");
 
         return summary;
     } catch (error) {
@@ -91,9 +95,8 @@ async function generateSummary(researchData, clientDetails) {
     }
 }
 
-
 // Run research for a specific client and generate a summary
-async function runResearchForClient(clientId) {
+async function runResearchForClient(clientId, userId) {
     try {
         // ✅ Fetch `userId` and `companyName` upfront
         const clientData = await Client.findOne({ _id: clientId });
@@ -102,7 +105,10 @@ async function runResearchForClient(clientId) {
             return;
         }
 
-        const userId = clientData.userId;
+        if (!userId) {
+            userId = clientData.userId;  // Use clientData.userId if userId not provided
+        }
+        
         const companyName = clientData.company;
 
         if (!userId || !clientId) {
@@ -120,59 +126,44 @@ async function runResearchForClient(clientId) {
 
         runningResearch.add(clientId);
 
-        // Find existing research document to properly merge data
+        // Find existing research document
         const existingResearch = await Research.findOne({ clientId, userId });
-        const existingData = existingResearch?.data || {};
-
-        // Run enabled research modules in parallel and pass `clientId` and `userId`
-        const researchResults = {};
+        
+        // Run enabled research modules in parallel
+        const moduleResults = [];
         await Promise.all(
             Object.keys(researchModules).map(async (module) => {
                 console.log(`🔍 Executing ${module} research for ${companyName}...`);
-                researchResults[module] = await researchModules[module](companyName, clientId, userId);
+                await researchModules[module](companyName, clientId, userId);
+                moduleResults.push(module);
             })
         );
 
-        console.log("✅ API Research Data Collected:\n", JSON.stringify(researchResults, null, 2));
+        console.log("✅ API Research Data Collected:\n", moduleResults.join(", "));
 
-        // Merge new research data with existing data
-        const mergedData = { ...existingData };
+        // Fetch the updated research document after all modules have finished
+        const updatedResearch = await Research.findOne({ clientId, userId });
         
-        // Update with new research data (only overwrite modules that were run)
-        Object.keys(researchResults).forEach(module => {
-            if (researchResults[module]) {
-                mergedData[module] = researchResults[module];
-            }
-        });
+        if (!updatedResearch) {
+            console.log(`⚠️ Research document not found after updates for ${companyName}.`);
+            runningResearch.delete(clientId);
+            return;
+        }
 
         console.log(`✅ Research completed for ${companyName}. Generating GPT-4 summary...`);
 
-        // Generate AI-powered summary based on merged data
-        const summary = await generateSummary(mergedData, clientData);
+        // Generate AI-powered summary based on updated data
+        const summary = await generateSummary(updatedResearch.data, clientData);
 
-        // Track when each data source was last updated
-        const lastUpdated = existingResearch?.lastUpdated || {};
-        Object.keys(researchResults).forEach(module => {
-            if (researchResults[module]) {
-                lastUpdated[module] = new Date();
-            }
-        });
-
-        // ✅ Update the research document with merged data
+        // Update just the summary field without touching the data fields
         await Research.updateOne(
             { clientId, userId },
             { 
                 $set: { 
-                    clientId: clientId, 
-                    userId: userId,     
-                    company: companyName,
-                    data: mergedData,
                     summary: summary,
-                    lastUpdated: lastUpdated,
                     timestamp: new Date()
                 }
-            },
-            { upsert: true } 
+            }
         );
 
         console.log(`✅ Research and summary stored for ${companyName} in CosmosDB.`);
