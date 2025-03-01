@@ -1,5 +1,5 @@
 // Part 1: Imports and Initial Setup
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { 
   Search, 
@@ -10,7 +10,8 @@ import {
   Link2, 
   LogOut,
   ChevronDown,
-  BookmarkCheck
+  BookmarkCheck,
+  ArrowDownUp  // Added for priority sorting
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -37,6 +38,24 @@ const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/ap
 const CLIENTS_PER_PAGE = 30;
 const RECENT_CLIENTS_COUNT = 5;
 
+// Priority options
+const PRIORITY_OPTIONS = {
+  RECENT: 'recent',
+  DEAL_VALUE: 'dealValue',
+  FOLLOW_UP: 'followUp',
+  BOOKMARKED: 'bookmarked',
+  BALANCED: 'balanced'
+};
+
+// Priority labels
+const PRIORITY_LABELS = {
+  [PRIORITY_OPTIONS.RECENT]: 'Recent Clients',
+  [PRIORITY_OPTIONS.DEAL_VALUE]: 'Deal Value',
+  [PRIORITY_OPTIONS.FOLLOW_UP]: 'Follow-up Needed',
+  [PRIORITY_OPTIONS.BOOKMARKED]: 'Bookmarked',
+  [PRIORITY_OPTIONS.BALANCED]: 'Smart Balance'
+};
+
 // Client filtering helper function
 const getFilteredClients = (clients, searchTerm, selectedStatus) => {
   return clients.filter(client => {
@@ -54,6 +73,123 @@ const getFilteredClients = (clients, searchTerm, selectedStatus) => {
   });
 };
 
+// Client priority scoring function
+const calculateClientScore = (client, priorityType) => {
+  let score = 0;
+  const now = new Date();
+  
+  // Base score components that apply to all priority types
+  
+  // Recent clients get a base score
+  if (client.isRecent) {
+    score += 10;
+  }
+  
+  // Last contact recency (more recent = higher score)
+  if (client.lastContact) {
+    const lastContactDate = new Date(client.lastContact);
+    const daysSinceContact = Math.floor((now - lastContactDate) / (1000 * 60 * 60 * 24));
+    if (daysSinceContact < 7) {
+      score += 5;
+    } else if (daysSinceContact < 30) {
+      score += 3;
+    }
+  }
+  
+  // Bookmarked status
+  if (client.isBookmarked) {
+    score += 8;
+  }
+  
+  // Deal value (total pipeline)
+  const totalPipeline = client.deals?.reduce((sum, deal) => 
+    sum + (deal.status !== 'closed_lost' ? deal.value : 0), 0) || 0;
+  
+  if (totalPipeline > 500000) {
+    score += 10;
+  } else if (totalPipeline > 100000) {
+    score += 8;
+  } else if (totalPipeline > 50000) {
+    score += 5;
+  } else if (totalPipeline > 10000) {
+    score += 3;
+  }
+  
+  // Follow-up needed (future follow-up date)
+  if (client.followUpDate) {
+    const followUpDate = new Date(client.followUpDate);
+    if (followUpDate > now) {
+      const daysToFollowUp = Math.floor((followUpDate - now) / (1000 * 60 * 60 * 24));
+      if (daysToFollowUp < 3) {
+        score += 15; // Imminent follow-ups
+      } else if (daysToFollowUp < 7) {
+        score += 10; // Near-term follow-ups
+      }
+    }
+  }
+  
+  // Active deals in negotiation/proposal stage
+  const hasHotDeals = client.deals?.some(deal => 
+    deal.status === 'negotiation' || deal.status === 'proposal'
+  );
+  if (hasHotDeals) {
+    score += 7;
+  }
+  
+  // Apply priority-type specific weights
+  switch (priorityType) {
+    case PRIORITY_OPTIONS.RECENT:
+      // Heavily weight recency
+      if (client.isRecent) {
+        score *= 3;
+      }
+      break;
+      
+    case PRIORITY_OPTIONS.DEAL_VALUE:
+      // Heavily weight deal value
+      if (totalPipeline > 0) {
+        score = score + (Math.log10(totalPipeline) * 5);
+      }
+      break;
+      
+    case PRIORITY_OPTIONS.FOLLOW_UP:
+      // Heavily weight follow-up dates
+      if (client.followUpDate) {
+        const followUpDate = new Date(client.followUpDate);
+        if (followUpDate > now) {
+          score *= 2;
+        }
+      }
+      break;
+      
+    case PRIORITY_OPTIONS.BOOKMARKED:
+      // Heavily weight bookmarked status
+      if (client.isBookmarked) {
+        score *= 3;
+      }
+      break;
+      
+    case PRIORITY_OPTIONS.BALANCED:
+      // Balanced scoring already applied by default
+      break;
+      
+    default:
+      // Balanced scoring already applied by default
+      break;
+  }
+  
+  return score;
+};
+
+// Sort clients by priority score
+const sortClientsByPriority = (clients, priorityType) => {
+  return [...clients].sort((a, b) => {
+    const scoreA = calculateClientScore(a, priorityType);
+    const scoreB = calculateClientScore(b, priorityType);
+    return scoreB - scoreA; // Higher score first
+  });
+};
+
 // PrivateRoute Component
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -68,6 +204,7 @@ const PrivateRoute = ({ children }) => {
   
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
+
 // Part 2: Dashboard Component Core
 const Dashboard = () => {
   const queryClient = useQueryClient();
@@ -86,6 +223,17 @@ const Dashboard = () => {
   const [showRecentClients, setShowRecentClients] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [selectedIntelligenceClient, setSelectedIntelligenceClient] = useState(null);
+  
+  // New state for priority preference
+  const [priorityPreference, setPriorityPreference] = useState(() => {
+    const savedPreference = localStorage.getItem('clientPriorityPreference');
+    return savedPreference || PRIORITY_OPTIONS.BALANCED;
+  });
+
+  // Save priority preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('clientPriorityPreference', priorityPreference);
+  }, [priorityPreference]);
 
   // Date Filter State
   const [dateFilter, setDateFilter] = useState(() => ({
@@ -94,10 +242,10 @@ const Dashboard = () => {
   }));
 
   // Intelligence Modal Handler
-	const handleShowIntelligence = (clientId, userId, clientName) => {
-	  setSelectedIntelligenceClient({ _id: clientId, userId, name: clientName });
-	  setShowIntelligenceModal(true);
-	};
+  const handleShowIntelligence = (clientId, userId, clientName) => {
+    setSelectedIntelligenceClient({ _id: clientId, userId, name: clientName });
+    setShowIntelligenceModal(true);
+  };
 
   // Recent Clients Query
   const { data: recentClients = [] } = useQuery({
@@ -139,15 +287,19 @@ const Dashboard = () => {
     }
   });
 
-  // Display clients logic
+  // Display clients logic - updated to include priority sorting
   const displayClients = () => {
     // First filter recent clients
-    const filteredRecentClients = showRecentClients 
+    let filteredRecentClients = showRecentClients 
       ? getFilteredClients(recentClients, searchTerm, selectedStatus)
       : [];
 
     // Then filter paginated clients
-    const filteredPaginatedClients = getFilteredClients(paginatedData.clients, searchTerm, selectedStatus);
+    let filteredPaginatedClients = getFilteredClients(paginatedData.clients, searchTerm, selectedStatus);
+
+    // Apply priority sorting to both sets of clients
+    filteredRecentClients = sortClientsByPriority(filteredRecentClients, priorityPreference);
+    filteredPaginatedClients = sortClientsByPriority(filteredPaginatedClients, priorityPreference);
 
     return {
       recentClients: filteredRecentClients,
@@ -157,29 +309,29 @@ const Dashboard = () => {
   };
 
   // Create Client Mutation
- const createClientMutation = useMutation({
-  mutationFn: async (newClient) => {
-    const response = await axios.post(`${API_URL}/clients`, newClient);
-    return response.data;
-  },
-  onSuccess: (data) => {
-    // More aggressive invalidation of all client-related queries
-    queryClient.invalidateQueries(['clients']);
-    queryClient.invalidateQueries(['stats']);
-    
-    // Force reset to page 1
-    setCurrentPage(1);
-    
-    // Optional: Add a small delay before showing success message
-    // to give time for queries to refetch
-    setTimeout(() => {
-      showAlert('success', 'New client added successfully');
-    }, 100);
-  },
-  onError: (error) => {
-    showAlert('error', error.response?.data?.message || 'Error creating client');
-  }
-});
+  const createClientMutation = useMutation({
+    mutationFn: async (newClient) => {
+      const response = await axios.post(`${API_URL}/clients`, newClient);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      // More aggressive invalidation of all client-related queries
+      queryClient.invalidateQueries(['clients']);
+      queryClient.invalidateQueries(['stats']);
+      
+      // Force reset to page 1
+      setCurrentPage(1);
+      
+      // Optional: Add a small delay before showing success message
+      // to give time for queries to refetch
+      setTimeout(() => {
+        showAlert('success', 'New client added successfully');
+      }, 100);
+    },
+    onError: (error) => {
+      showAlert('error', error.response?.data?.message || 'Error creating client');
+    }
+  });
 
   // Update Client Mutation
   const updateClientMutation = useMutation({
@@ -248,6 +400,12 @@ const Dashboard = () => {
     localStorage.removeItem('token');
     window.location.href = '/login';
   };
+  
+  // Handle priority preference change
+  const handlePriorityChange = (e) => {
+    setPriorityPreference(e.target.value);
+  };
+
   // Error State
   if (error) {
     return (
@@ -346,6 +504,21 @@ const Dashboard = () => {
               />
             </div>
             <div className="flex items-center space-x-4">
+              {/* New Priority Dropdown */}
+              <div className="relative flex items-center">
+                <ArrowDownUp size={18} className="text-gray-500 mr-2" />
+                <select
+                  value={priorityPreference}
+                  onChange={handlePriorityChange}
+                  className="px-4 py-2 border rounded-lg bg-white hover:bg-gray-50 transition-colors duration-200"
+                  title="Prioritize clients by"
+                >
+                  {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              
               <button
                 onClick={() => setShowBookmarked(!showBookmarked)}
                 className={`px-4 py-2 rounded-lg flex items-center transition-all duration-200 ${
@@ -491,7 +664,7 @@ const Dashboard = () => {
 		setSelectedIntelligenceClient(null);
 	  }}
 	  clientId={selectedIntelligenceClient?._id}
-	  userId={selectedIntelligenceClient?.userId}  // Add this line!
+	  userId={selectedIntelligenceClient?.userId}
 	  clientName={selectedIntelligenceClient?.name}
 	/>
     </div>
