@@ -38,25 +38,23 @@ const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/ap
 const CLIENTS_PER_PAGE = 30;
 const RECENT_CLIENTS_COUNT = 5;
 
-// Priority options
+// Priority options - Removed BOOKMARKED as requested
 const PRIORITY_OPTIONS = {
   RECENT: 'recent',
   DEAL_VALUE: 'dealValue',
   FOLLOW_UP: 'followUp',
-  BOOKMARKED: 'bookmarked',
   BALANCED: 'balanced'
 };
 
-// Priority labels
+// Priority labels - Removed BOOKMARKED as requested
 const PRIORITY_LABELS = {
   [PRIORITY_OPTIONS.RECENT]: 'Recent Clients',
   [PRIORITY_OPTIONS.DEAL_VALUE]: 'Deal Value',
   [PRIORITY_OPTIONS.FOLLOW_UP]: 'Follow-up Needed',
-  [PRIORITY_OPTIONS.BOOKMARKED]: 'Bookmarked',
   [PRIORITY_OPTIONS.BALANCED]: 'Smart Balance'
 };
 
-// Client filtering helper function
+// Client filtering helper function - Fixed to properly handle 'active' status
 const getFilteredClients = (clients, searchTerm, selectedStatus) => {
   return clients.filter(client => {
     // Search filter
@@ -65,11 +63,18 @@ const getFilteredClients = (clients, searchTerm, selectedStatus) => {
       (client.name?.toLowerCase() || '').includes(searchFilter) ||
       (client.company?.toLowerCase() || '').includes(searchFilter);
 
-    // Status filter
-    const matchesStatus = selectedStatus === 'all' || getClientStatus(client) === selectedStatus;
+    // Status filter - Compare with the actual isActive property for 'active' status
+    let statusMatch = false;
+    if (selectedStatus === 'all') {
+      statusMatch = true;
+    } else if (selectedStatus === 'active') {
+      statusMatch = client.isActive === true;
+    } else {
+      statusMatch = getClientStatus(client) === selectedStatus;
+    }
 
     // Return true only if both conditions are met
-    return matchesSearch && matchesStatus;
+    return matchesSearch && statusMatch;
   });
 };
 
@@ -162,13 +167,6 @@ const calculateClientScore = (client, priorityType) => {
       }
       break;
       
-    case PRIORITY_OPTIONS.BOOKMARKED:
-      // Heavily weight bookmarked status
-      if (client.isBookmarked) {
-        score *= 3;
-      }
-      break;
-      
     case PRIORITY_OPTIONS.BALANCED:
       // Balanced scoring already applied by default
       break;
@@ -247,24 +245,31 @@ const Dashboard = () => {
     setShowIntelligenceModal(true);
   };
 
-  // Recent Clients Query
+  // Recent Clients Query - Updated to include dateFilter
   const { data: recentClients = [] } = useQuery({
-    queryKey: ['clients', 'recent'],
+    queryKey: ['clients', 'recent', dateFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({ recent: 'true', limit: RECENT_CLIENTS_COUNT });
+      const params = new URLSearchParams({ 
+        recent: 'true', 
+        limit: RECENT_CLIENTS_COUNT,
+        startDate: dateFilter.start,
+        endDate: dateFilter.end
+      });
       const { data } = await axios.get(`${API_URL}/clients?${params}`);
       return data.clients;
     }
   });
 
-  // Paginated Clients Query
+  // Paginated Clients Query - Updated to include dateFilter
   const { data: paginatedData = { clients: [], totalPages: 0 }, isLoading, error } = useQuery({
-    queryKey: ['clients', 'paginated', currentPage, showBookmarked],
+    queryKey: ['clients', 'paginated', currentPage, showBookmarked, dateFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: currentPage,
         limit: CLIENTS_PER_PAGE,
-        excludeRecent: 'true'
+        excludeRecent: 'true',
+        startDate: dateFilter.start,
+        endDate: dateFilter.end
       });
       if (showBookmarked) params.append('bookmarked', 'true');
       
@@ -406,6 +411,12 @@ const Dashboard = () => {
     setPriorityPreference(e.target.value);
   };
 
+  // Effect to refresh queries when dateFilter changes
+  useEffect(() => {
+    queryClient.invalidateQueries(['clients']);
+    queryClient.invalidateQueries(['stats']);
+  }, [dateFilter, queryClient]);
+
   // Error State
   if (error) {
     return (
@@ -504,7 +515,7 @@ const Dashboard = () => {
               />
             </div>
             <div className="flex items-center space-x-4">
-              {/* New Priority Dropdown */}
+              {/* Priority Dropdown - Removed Bookmarked option */}
               <div className="relative flex items-center">
                 <ArrowDownUp size={18} className="text-gray-500 mr-2" />
                 <select
@@ -540,6 +551,7 @@ const Dashboard = () => {
                 className="px-4 py-2 border rounded-lg bg-white hover:bg-gray-50 transition-colors duration-200"
               >
                 <option value="all">All Statuses</option>
+                <option value="active">Active</option>
                 {Object.entries(STATUS_CONFIG).map(([key, { label }]) => (
                   <option key={key} value={key}>{label}</option>
                 ))}
