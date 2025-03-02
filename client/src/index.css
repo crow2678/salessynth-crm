@@ -264,6 +264,93 @@ body {
   @apply bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto;
 }
 
+/* Table View Styles - Add to index.css */
+.table-view {
+  @apply w-full bg-white shadow-md rounded-lg overflow-hidden;
+}
+
+.table-header {
+  @apply bg-gray-50 text-left;
+}
+
+.table-header th {
+  @apply p-3 text-sm font-medium text-gray-700;
+}
+
+.table-header th button {
+  @apply flex items-center cursor-pointer;
+}
+
+.table-row {
+  @apply border-t border-gray-200 hover:bg-gray-50 transition-colors;
+}
+
+.table-row.recent {
+  @apply bg-blue-50 hover:bg-blue-100;
+}
+
+.table-cell {
+  @apply p-3;
+}
+
+.table-action-cell {
+  @apply p-2 flex items-center space-x-1;
+}
+
+.table-sort-icon {
+  @apply ml-1 w-4 h-4 text-gray-400;
+}
+
+.table-cell-status {
+  @apply inline-flex px-2 py-1 text-xs font-medium rounded-full;
+}
+
+.table-cell-name {
+  @apply font-medium text-gray-900 flex items-center;
+}
+
+.table-cell-company {
+  @apply text-sm text-gray-500;
+}
+
+.table-cell-pipeline {
+  @apply text-sm font-medium;
+}
+
+.table-cell-date {
+  @apply text-sm text-gray-600 flex items-center;
+}
+
+.table-cell-deals {
+  @apply flex flex-wrap gap-1;
+}
+
+.table-deal-tag {
+  @apply px-2 py-0.5 text-xs rounded-full;
+}
+
+/* View Toggle Styles */
+.view-toggle {
+  @apply bg-gray-100 p-1 rounded-lg flex;
+}
+
+.view-toggle-button {
+  @apply p-2 rounded transition-colors;
+}
+
+.view-toggle-button.active {
+  @apply bg-white shadow-sm text-blue-600;
+}
+
+.view-toggle-button.inactive {
+  @apply text-gray-500 hover:text-gray-700;
+}
+
+/* This ensures the table fills available space */
+.clients-container {
+  @apply w-full overflow-x-auto;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 1024px) {
   .main-content.task-panel-open {
@@ -286,6 +373,11 @@ body {
   .recent-section {
     @apply mb-4 pb-4;
   }
+  
+  /* Table view adjustments for medium screens */
+  .table-view {
+    @apply text-sm;
+  }
 }
 
 @media (max-width: 768px) {
@@ -295,6 +387,16 @@ body {
   
   .recent-badge {
     @apply -top-1 -right-1;
+  }
+  
+  /* Table view adjustments for small screens */
+  .table-cell {
+    @apply p-2;
+  }
+  
+  /* Optionally hide less important columns on small screens */
+  .table-cell-hide-mobile {
+    @apply hidden;
   }
 }
 
@@ -309,5 +411,10 @@ body {
   .client-card {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+  
+  /* Print styles for table view */
+  .table-action-cell {
+    display: none;
   }
 }

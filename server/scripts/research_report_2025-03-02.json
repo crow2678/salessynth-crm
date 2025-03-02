@@ -1,0 +1,107 @@
+[
+  {
+    "userId": "67af9588198431f4d58e57cd",
+    "email": "paresh26@gmail.com",
+    "name": "Admin User",
+    "researchCount": 12,
+    "uniqueCompanies": [
+      "Caliber Holdings",
+      "CHASE",
+      "American Financial Resources",
+      "Goodleap",
+      "AWS",
+      "Cross Country Mortgage",
+      "PRMI",
+      "Movement Mortgage",
+      "SWBC BANK",
+      "REALTOR",
+      "ANCHOR LOANS",
+      "Open Mortgage"
+    ],
+    "lastResearchDate": "2025-03-02T18:37:50.220Z",
+    "recentResearch": [
+      {
+        "clientId": "67bebd48fef08df16d83b461",
+        "company": "Open Mortgage",
+        "timestamp": "2025-03-02T18:37:50.220Z"
+      },
+      {
+        "clientId": "67b19dec4de71d925f122689",
+        "company": "ANCHOR LOANS",
+        "timestamp": "2025-03-02T18:37:32.506Z"
+      },
+      {
+        "clientId": "67b19512b69321f944bc0938",
+        "company": "REALTOR",
+        "timestamp": "2025-03-02T18:37:23.027Z"
+      },
+      {
+        "clientId": "67afac5934a9521a190a9f75",
+        "company": "SWBC BANK",
+        "timestamp": "2025-03-02T18:36:52.340Z"
+      },
+      {
+        "clientId": "67a87ddd19a4168957a17adf",
+        "company": "Movement Mortgage",
+        "timestamp": "2025-03-02T18:36:37.228Z"
+      }
+    ]
+  },
+  {
+    "userId": "67bc0219975f13143dceb528",
+    "email": "msrkrishnan6477@gmail.com",
+    "name": "Ram S",
+    "researchCount": 2,
+    "uniqueCompanies": [
+      "GUILD MORTGAGE",
+      "ARC Home LLC"
+    ],
+    "lastResearchDate": "2025-03-02T18:38:00.357Z",
+    "recentResearch": [
+      {
+        "clientId": "67c496b7d9c0c70d8672f9d0",
+        "company": "ARC Home LLC",
+        "timestamp": "2025-03-02T18:38:00.357Z"
+      },
+      {
+        "clientId": "67bc02c3442e52cdebc7cbe9",
+        "company": "GUILD MORTGAGE",
+        "timestamp": "2025-03-02T18:37:42.028Z"
+      }
+    ]
+  },
+  {
+    "userId": "67b0d03f5fd90bc71e983dd5",
+    "email": "packer2008@gmail.com",
+    "name": "John doe",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "The Math Pal"
+    ],
+    "lastResearchDate": "2025-03-02T18:37:04.121Z",
+    "recentResearch": [
+      {
+        "clientId": "67b0d1e4df87316b3efcd355",
+        "company": "The Math Pal",
+        "timestamp": "2025-03-02T18:37:04.121Z"
+      }
+    ]
+  },
+  {
+    "userId": "67b13128df9cdb666370da0e",
+    "email": "packer2009@gmail.com",
+    "name": "John doe",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "Tavant"
+    ],
+    "lastResearchDate": "2025-03-02T18:37:13.871Z",
+    "recentResearch": [
+      {
+        "clientId": "67b13ea7da149d5df17562be",
+        "company": "Tavant",
+        "timestamp": "2025-03-02T18:37:13.871Z"
+      }
+    ]
+  }
+]

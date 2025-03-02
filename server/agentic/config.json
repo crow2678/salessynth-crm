@@ -2,8 +2,91 @@
   "research_modules": {
     "google": true,
     "reddit": true,
-    "linkedin": false,
-	"apollo": true,
-    "futureAPI": false
+    "apollo": true
+  },
+  "source_priorities": {
+    "apollo": 10,
+    "google": 8,
+    "reddit": 6
+  },
+  "filtering": {
+    "google": {
+      "min_relevance_score": 30,
+      "max_results": 5,
+      "max_article_age_days": 90,
+      "excluded_keywords": ["player", "athlete", "movie", "game"],
+      "industry_context_weighting": 2.0,
+      "require_company_name_in_title": false
+    },
+    "reddit": {
+      "min_relevance_score": 40,
+      "max_results": 3,
+      "max_post_age_days": 180,
+      "prioritize_business_subreddits": true,
+      "excluded_topics": ["gaming", "sports", "entertainment", "memes"],
+      "min_upvotes": 10,
+      "fallback_when_no_results": true
+    },
+    "apollo": {
+      "min_match_score": 50,
+      "company_name_match_boost": 3.0,
+      "require_website_match": false,
+      "max_executives": 3,
+      "prioritize_c_level": true
+    }
+  },
+  "industry_settings": {
+    "financial_services": {
+      "subreddits": ["investing", "finance", "Banking", "FinancialCareers", "FinTech"],
+      "news_sources": ["Bloomberg", "Financial Times", "WSJ", "CNBC", "Reuters"],
+      "required_context": ["banking", "financial", "investment", "fintech"]
+    },
+    "healthcare": {
+      "subreddits": ["healthcare", "medicine", "Health", "medical", "hospitals"],
+      "news_sources": ["Modern Healthcare", "Healthcare IT News", "Fierce Healthcare"],
+      "required_context": ["healthcare", "medical", "patient", "clinical", "hospital"]
+    },
+    "technology": {
+      "subreddits": ["technology", "programming", "webdev", "devops", "artificial"],
+      "news_sources": ["TechCrunch", "The Verge", "Wired", "Ars Technica", "VentureBeat"],
+      "required_context": ["software", "technology", "digital", "platform", "app"]
+    },
+    "retail": {
+      "subreddits": ["retail", "ecommerce", "FashionReps", "Frugal", "bizdev"],
+      "news_sources": ["Retail Dive", "Modern Retail", "Retail TouchPoints"],
+      "required_context": ["retail", "store", "consumer", "shopping", "brand"]
+    }
+  },
+  "gpt_settings": {
+    "max_tokens_per_request": 8000,
+    "max_prompt_tokens": 6000,
+    "max_completion_tokens": 800,
+    "temperature": 0.7,
+    "pre_summarize_large_content": true,
+    "include_match_confidence": true,
+    "track_token_usage": true,
+    "fallback_summary_on_error": true,
+    "model": "gpt-4o"
+  },
+  "cache_settings": {
+    "cooldown_period_hours": 12,
+    "bypass_cooldown_for_new_clients": true,
+    "force_refresh_on_deal_stage_change": true
+  },
+  "relevance_scoring": {
+    "company_name_in_title_weight": 40,
+    "company_name_in_content_weight": 20,
+    "industry_term_weight": 5,
+    "recency_weight": 10,
+    "credible_source_weight": 10,
+    "irrelevant_topic_penalty": -30,
+    "competitor_mention_penalty": -20
+  },
+  "logging": {
+    "log_api_requests": true,
+    "log_api_responses": true,
+    "log_token_usage": true,
+    "log_relevance_scores": true,
+    "debug_mode": false
   }
 }

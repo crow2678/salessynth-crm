@@ -11,13 +11,16 @@ import {
   LogOut,
   ChevronDown,
   BookmarkCheck,
-  ArrowDownUp  // Added for priority sorting
+  ArrowDownUp,
+  Grid,
+  List  // Added for view toggle
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
 // Component imports
 import ClientCard from './components/ClientCard';
+import TableView from './components/TableView'; // Import new TableView component
 import NewClientModal from './components/NewClientModal';
 import Alert from './components/Alert';
 import TaskPanel from './components/TaskPanel';
@@ -52,6 +55,12 @@ const PRIORITY_LABELS = {
   [PRIORITY_OPTIONS.DEAL_VALUE]: 'Deal Value',
   [PRIORITY_OPTIONS.FOLLOW_UP]: 'Follow-up Needed',
   [PRIORITY_OPTIONS.BALANCED]: 'Smart Balance'
+};
+
+// View mode constants
+const VIEW_MODES = {
+  CARD: 'card',
+  TABLE: 'table'
 };
 
 // Client filtering helper function - Fixed to properly handle 'active' status
@@ -222,6 +231,14 @@ const Dashboard = () => {
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [selectedIntelligenceClient, setSelectedIntelligenceClient] = useState(null);
   
+  // New state for view mode with localStorage persistence
+  const [viewMode, setViewMode] = useState(() => {
+    const savedViewMode = localStorage.getItem('clientViewMode');
+    return savedViewMode && Object.values(VIEW_MODES).includes(savedViewMode) 
+      ? savedViewMode 
+      : VIEW_MODES.CARD;
+  });
+  
   // New state for priority preference
   const [priorityPreference, setPriorityPreference] = useState(() => {
     const savedPreference = localStorage.getItem('clientPriorityPreference');
@@ -232,6 +249,11 @@ const Dashboard = () => {
   useEffect(() => {
     localStorage.setItem('clientPriorityPreference', priorityPreference);
   }, [priorityPreference]);
+  
+  // Save view mode preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('clientViewMode', viewMode);
+  }, [viewMode]);
 
   // Date Filter State
   const [dateFilter, setDateFilter] = useState(() => ({
@@ -410,6 +432,11 @@ const Dashboard = () => {
   const handlePriorityChange = (e) => {
     setPriorityPreference(e.target.value);
   };
+  
+  // Handle view mode toggle
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+  };
 
   // Effect to refresh queries when dateFilter changes
   useEffect(() => {
@@ -515,7 +542,29 @@ const Dashboard = () => {
               />
             </div>
             <div className="flex items-center space-x-4">
-              {/* Priority Dropdown - Removed Bookmarked option */}
+              {/* View Toggle Buttons */}
+              <div className="bg-gray-100 p-1 rounded-lg flex">
+                <button
+                  onClick={() => handleViewModeChange(VIEW_MODES.CARD)}
+                  className={`p-2 rounded ${viewMode === VIEW_MODES.CARD 
+                    ? 'bg-white shadow-sm text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'}`}
+                  title="Card View"
+                >
+                  <Grid size={18} />
+                </button>
+                <button
+                  onClick={() => handleViewModeChange(VIEW_MODES.TABLE)}
+                  className={`p-2 rounded ${viewMode === VIEW_MODES.TABLE 
+                    ? 'bg-white shadow-sm text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'}`}
+                  title="Table View"
+                >
+                  <List size={18} />
+                </button>
+              </div>
+              
+              {/* Priority Dropdown */}
               <div className="relative flex items-center">
                 <ArrowDownUp size={18} className="text-gray-500 mr-2" />
                 <select
@@ -616,17 +665,26 @@ const Dashboard = () => {
                   </div>
                   {showRecentClients && (
                     <div className="mb-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredRecentClients.map(client => (
-                          <ClientCard 
-                            key={client._id} 
-                            client={client} 
-                            onEdit={handleEditClient}
-                            onToggleBookmark={handleToggleBookmark}
-                            onShowIntelligence={handleShowIntelligence}
-                          />
-                        ))}
-                      </div>
+                      {viewMode === VIEW_MODES.CARD ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {filteredRecentClients.map(client => (
+                            <ClientCard 
+                              key={client._id} 
+                              client={client} 
+                              onEdit={handleEditClient}
+                              onToggleBookmark={handleToggleBookmark}
+                              onShowIntelligence={handleShowIntelligence}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <TableView 
+                          clients={filteredRecentClients} 
+                          onEdit={handleEditClient}
+                          onToggleBookmark={handleToggleBookmark}
+                          onShowIntelligence={handleShowIntelligence}
+                        />
+                      )}
                     </div>
                   )}
                 </>
@@ -637,17 +695,26 @@ const Dashboard = () => {
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   {searchTerm ? 'Search Results' : 'All Clients'}
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredPaginatedClients.map(client => (
-                    <ClientCard 
-                      key={client._id} 
-                      client={client} 
-                      onEdit={handleEditClient}
-                      onToggleBookmark={handleToggleBookmark}
-                      onShowIntelligence={handleShowIntelligence}
-                    />
-                  ))}
-                </div>
+                {viewMode === VIEW_MODES.CARD ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredPaginatedClients.map(client => (
+                      <ClientCard 
+                        key={client._id} 
+                        client={client} 
+                        onEdit={handleEditClient}
+                        onToggleBookmark={handleToggleBookmark}
+                        onShowIntelligence={handleShowIntelligence}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <TableView 
+                    clients={filteredPaginatedClients} 
+                    onEdit={handleEditClient}
+                    onToggleBookmark={handleToggleBookmark}
+                    onShowIntelligence={handleShowIntelligence}
+                  />
+                )}
               </div>
             </>
           )}
@@ -669,16 +736,16 @@ const Dashboard = () => {
         client={selectedClient}
       />
 
-	<IntelligenceModal 
-	  isOpen={showIntelligenceModal}
-	  onClose={() => {
-		setShowIntelligenceModal(false);
-		setSelectedIntelligenceClient(null);
-	  }}
-	  clientId={selectedIntelligenceClient?._id}
-	  userId={selectedIntelligenceClient?.userId}
-	  clientName={selectedIntelligenceClient?.name}
-	/>
+      <IntelligenceModal 
+        isOpen={showIntelligenceModal}
+        onClose={() => {
+          setShowIntelligenceModal(false);
+          setSelectedIntelligenceClient(null);
+        }}
+        clientId={selectedIntelligenceClient?._id}
+        userId={selectedIntelligenceClient?.userId}
+        clientName={selectedIntelligenceClient?.name}
+      />
     </div>
   );
 };
