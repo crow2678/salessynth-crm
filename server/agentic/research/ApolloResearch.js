@@ -11,45 +11,6 @@ const COOLDOWN_PERIOD = 12 * 60 * 60 * 1000; // 12 hours - same as other modules
 const DB_NAME = "test";  // Match with existing DB name
 const COLLECTION_NAME = "research";
 
-// Common name parts to help with matching (e.g., JPMorgan Chase -> "JPMorgan")
-const COMPANY_NAME_PARTS = {
-    "JPMorgan Chase": ["JPMorgan", "Chase"],
-    "Bank of America": ["Bank of America", "BofA"],
-    "Wells Fargo": ["Wells", "Fargo"],
-    "Morgan Stanley": ["Morgan Stanley"],
-    "Goldman Sachs": ["Goldman", "Sachs"],
-    "Citigroup": ["Citi", "Citigroup", "Citibank"],
-    "Microsoft": ["Microsoft", "MSFT"],
-    "Alphabet": ["Google", "Alphabet"],
-    "Amazon": ["Amazon", "AWS"],
-    "Apple": ["Apple"]
-    // Add more common company names as needed
-};
-
-// Industry-specific executive titles to target
-const EXECUTIVE_TITLES = {
-    // Generic high-level executives
-    "generic": ["CEO", "Chief Executive Officer", "COO", "President", "CFO", "CTO", "CIO"],
-    
-    // Financial industry executives
-    "financial services": [
-        "Chief Investment Officer", "Chief Risk Officer", "Head of Investment Banking",
-        "Head of Trading", "Managing Director", "Chief Lending Officer", "SVP Banking"
-    ],
-    
-    // Technology industry executives
-    "technology": [
-        "Chief Product Officer", "VP Engineering", "CTO", "Chief Technology Officer",
-        "Head of Innovation", "VP Product", "Chief Digital Officer", "Chief AI Officer"
-    ],
-    
-    // Healthcare industry executives
-    "healthcare": [
-        "Chief Medical Officer", "Medical Director", "VP Clinical Operations",
-        "Chief Research Officer", "Director of Patient Care", "Chief Science Officer"
-    ]
-};
-
 // Create a connection pool instead of new connections for each call
 let mongoClient = null;
 async function getMongoClient() {
@@ -61,172 +22,323 @@ async function getMongoClient() {
 }
 
 /**
- * Enhance and normalize company names for better matching
- * @param {string} companyName - Raw company name
- * @returns {string[]} - Array of possible name variations to check
+ * Extracts and normalizes domain from various inputs
+ * @param {string} input - Company name, URL, or email address
+ * @returns {string|null} - Extracted domain or null
  */
-function generateCompanyNameVariations(companyName) {
-    if (!companyName) return [];
+function extractDomain(input) {
+    if (!input) return null;
     
-    const variations = [companyName];
-    const lowerName = companyName.toLowerCase();
+    // Try to extract from URL
+    if (input.includes("http") && input.includes("://")) {
+        try {
+            const url = new URL(input);
+            return url.hostname.toLowerCase().replace(/^www\./, "");
+        } catch (e) {
+            // Not a valid URL
+        }
+    }
     
-    // Remove common suffixes for better matching
-    const suffixes = [" Inc", " Corp", " LLC", " Ltd", " Limited", " Co"];
+    // Try to extract from email
+    if (input.includes("@") && !input.includes(" ")) {
+        const parts = input.split("@");
+        if (parts.length === 2 && parts[1].includes(".")) {
+            return parts[1].toLowerCase();
+        }
+    }
+    
+    // Return null if no domain found
+    return null;
+}
+
+/**
+ * Simple normalization of company names - remove common suffixes and legal forms
+ * @param {string} name - Company name
+ * @returns {string} - Normalized name
+ */
+function normalizeCompanyName(name) {
+    if (!name) return "";
+    
+    // Convert to lowercase
+    let normalized = name.toLowerCase();
+    
+    // Remove common suffixes
+    const suffixes = [
+        ' inc', ' inc.', ' incorporated', 
+        ' corp', ' corp.', ' corporation',
+        ' llc', ' ltd', ' limited', 
+        ' gmbh', ' co', ' co.', ' company'
+    ];
+    
     for (const suffix of suffixes) {
-        if (companyName.endsWith(suffix)) {
-            variations.push(companyName.substring(0, companyName.length - suffix.length));
+        if (normalized.endsWith(suffix)) {
+            normalized = normalized.slice(0, -suffix.length);
             break;
         }
     }
     
-    // Add variations without spaces (e.g. "JP Morgan" -> "JPMorgan")
-    if (companyName.includes(" ")) {
-        const noSpaces = companyName.replace(/\s+/g, "");
-        variations.push(noSpaces);
+    // Remove special characters and extra spaces
+    normalized = normalized.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    return normalized;
+}
+
+/**
+ * Extract key growth indicators from company data
+ * @param {Object} companyData - Organization data
+ * @returns {Object} - Growth indicators with explanation
+ */
+function extractGrowthIndicators(companyData) {
+    const indicators = [];
+    
+    // Check employee count
+    if (companyData.estimated_num_employees) {
+        const employees = companyData.estimated_num_employees;
+        
+        if (employees >= 10000) {
+            indicators.push(`Enterprise organization (${employees.toLocaleString()} employees)`);
+        } else if (employees >= 1000) {
+            indicators.push(`Large organization (${employees.toLocaleString()} employees)`);
+        } else if (employees >= 200) {
+            indicators.push(`Mid-market organization (${employees.toLocaleString()} employees)`);
+        } else if (employees >= 50) {
+            indicators.push(`SMB organization (${employees.toLocaleString()} employees)`);
+        } else {
+            indicators.push(`Small organization (${employees.toLocaleString()} employees)`);
+        }
     }
     
-    // Check if it's a well-known company with aliases
-    for (const [knownName, aliases] of Object.entries(COMPANY_NAME_PARTS)) {
-        if (lowerName.includes(knownName.toLowerCase())) {
-            variations.push(...aliases);
-        } else {
-            // Check if any alias is in the company name
-            for (const alias of aliases) {
-                if (lowerName.includes(alias.toLowerCase())) {
-                    variations.push(knownName);
-                    variations.push(...aliases);
-                    break;
+    // Check annual revenue
+    if (companyData.annual_revenue_printed) {
+        indicators.push(`Annual revenue: ${companyData.annual_revenue_printed}`);
+    }
+    
+    // Check for funding
+    if (companyData.total_funding) {
+        indicators.push(`Total funding: ${companyData.total_funding_printed}`);
+        
+        // Check recent funding
+        if (companyData.funding_events && companyData.funding_events.length > 0) {
+            const latestFunding = companyData.funding_events[0];
+            if (latestFunding.date) {
+                const fundingDate = new Date(latestFunding.date);
+                const monthsAgo = Math.floor((new Date() - fundingDate) / (30 * 24 * 60 * 60 * 1000));
+                
+                if (monthsAgo <= 12) {
+                    indicators.push(
+                        `Recent ${latestFunding.type} funding: ${latestFunding.currency}${latestFunding.amount} (${monthsAgo} months ago)`
+                    );
                 }
             }
         }
     }
     
-    // Handle banking specific cases
-    if (lowerName.includes("bank")) {
-        // Add variant without "bank" for better matching
-        const withoutBank = companyName.replace(/\sbank(\sof\s|\s)/i, " ");
-        if (withoutBank !== companyName) {
-            variations.push(withoutBank);
+    // Check technology adoption
+    if (companyData.technology_names && companyData.technology_names.length > 0) {
+        const techCount = companyData.technology_names.length;
+        if (techCount > 20) {
+            indicators.push(`Technology-driven organization (${techCount} technologies in use)`);
         }
     }
     
-    // Remove duplicates and return
-    return [...new Set(variations)];
+    return {
+        indicators,
+        hasGrowthSignals: indicators.length > 0
+    };
 }
 
 /**
- * Score a potential company match from search results
- * @param {Object} company - Company data from search results
- * @param {string} targetName - Target company name
- * @returns {number} - Score 0-100 indicating match quality
+ * Analyze technology stack for buying signals
+ * @param {Array} technologies - Technology data from Apollo
+ * @returns {Object} - Analysis results
  */
-function scoreCompanyMatch(company, targetName) {
-    let score = 0;
-    const targetLower = targetName.toLowerCase();
-    const variations = generateCompanyNameVariations(targetName);
+function analyzeTechnologyStack(technologies) {
+    if (!technologies || !Array.isArray(technologies) || technologies.length === 0) {
+        return { 
+            categories: [],
+            buyingSignals: []
+        };
+    }
     
-    // Exact name match is highest priority
-    if (company.name.toLowerCase() === targetLower) {
-        score += 50;
-    } 
-    // Check for name variations
-    else {
-        let bestVariationMatch = 0;
-        for (const variation of variations) {
-            if (company.name.toLowerCase() === variation.toLowerCase()) {
-                bestVariationMatch = 40;
-                break;
-            } else if (company.name.toLowerCase().includes(variation.toLowerCase())) {
-                bestVariationMatch = Math.max(bestVariationMatch, 30);
-            } else if (variation.toLowerCase().includes(company.name.toLowerCase())) {
-                bestVariationMatch = Math.max(bestVariationMatch, 25);
+    // Extract categories from technology data
+    const categories = {};
+    const buyingSignals = [];
+    
+    // Process each technology
+    technologies.forEach(tech => {
+        if (tech.category) {
+            if (!categories[tech.category]) {
+                categories[tech.category] = [];
             }
+            categories[tech.category].push(tech.name);
         }
-        score += bestVariationMatch;
+    });
+    
+    // Convert to array format
+    const categoriesArray = Object.entries(categories).map(([category, techs]) => ({
+        category,
+        technologies: techs
+    }));
+    
+    // Look for specific buying signals
+    const techNames = technologies.map(t => t.name.toLowerCase());
+    
+    // CRM signals
+    if (techNames.includes('salesforce') || techNames.includes('hubspot')) {
+        buyingSignals.push('Using CRM platform');
     }
     
-    // Website domain match is strong signal
-    const targetDomain = targetLower.replace(/[^a-z0-9]/g, "");
-    if (company.website_domain && company.website_domain.includes(targetDomain)) {
-        score += 30;
+    // Marketing automation signals
+    if (techNames.includes('marketo') || techNames.includes('hubspot') || 
+        techNames.includes('mailchimp') || techNames.includes('pardot')) {
+        buyingSignals.push('Using marketing automation');
     }
     
-    // Specific industry information increases confidence
-    if (company.industry) {
-        score += 10;
+    // Analytics signals
+    if (techNames.includes('google analytics') || techNames.includes('mixpanel') || 
+        techNames.includes('amplitude')) {
+        buyingSignals.push('Using analytics tools');
     }
     
-    // More data fields available indicates higher quality match
-    if (company.phone_number) score += 5;
-    if (company.linkedin_url) score += 5;
-    if (company.twitter_url) score += 5;
-    if (company.short_description) score += 5;
+    // Cloud services signals
+    const cloudTechs = ['aws', 'amazon web services', 'microsoft azure', 'google cloud', 'heroku'];
+    if (cloudTechs.some(tech => techNames.includes(tech))) {
+        buyingSignals.push('Using cloud infrastructure');
+    }
     
-    // If employees count data is available, more likely to be a legitimate company
-    if (company.estimated_num_employees) score += 5;
-    
-    return Math.min(100, score);
+    return {
+        categories: categoriesArray,
+        buyingSignals
+    };
 }
 
 /**
- * Find best executive for a company based on industry
- * @param {Object} organization - Company data
- * @param {string} industry - Industry from Apollo
- * @returns {Promise<Array>} - Array of executive data objects
+ * Search for company using domain or name
+ * @param {string} query - Company domain or name
+ * @returns {Promise<Object>} - Best match company data
  */
-async function findCompanyExecutives(organization, industry) {
-    if (!organization || !organization.id) {
-        return [];
-    }
+async function findCompany(query) {
+    // First check if query is a domain
+    const isDomain = query.includes('.') && !query.includes(' ');
     
     try {
-        console.log(`🔍 Searching for executives at ${organization.name}...`);
+        if (isDomain) {
+            // Try organization enrichment first (most accurate)
+            try {
+                const response = await axios({
+                    method: 'POST',
+                    url: `${APOLLO_API_URL}/organizations/enrich`,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': APOLLO_API_KEY
+                    },
+                    data: {
+                        domain: query
+                    }
+                });
+                
+                if (response.data?.organization) {
+                    console.log(`✅ Found organization via domain enrichment: ${response.data.organization.name}`);
+                    return response.data.organization;
+                }
+            } catch (error) {
+                console.log(`⚠️ Domain enrichment failed for ${query}: ${error.message}`);
+                // Continue to search as fallback
+            }
+        }
         
-        // UPDATED: Try using people/match endpoint with modified approach
-        const matchResponse = await axios({
+        // Fallback to accounts/search
+        console.log(`🔍 Searching for organization: ${query}`);
+        const searchResponse = await axios({
             method: 'POST',
-            url: `${APOLLO_API_URL}/people/match`, // No parameters in body; use URL params instead
+            url: `${APOLLO_API_URL}/accounts/search`,
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': APOLLO_API_KEY,
-                'Cache-Control': 'no-cache',
-                'accept': 'application/json'  // Add this header
+                'x-api-key': APOLLO_API_KEY
             },
-            params: {  // Use URL params instead of request body
-                organization_name: organization.name,
-                reveal_personal_emails: false,
-                reveal_phone_number: false
+            data: {
+                q_organization_name: query,
+                page: 1,
+                per_page: 5
             }
         });
         
-        // Rest of your code to process the results...
-        
-        if (matchResponse.data?.person) {
-            const person = matchResponse.data.person;
-            // Only add if we have valid name data
-            if (person.first_name && person.last_name && 
-                person.first_name !== "null" && person.last_name !== "null") {
-                return [{
-                    name: `${person.first_name} ${person.last_name}`,
-                    title: person.title || "Executive",
-                    email: person.email || null,
-                    phone: person.phone_number || null,
-                    linkedin: person.linkedin_url || null
-                }];
-            }
+        if (!searchResponse.data?.accounts || searchResponse.data.accounts.length === 0) {
+            console.log(`⚠️ No organizations found for ${query}`);
+            return null;
         }
         
-        return []; // Return empty array if no executives found
+        // For simplicity, take the first result
+        // In a more advanced implementation, you could score and rank them
+        console.log(`✅ Found organization via search: ${searchResponse.data.accounts[0].name}`);
+        return searchResponse.data.accounts[0];
     } catch (error) {
-        console.error("❌ Error finding executives:", error.message);
-        // Continue without executive data
+        console.error(`❌ Error finding company: ${error.message}`);
+        return null;
+    }
+}
+
+/**
+ * Find key decision makers at a company
+ * @param {string} domain - Company domain
+ * @param {string} companyName - Company name as fallback
+ * @returns {Promise<Array>} - Array of key people
+ */
+async function findKeyPeople(domain, companyName) {
+    try {
+        console.log(`🔍 Finding key people at ${domain || companyName}`);
+        
+        // Prepare search query
+        const searchData = domain 
+            ? { q: { organization_domains: [domain] } }
+            : { q: { organization_name: companyName } };
+            
+        // Add filters for senior positions
+        searchData.q.seniority = ["director_level", "vp_level", "executive_level", "c_suite_level", "owner"];
+        
+        // Execute search
+        const response = await axios({
+            method: 'POST',
+            url: `${APOLLO_API_URL}/people/search`,
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': APOLLO_API_KEY
+            },
+            data: {
+                ...searchData,
+                page: 1,
+                per_page: 10
+            }
+        });
+        
+        if (!response.data?.people || response.data.people.length === 0) {
+            console.log(`⚠️ No key people found for ${domain || companyName}`);
+            return [];
+        }
+        
+        // Format the people data
+        const people = response.data.people.map(person => ({
+            name: `${person.first_name || ''} ${person.last_name || ''}`.trim(),
+            title: person.title || "Unknown",
+            email: person.email || null,
+            emailStatus: person.email_status || null,
+            phone: person.phone_number || null,
+            linkedinUrl: person.linkedin_url || null,
+            seniority: person.seniority || null,
+            departments: person.departments || [],
+            photoUrl: person.photo_url || null
+        }));
+        
+        console.log(`✅ Found ${people.length} key people at ${domain || companyName}`);
+        return people;
+    } catch (error) {
+        console.error(`❌ Error finding key people: ${error.message}`);
         return [];
     }
 }
 
 /**
- * Search for company information using Apollo.io
+ * Enrich company data using Apollo's API
  * @param {string} companyName - The name of the company to research
  * @param {string} clientId - The ID of the client
  * @param {string} userId - The ID of the user
@@ -234,97 +346,52 @@ async function findCompanyExecutives(organization, industry) {
  */
 async function enrichCompanyData(companyName, clientId, userId) {
     try {
-        console.log(`🔍 Enriching company data for: ${companyName} (Client ID: ${clientId}, User ID: ${userId})`);
-
-        // Input validation
-        if (!companyName || companyName.trim() === '') {
-            console.log('⚠️ Empty company name provided. Skipping Apollo enrichment.');
+        console.log(`🔍 Enriching company data for: ${companyName}`);
+        
+        if (!companyName) {
+            console.log('⚠️ Empty company name provided');
             return null;
         }
         
-        // Generate name variations for better matching
-        const companyVariations = generateCompanyNameVariations(companyName);
-        console.log(`🔍 Searching for organization with variations: ${companyVariations.join(", ")}`);
-
-        // 1. Search for organization details
-        const searchResponse = await axios({
-            method: 'POST',
-            url: `${APOLLO_API_URL}/organizations/search`,
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': APOLLO_API_KEY,
-                'Cache-Control': 'no-cache'
-            },
-            data: {
-                q_organization_name: companyName,
-                page: 1,
-                per_page: 10  // Get more results to find the best match
-            }
-        });
-
-        // Check if we found any organization
-        if (!searchResponse.data?.organizations || searchResponse.data.organizations.length === 0) {
-            console.log(`⚠️ No organization found for ${companyName} on Apollo.io`);
+        // Try to extract domain if company name looks like domain/email/URL
+        let domain = extractDomain(companyName);
+        let searchQuery = companyName;
+        
+        // If we have a domain, use it as primary identifier
+        if (domain) {
+            console.log(`📌 Extracted domain: ${domain} from input`);
+            searchQuery = domain;
+        }
+        
+        // Find company data
+        const companyData = await findCompany(searchQuery);
+        if (!companyData) {
             return null;
         }
-
-        // Find the best match from search results using our scoring function
-        const scoredMatches = searchResponse.data.organizations.map(org => ({
-            organization: org,
-            score: scoreCompanyMatch(org, companyName)
-        })).sort((a, b) => b.score - a.score);
         
-        console.log(`✅ Found ${scoredMatches.length} potential matches. Best match: ${scoredMatches[0].organization.name} (score: ${scoredMatches[0].score})`);
+        // Get the company domain from results if not already known
+        domain = domain || companyData.website_domain || extractDomain(companyData.website_url);
         
-        // Threshold for reliable match
-        if (scoredMatches[0].score < 40) {
-            console.log(`⚠️ Best match score (${scoredMatches[0].score}) is below threshold. Proceed with caution.`);
-        }
+        // Find key people at the company
+        const keyPeople = await findKeyPeople(domain, companyData.name);
         
-        const bestMatch = scoredMatches[0].organization;
+        // Extract growth indicators
+        const growthData = extractGrowthIndicators(companyData);
         
-        // Extract company data from search result
-        const companyData = bestMatch;
-        const industry = companyData.industry || "";
+        // Analyze technology stack
+        const techAnalysis = analyzeTechnologyStack(companyData.current_technologies);
         
-        // 2. Find executives for the company
-        const keyPeople = await findCompanyExecutives(bestMatch, industry);
-        
-        // Normalize industry data
-        let normalizedIndustry = industry.toLowerCase();
-        // Map specific industries to general categories
-        if (normalizedIndustry.includes('bank') || 
-            normalizedIndustry.includes('financ') ||
-            normalizedIndustry.includes('invest') ||
-            normalizedIndustry.includes('insur')) {
-            normalizedIndustry = 'financial services';
-        } else if (normalizedIndustry.includes('tech') ||
-                  normalizedIndustry.includes('software') ||
-                  normalizedIndustry.includes('computer') ||
-                  normalizedIndustry.includes('it ')) {
-            normalizedIndustry = 'technology';  
-        } else if (normalizedIndustry.includes('health') ||
-                  normalizedIndustry.includes('medical') ||
-                  normalizedIndustry.includes('pharma') ||
-                  normalizedIndustry.includes('biotech')) {
-            normalizedIndustry = 'healthcare';
-        }
-
         // Structure the enriched data
         const enrichedData = {
-            companyInfo: {
+            company: {
                 name: companyData.name,
-                domain: companyData.website_domain,
+                domain: domain || companyData.website_domain,
                 website: companyData.website_url,
                 description: companyData.short_description,
-                industry: normalizedIndustry || industry || "Unknown",
-                sizeRange: companyData.employee_count_by_range || "Unknown",
-                estimatedEmployees: companyData.estimated_num_employees || "Unknown",
-                yearFounded: companyData.founded_year || "Unknown",
-                annualRevenue: companyData.annual_revenue_formatted || "Unknown",
-                stockSymbol: companyData.ticker || null,
-                publiclyTraded: companyData.ticker ? true : false,
-                headquarters: {
+                industry: companyData.industry || "Unknown",
+                size: companyData.estimated_num_employees || "Unknown",
+                revenue: companyData.annual_revenue_printed || "Unknown",
+                location: {
                     city: companyData.city || "Unknown",
                     state: companyData.state || "Unknown",
                     country: companyData.country || "Unknown"
@@ -334,42 +401,36 @@ async function enrichCompanyData(companyName, clientId, userId) {
                     twitter: companyData.twitter_url || null,
                     facebook: companyData.facebook_url || null
                 },
-                phoneNumber: companyData.phone_number || "Unknown",
-                technologies: companyData.technologies || [],
-                competitors: companyData.competitors || []
+                parent: companyData.owned_by_organization ? {
+                    name: companyData.owned_by_organization.name,
+                    domain: extractDomain(companyData.owned_by_organization.website_url)
+                } : null
             },
             keyPeople: keyPeople,
             funding: {
-                totalRaised: companyData.total_funding_formatted || "Unknown",
-                lastFundingDate: companyData.latest_funding_round_date || null,
-                lastFundingAmount: companyData.latest_funding_round_amount_formatted || "Unknown",
-                lastFundingType: companyData.latest_funding_stage || "Unknown",
-                ventureFunded: companyData.total_funding ? true : false
+                totalRaised: companyData.total_funding_printed || "Unknown",
+                lastFunding: companyData.funding_events && companyData.funding_events.length > 0 ? {
+                    date: companyData.funding_events[0].date,
+                    amount: `${companyData.funding_events[0].currency || '$'}${companyData.funding_events[0].amount}`,
+                    type: companyData.funding_events[0].type
+                } : null
             },
-            matchQuality: {
-                score: scoredMatches[0].score,
-                nameMatchType: scoredMatches[0].score >= 80 ? "exact" : scoredMatches[0].score >= 60 ? "strong" : "partial",
-                confidence: scoredMatches[0].score >= 80 ? "high" : scoredMatches[0].score >= 60 ? "medium" : "low"
+            technologies: {
+                count: companyData.technology_names ? companyData.technology_names.length : 0,
+                names: companyData.technology_names || [],
+                categories: techAnalysis.categories || []
+            },
+            insights: {
+                growthIndicators: growthData.indicators || [],
+                buyingSignals: techAnalysis.buyingSignals || [],
+                keywords: companyData.keywords || []
             }
         };
-
-        console.log(`✅ Successfully enriched data for ${companyName} via Apollo`);
+        
+        console.log(`✅ Successfully enriched data for ${companyName}`);
         return enrichedData;
     } catch (error) {
-        // Enhanced error logging
-        if (error.response) {
-            console.error(`❌ Apollo API Error (${error.response.status}):`, 
-                error.response.data?.message || JSON.stringify(error.response.data));
-            
-            // Log validation errors specifically
-            if (error.response.status === 422 && error.response.data?.errors) {
-                console.error('Validation errors:', error.response.data.errors);
-            }
-        } else if (error.request) {
-            console.error('❌ No response received from Apollo API:', error.message);
-        } else {
-            console.error('❌ Error setting up Apollo request:', error.message);
-        }
+        console.error(`❌ Error in Apollo enrichment: ${error.message}`);
         return null;
     }
 }
@@ -403,7 +464,6 @@ async function storeApolloResearch(companyName, clientId, userId) {
         console.log(`🔄 Running Apollo enrichment for ${companyName}...`);
         const apolloData = await enrichCompanyData(companyName, clientId, userId);
 
-        // Changed: Use field-specific update instead of whole document replacement
         if (!apolloData) {
             console.log(`⚠️ No Apollo data found for ${companyName}. Updating timestamp only.`);
             
