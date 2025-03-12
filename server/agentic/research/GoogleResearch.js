@@ -292,6 +292,7 @@ async function fetchGoogleNews(companyName, clientId, userId) {
  */
 async function storeGoogleResearch(companyName, clientId, userId) {
     let client = null;
+    let googleData = [];
     
     try {
         client = await getMongoClient();
@@ -307,11 +308,12 @@ async function storeGoogleResearch(companyName, clientId, userId) {
         // ✅ Prevent excessive API requests (cooldown logic)
         if (lastUpdatedGoogle && (now - new Date(lastUpdatedGoogle)) < COOLDOWN_PERIOD) {
             console.log(`⏳ Google research cooldown active for ${companyName}. Skipping Google fetch.`);
-            return;
+            // Return existing data if available
+            return existingResearch?.data?.google || [];
         }
 
         console.log(`🔄 Running Google research for ${companyName}...`);
-        const googleData = await fetchGoogleNews(companyName, clientId, userId);
+        googleData = await fetchGoogleNews(companyName, clientId, userId);
 
         if (googleData.length === 0) {
             console.log(`⚠️ No new Google data found for ${companyName}. Updating timestamp only.`);
@@ -334,7 +336,7 @@ async function storeGoogleResearch(companyName, clientId, userId) {
                 { upsert: true }
             );
             
-            return;
+            return [];
         }
 
         // MODIFIED: Use field-specific update for Google data instead of whole document
@@ -357,8 +359,12 @@ async function storeGoogleResearch(companyName, clientId, userId) {
         );
 
         console.log(`✅ Google research stored successfully for ${companyName}.`);
+        
+        // Return the data after storing it
+        return googleData;
     } catch (error) {
         console.error(`❌ Error storing Google research for ${companyName}:`, error.message);
+        return [];
     }
 }
 

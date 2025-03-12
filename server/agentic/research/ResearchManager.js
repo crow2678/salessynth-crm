@@ -15,663 +15,924 @@ if (config.research_modules.google) {
     researchModules.google = require('./GoogleResearch');
 }
 
-if (config.research_modules.reddit) {
-    researchModules.reddit = require('./RedditResearch');
-}
-
 if (config.research_modules.apollo) {
     researchModules.apollo = require('./ApolloResearch');
 }
 
+if (config.research_modules.reddit) {
+    researchModules.reddit = require('./RedditResearch');
+}
 // GPT-4 API details
 const OPENAI_API_URL = "https://88f.openai.azure.com/openai/deployments/88FGPT4o/chat/completions?api-version=2024-02-15-preview";
 const OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
 
-// Industry-specific sales strategies
-const INDUSTRY_SALES_STRATEGIES = {
-    "financial services": {
-        topics: [
-            "Regulatory compliance automation",
-            "Risk management solutions",
-            "Cost reduction through automation",
-            "Fraud detection capabilities",
-            "Integration with existing financial systems",
-            "Data security and customer privacy"
-        ],
-        objections: [
-            "Regulatory compliance concerns",
-            "Security and data privacy",
-            "Integration with legacy systems",
-            "Return on investment timeline",
-            "Impact on current operations",
-            "Employee adoption and training"
-        ]
-    },
-    "healthcare": {
-        topics: [
-            "Patient data management",
-            "HIPAA compliance features",
-            "Integration with EHR systems",
-            "Improved patient outcomes",
-            "Clinical workflow optimization",
-            "Healthcare regulation compliance"
-        ],
-        objections: [
-            "Patient data security concerns",
-            "Healthcare regulation compliance",
-            "Integration with existing clinical systems",
-            "Training required for medical staff",
-            "Implementation timeline concerns",
-            "Evidence of clinical benefits"
-        ]
-    },
-    "technology": {
-        topics: [
-            "Technical integration capabilities",
-            "Scalability and performance",
-            "Development resources required",
-            "Open API and extensibility",
-            "Developer experience and onboarding",
-            "Technology stack compatibility"
-        ],
-        objections: [
-            "Technical complexity concerns",
-            "Integration with existing tech stack",
-            "Build vs buy considerations",
-            "Scaling concerns for larger operations",
-            "Developer resource requirements",
-            "Long-term maintenance and support"
-        ]
-    },
-    "retail": {
-        topics: [
-            "Customer experience improvements",
-            "Inventory management integration",
-            "Omnichannel capabilities",
-            "Sales analytics and reporting",
-            "Supply chain optimization",
-            "POS system integration"
-        ],
-        objections: [
-            "Impact on current customer experience",
-            "Integration with existing retail systems",
-            "Staff training requirements",
-            "Implementation timeline during peak seasons",
-            "ROI and revenue impact evidence",
-            "Customer data management"
-        ]
-    },
-    "default": {
-        topics: [
-            "Cost savings and ROI",
-            "Implementation timeline and process",
-            "Integration capabilities",
-            "Training and change management",
-            "Ongoing support and maintenance",
-            "Customization options"
-        ],
-        objections: [
-            "Budget constraints",
-            "Implementation timeline concerns",
-            "Team adoption and training",
-            "Integration with existing systems",
-            "ROI and business case validation",
-            "Ongoing support concerns"
-        ]
-    }
-};
-
-// ✅ Prevent duplicate research runs
+// Prevent duplicate research runs
 const runningResearch = new Set();
 
 /**
- * Filter and prioritize research data to focus on most relevant information
- * @param {Object} researchData - Combined research data from all sources
- * @param {Object} clientDetails - Client information from CRM
- * @returns {Object} - Filtered and prioritized research data
+ * Extract technical terms and key stakeholders from client notes and research data
+ * @param {Object} clientDetails - Client information
+ * @param {Object} researchData - Aggregated research data
+ * @return {Object} - Extracted information
  */
-function preprocessResearchData(researchData, clientDetails) {
-    if (!researchData) return {};
-    
-    const processedData = {};
-    
-    // Get industry context if available for better prioritization
-    const industry = researchData.apollo?.companyInfo?.industry || "default";
-    
-    // Process Apollo company data (always include if available)
-    if (researchData.apollo) {
-        // Keep key company info but simplify to reduce tokens
-        processedData.company = {
-            name: researchData.apollo.companyInfo.name,
-            industry: researchData.apollo.companyInfo.industry || "Unknown",
-            description: researchData.apollo.companyInfo.description,
-            size: researchData.apollo.companyInfo.estimatedEmployees,
-            revenue: researchData.apollo.companyInfo.annualRevenue,
-            location: researchData.apollo.companyInfo.headquarters,
-            publiclyTraded: researchData.apollo.companyInfo.publiclyTraded || false,
-            website: researchData.apollo.companyInfo.website
-        };
-        
-        // Include key executives if available
-        if (researchData.apollo.keyPeople && researchData.apollo.keyPeople.length > 0) {
-            processedData.keyPeople = researchData.apollo.keyPeople;
-        }
-        
-        // Include funding info for startups/growth companies
-        if (researchData.apollo.funding && 
-            (researchData.apollo.funding.totalRaised !== "Unknown" || 
-             researchData.apollo.funding.ventureFunded)) {
-            processedData.funding = researchData.apollo.funding;
-        }
-    }
-    
-    // Process Google News data
-    if (researchData.google && Array.isArray(researchData.google)) {
-        // Filter out entries with low relevance and no snippets
-        let newsItems = researchData.google
-            .filter(item => item.snippet && item.snippet !== "No snippet available")
-            .map(item => ({
-                title: item.title,
-                snippet: item.snippet,
-                publishedDate: item.publishedDate,
-                source: item.source
-            }));
-        
-        // If we still have too many, prioritize the most recent
-        if (newsItems.length > 3) {
-            newsItems = newsItems.slice(0, 3);
-        }
-        
-        if (newsItems.length > 0) {
-            processedData.recentNews = newsItems;
-        }
-    }
-    
-    // Process Reddit data
-    if (researchData.reddit && Array.isArray(researchData.reddit)) {
-        // Filter for highly relevant, recent discussions
-        let relevantPosts = researchData.reddit
-            .filter(post => post.relevance !== "low")
-            .map(post => ({
-                title: post.title,
-                subreddit: post.subreddit,
-                sentiment: post.sentiment,
-                upvotes: post.upvotes,
-                snippet: post.snippet
-            }));
-        
-        // If we have too many, prioritize by engagement/sentiment
-        if (relevantPosts.length > 2) {
-            // Sort by combination of relevance and engagement
-            relevantPosts = relevantPosts
-                .sort((a, b) => {
-                    // Prioritize posts with sentiment aligned to our deal
-                    const dealStage = clientDetails.deals?.[0]?.status || "";
-                    
-                    // For early deals, positive sentiment is more helpful
-                    const earlyStages = ["prospecting", "qualified"];
-                    // For late deals, negative sentiment helps address objections
-                    const lateStages = ["proposal", "negotiation"];
-                    
-                    let aScore = a.upvotes || 0;
-                    let bScore = b.upvotes || 0;
-                    
-                    // Adjust score based on deal stage and sentiment
-                    if (earlyStages.includes(dealStage) && a.sentiment === "positive") {
-                        aScore += 1000;
-                    }
-                    if (earlyStages.includes(dealStage) && b.sentiment === "positive") {
-                        bScore += 1000;
-                    }
-                    if (lateStages.includes(dealStage) && a.sentiment === "negative") {
-                        aScore += 800;
-                    }
-                    if (lateStages.includes(dealStage) && b.sentiment === "negative") {
-                        bScore += 800;
-                    }
-                    
-                    return bScore - aScore;
-                })
-                .slice(0, 2);
-        }
-        
-        if (relevantPosts.length > 0) {
-            processedData.communityDiscussions = relevantPosts;
-        }
-    }
-    
-    return processedData;
-}
-
-/**
- * Analyze client notes to extract key points for the GPT prompt
- * @param {string} notes - Raw client notes
- * @returns {Object} - Structured key points
- */
-function extractKeyPointsFromNotes(notes) {
-    if (!notes) return { hasPoints: false };
-    
-    // Split notes into separate points/lines
-    const lines = notes.split(/\r?\n/).filter(line => line.trim().length > 0);
-    
-    // Extract key concerns (lines with keywords)
-    const concernKeywords = ["concern", "issue", "problem", "challenge", "worried", "risk"];
-    const concerns = lines.filter(line => 
-        concernKeywords.some(keyword => line.toLowerCase().includes(keyword))
-    );
-    
-    // Extract requirements (lines with requirements patterns)
-    const requirementPatterns = [/need(s|ed)?/i, /require(s|d)?/i, /must\s+have/i, /should\s+have/i, /important/i];
-    const requirements = lines.filter(line =>
-        requirementPatterns.some(pattern => pattern.test(line))
-    );
-    
-    // Extract any meeting or demo mentions
-    const meetingPatterns = [/demo/i, /meeting/i, /call/i, /presentation/i, /discuss/i];
-    const meetingMentions = lines.filter(line =>
-        meetingPatterns.some(pattern => pattern.test(line))
-    );
-    
-    return {
-        hasPoints: concerns.length > 0 || requirements.length > 0 || meetingMentions.length > 0,
-        concerns: concerns.slice(0, 3), // Limit to top 3
-        requirements: requirements.slice(0, 3),
-        meetings: meetingMentions.slice(0, 2)
+function extractIntelligenceInfo(clientDetails, researchData) {
+    const result = {
+        technicalTerms: [],
+        systemNames: [],
+        metrics: [],
+        keyPeople: [],
+        companyDetails: {},
+        dealInfo: {}
     };
+    
+    // Extract system names (CamelCase or ALL_CAPS words) from notes
+    if (clientDetails.notes) {
+        const systemPattern = /\b([A-Z][a-z]+(?:[A-Z][a-z]+)+|\b[A-Z]{2,})\b/g;
+        const matches = [...clientDetails.notes.matchAll(systemPattern)];
+        
+        result.systemNames = matches
+            .map(match => match[1])
+            .filter(name => 
+                !['JavaScript', 'TypeScript', 'MongoDB', 'Monday', 'Tuesday', 'Wednesday', 
+                'Thursday', 'Friday', 'January', 'February', 'March', 'April', 'May', 'June', 
+                'July', 'August', 'September', 'October', 'November', 'December'].includes(name)
+            );
+        
+        // Extract metrics (numbers with units or percentages)
+        const metricPatterns = [
+            /\b\d+%\b/g,                     // Percentages
+            /\$\s*[\d,]+(?:\.\d+)?/g,        // Dollar amounts
+            /\b\d+\s*(?:K|M|B|k|m|bn)\b/g,   // Numbers with K, M, B suffixes
+            /\b\d+\s*(?:hour|day|week|month|year)s?\b/gi  // Time periods
+        ];
+        
+        result.metrics = metricPatterns
+            .flatMap(pattern => [...(clientDetails.notes.match(pattern) || [])])
+            .map(match => match.trim());
+        
+        // Extract potential stakeholders (capitalized names)
+      //  const namePattern = /\b([A-Z][A-Z]+(?:\s+[A-Z][a-Z]+)?)\b/g;
+		const namePattern = /\b([A-Z][A-Z]+(?:\s+[A-Z][A-Za-z]+)?)\b/g;
+        const nameMatches = [...clientDetails.notes.matchAll(namePattern)];
+        result.keyPeople = nameMatches
+            .map(match => match[1])
+            .filter(name => 
+                name !== clientDetails.company && 
+                !['SOW', 'QE', 'POD', 'API', 'SDK', 'THE', 'OUR', 'THEIR', 'YOUR'].includes(name)
+            );
+    }
+    
+    // Add the client's name if available
+    if (clientDetails.name) {
+        result.keyPeople.push(clientDetails.name);
+    }
+    
+    // Company details
+    result.companyDetails = {
+        name: clientDetails.company || "Unknown",
+        industry: clientDetails.industry || "unknown"
+    };
+    
+    // Deal information
+    if (clientDetails.deals && clientDetails.deals.length > 0) {
+        const primaryDeal = clientDetails.deals[0];
+        result.dealInfo = {
+            title: primaryDeal.title,
+            value: primaryDeal.value,
+            status: primaryDeal.status,
+            expectedCloseDate: primaryDeal.expectedCloseDate
+        };
+    }
+    
+    return result;
 }
 
 /**
- * Generate industry-specific strategic guidance for the GPT prompt
- * @param {string} industry - Client's industry
- * @param {string} dealStage - Current deal stage
- * @returns {string} - Industry-specific guidance 
+ * Determine the client's industry based on available information
+ * @param {Object} clientDetails - Client information
+ * @param {Object} researchData - Research data
+ * @return {string} - Identified industry
  */
-function generateIndustryGuidance(industry, dealStage) {
-    // Get the appropriate industry strategy or fall back to default
-    const normalizedIndustry = industry?.toLowerCase() || "default";
-    let strategyGuide = INDUSTRY_SALES_STRATEGIES.default;
+function determineIndustry(clientDetails, researchData) {
+    // Common industries to check for
+    const industries = [
+        'finance', 'fintech', 'banking', 'insurance', 'healthcare', 
+        'technology', 'saas', 'software', 'manufacturing', 'retail', 
+        'education', 'government', 'nonprofit', 'media', 'telecommunications',
+        'real estate', 'construction', 'automotive', 'energy', 'hospitality'
+    ];
     
-    // Try to find exact match first
-    if (INDUSTRY_SALES_STRATEGIES[normalizedIndustry]) {
-        strategyGuide = INDUSTRY_SALES_STRATEGIES[normalizedIndustry];
-    } 
-    // Try partial match for industries like "banking" matching "financial services"
-    else {
-        for (const [key, value] of Object.entries(INDUSTRY_SALES_STRATEGIES)) {
-            if (normalizedIndustry.includes(key) || key.includes(normalizedIndustry)) {
-                strategyGuide = value;
-                break;
+    let foundIndustry = '';
+    
+    // Check company name and notes
+    const textToSearch = `${clientDetails.company || ''} ${clientDetails.notes || ''}`.toLowerCase();
+    
+    for (const industry of industries) {
+        if (textToSearch.includes(industry)) {
+            foundIndustry = industry;
+            break;
+        }
+    }
+    
+    // If no industry found, check research data
+    if (!foundIndustry && researchData) {
+        // Check in Google news titles and snippets
+        if (researchData.google && Array.isArray(researchData.google)) {
+            const googleText = researchData.google
+                .map(item => `${item.title || ''} ${item.snippet || ''}`)
+                .join(' ')
+                .toLowerCase();
+                
+            for (const industry of industries) {
+                if (googleText.includes(industry)) {
+                    foundIndustry = industry;
+                    break;
+                }
+            }
+        }
+        
+        // If still not found, check Reddit posts
+        if (!foundIndustry && researchData.reddit && Array.isArray(researchData.reddit)) {
+            const redditText = researchData.reddit
+                .map(post => post.title || '')
+                .join(' ')
+                .toLowerCase();
+                
+            for (const industry of industries) {
+                if (redditText.includes(industry)) {
+                    foundIndustry = industry;
+                    break;
+                }
             }
         }
     }
     
-    // Adjust focus based on deal stage
-    let focusedTopics = [];
-    let likelyObjections = [];
-    
-    if (dealStage === "prospecting" || dealStage === "qualified") {
-        // Early stage: focus on value proposition and business case
-        focusedTopics = strategyGuide.topics.filter(t => 
-            t.toLowerCase().includes("roi") || 
-            t.toLowerCase().includes("value") || 
-            t.toLowerCase().includes("benefit")
-        );
-        
-        likelyObjections = strategyGuide.objections.filter(o => 
-            o.toLowerCase().includes("budget") || 
-            o.toLowerCase().includes("cost") || 
-            o.toLowerCase().includes("roi")
-        );
-    } 
-    else if (dealStage === "proposal") {
-        // Proposal stage: focus on technical and implementation concerns
-        focusedTopics = strategyGuide.topics.filter(t => 
-            t.toLowerCase().includes("implementation") || 
-            t.toLowerCase().includes("integration") || 
-            t.toLowerCase().includes("technical")
-        );
-        
-        likelyObjections = strategyGuide.objections.filter(o => 
-            o.toLowerCase().includes("technical") || 
-            o.toLowerCase().includes("implementation") || 
-            o.toLowerCase().includes("integration")
-        );
-    }
-    else if (dealStage === "negotiation") {
-        // Negotiation stage: focus on risk mitigation and financial terms
-        focusedTopics = strategyGuide.topics.filter(t => 
-            t.toLowerCase().includes("risk") || 
-            t.toLowerCase().includes("support") || 
-            t.toLowerCase().includes("service")
-        );
-        
-        likelyObjections = strategyGuide.objections.filter(o => 
-            o.toLowerCase().includes("risk") || 
-            o.toLowerCase().includes("support") || 
-            o.toLowerCase().includes("maintenance")
-        );
-    }
-    
-    // If filtered lists are too short, add top items from full lists
-    if (focusedTopics.length < 2) {
-        focusedTopics = [...focusedTopics, ...strategyGuide.topics].slice(0, 3);
-    }
-    
-    if (likelyObjections.length < 2) {
-        likelyObjections = [...likelyObjections, ...strategyGuide.objections].slice(0, 3);
-    }
-    
-    // Format the guidance text
-    const guidanceText = `
-**Industry-Specific Considerations**
-- Focus on these high-impact topics for ${normalizedIndustry}:
-  * ${focusedTopics.join('\n  * ')}
-- Anticipate these common objections:
-  * ${likelyObjections.join('\n  * ')}
-`;
-    
-    return guidanceText;
+    return foundIndustry || 'unknown';
 }
 
 /**
- * Generate a deal-specific sales strategy section for the GPT prompt
- * @param {string} dealStage - Current deal stage
- * @returns {string} - Sales strategy guidance
+ * Process and structure research data for better usage
+ * @param {Object} data - Raw research data
+ * @return {Object} - Processed research data
  */
-function generateSalesStageGuidance(dealStage) {
-    let guidance = "";
+function processResearchData(data) {
+    const result = {
+        companyInsights: [],
+        recentNews: [],
+        socialMentions: [],
+        technicalDetails: []
+    };
     
-    if (!dealStage) {
-        return "**Strategy:** Focus on understanding the client's needs and establishing value. Emphasize discovery questions.";
+    // Process Google news data
+    if (data.google && Array.isArray(data.google)) {
+        result.recentNews = data.google.map(item => ({
+            title: item.title,
+            source: item.source,
+            date: item.publishedDate,
+            summary: item.snippet,
+            url: item.url
+        })).filter(item => item.title && item.summary);
     }
     
-    switch(dealStage) {
-        case "prospecting":
-            guidance = `
-**Prospecting Stage Strategy**
-- Focus on: Building rapport and understanding pain points
-- Key actions: Ask discovery questions, identify business challenges
-- Goal: Qualify the opportunity and establish initial value proposition
-`;
-            break;
-        case "qualified":
-            guidance = `
-**Qualified Stage Strategy**
-- Focus on: Connecting solutions to specific needs
-- Key actions: Present initial solutions, gather technical requirements
-- Goal: Secure interest in formal proposal and technical evaluation
-`;
-            break;
-        case "proposal":
-            guidance = `
-**Proposal Stage Strategy**
-- Focus on: Demonstrating ROI and implementation plan
-- Key actions: Address technical concerns, provide social proof, establish timeline
-- Goal: Move to contract negotiations with key decision makers
-`;
-            break;
-        case "negotiation":
-            guidance = `
-**Negotiation Stage Strategy**
-- Focus on: Maintaining value perception while addressing specific concerns
-- Key actions: Highlight unique value, address contractual concerns, reiterate business impact
-- Goal: Close the deal with favorable terms for both parties
-`;
-            break;
-        default:
-            guidance = `
-**Sales Strategy**
-- Focus on: Understanding current deal stage and next steps
-- Key actions: Identify decision makers, establish value proposition, address concerns
-- Goal: Move the deal forward with clear action items
-`;
+    // Process Reddit data
+    if (data.reddit && Array.isArray(data.reddit)) {
+        result.socialMentions = data.reddit.map(post => ({
+            title: post.title,
+            source: `r/${post.subreddit}`,
+            engagement: `${post.upvotes || 0} upvotes, ${post.comments || 0} comments`,
+            sentiment: post.sentiment || 'neutral',
+            url: post.url
+        })).filter(post => post.title);
     }
     
-    return guidance;
+    // Extract technical details across all sources
+    const technicalTerms = new Set();
+    
+    // From news
+    result.recentNews.forEach(news => {
+        const techPattern = /\b(?:API|SDK|platform|system|software|framework|database|cloud|integration|microservices|architecture)\b/gi;
+        let match;
+        
+        const text = `${news.title} ${news.summary}`;
+        while ((match = techPattern.exec(text)) !== null) {
+            technicalTerms.add(match[0]);
+        }
+    });
+    
+    // From social
+    result.socialMentions.forEach(post => {
+        const techPattern = /\b(?:API|SDK|platform|system|software|framework|database|cloud|integration|microservices|architecture)\b/gi;
+        let match;
+        
+        while ((match = techPattern.exec(post.title)) !== null) {
+            technicalTerms.add(match[0]);
+        }
+    });
+    
+    result.technicalDetails = Array.from(technicalTerms);
+    
+    return result;
 }
-
 /**
- * Function to call GPT-4 and generate a structured sales summary
- * @param {Object} researchData - Research data from all sources
- * @param {Object} clientDetails - Client information from CRM
- * @returns {Promise<string>} - Generated sales intelligence summary
+ * Create a highly structured and targeted LLM prompt based on client data and research
+ * @param {Object} clientDetails - Client information
+ * @param {Object} researchData - Research data from various sources
+ * @param {Object} intelligenceInfo - Extracted intelligence information
+ * @return {string} - Structured prompt for LLM
  */
-async function generateSummary(researchData, clientDetails) { 
-    try {
-        console.log("🧠 Sending research data to GPT-4 for sales-focused summarization...");
-
-        // Ensure research data is valid before sending
-        if (!researchData || Object.keys(researchData).length === 0) {
-            console.log("⚠️ No new research data available. Skipping GPT-4 call.");
-            return "No new insights available at this time.";
+function createSalesIntelligencePrompt(researchData, clientDetails, intelligenceInfo) {
+    // Extract key information
+    const clientName = clientDetails.name || "Unknown";
+    const position = clientDetails.position || "Unknown";
+    const company = clientDetails.company || "Unknown";
+    const notes = clientDetails.notes || "";
+    
+    // Extract system names for prompt
+    const systemNames = intelligenceInfo.systemNames.length > 0 
+        ? `- **Key Systems:** ${intelligenceInfo.systemNames.join(', ')}`
+        : '';
+    
+    // Format metrics for prompt
+    const metrics = intelligenceInfo.metrics.length > 0
+        ? `- **Key Metrics:** ${intelligenceInfo.metrics.join(', ')}`
+        : '';
+    
+    // Deal information
+    let dealInfo = "- No active deals";
+    if (intelligenceInfo.dealInfo && Object.keys(intelligenceInfo.dealInfo).length > 0) {
+        const deal = intelligenceInfo.dealInfo;
+        dealInfo = `
+- **Deal Title:** ${deal.title || 'Unnamed Opportunity'}
+- **Value:** $${(deal.value || 0).toLocaleString()}
+- **Stage:** ${deal.status || 'Unknown'}
+- **Expected Close:** ${deal.expectedCloseDate ? new Date(deal.expectedCloseDate).toLocaleDateString() : 'Not specified'}`;
+    }
+    
+    // Key people
+    const peopleList = intelligenceInfo.keyPeople.length > 0
+        ? intelligenceInfo.keyPeople.map(person => `- ${person}`).join('\n')
+        : "- No key people identified";
+    
+    // Research information
+    let researchInfo = "";
+    if (researchData.google && Array.isArray(researchData.google) && researchData.google.length > 0) {
+        researchInfo += "\n### Recent News\n";
+        researchData.google.slice(0, 3).forEach(item => {
+            if (item.title && item.snippet) {
+                researchInfo += `- **${item.title}**: ${item.snippet.substring(0, 100)}...\n`;
+            }
+        });
+    }
+    
+    if (researchData.reddit && Array.isArray(researchData.reddit) && researchData.reddit.length > 0) {
+        researchInfo += "\n### Social Media Mentions\n";
+        researchData.reddit.slice(0, 3).forEach(post => {
+            if (post.title) {
+                researchInfo += `- **r/${post.subreddit || 'unknown'}**: "${post.title}"\n`;
+            }
+        });
+    }
+    
+    if (researchData.apollo?.company) {
+        const company = researchData.apollo.company;
+        researchInfo += "\n### Company Information\n";
+        researchInfo += `- **Industry:** ${company.industry || 'Unknown'}\n`;
+        researchInfo += `- **Size:** ${company.size || 'Unknown'}\n`;
+        researchInfo += `- **Revenue:** ${company.revenue || 'Unknown'}\n`;
+        
+        if (researchData.apollo.insights?.growthIndicators?.length > 0) {
+            researchInfo += "- **Growth Indicators:** " + 
+                researchData.apollo.insights.growthIndicators.join(', ') + "\n";
         }
         
-        // Preprocess research data to focus on most relevant information
-        const processedData = preprocessResearchData(researchData, clientDetails);
-        
-        // Extract key points from client notes
-        const notesAnalysis = extractKeyPointsFromNotes(clientDetails.notes);
-        
-        // Get industry from processed data or fall back to client data
-        const industry = processedData?.company?.industry || 
-                         researchData?.apollo?.companyInfo?.industry || 
-                         "Unknown";
-                         
-        // Get deal stage for stage-specific guidance
-        const dealStage = clientDetails.deals?.[0]?.status || "prospecting";
-        
-        // Generate industry-specific guidance
-        const industryGuidance = generateIndustryGuidance(industry, dealStage);
-        
-        // Generate sales stage guidance
-        const stageGuidance = generateSalesStageGuidance(dealStage);
+        if (researchData.apollo.insights?.buyingSignals?.length > 0) {
+            researchInfo += "- **Buying Signals:** " + 
+                researchData.apollo.insights.buyingSignals.join(', ') + "\n";
+        }
+    }
+    
+    // Build the complete prompt
+    return `
+# SALES INTELLIGENCE BRIEF
 
-        // Build structured prompt with research insights & client-specific context
-        const prompt = `
-You are a **senior sales intelligence analyst** helping a sales representative close a deal with **${clientDetails.company}**.
+You are a strategic B2B sales advisor specializing in technical sales. Your task is to generate highly specific, actionable sales intelligence for the sales executive working with this client.
 
-**🔹 Customer Context**
-- **Contact:** ${clientDetails.name}, ${clientDetails.position || "Unknown Position"}
-- **Company:** ${processedData?.company?.name || clientDetails.company}
+## CLIENT INFORMATION
+- **Name:** ${clientName}
+- **Position:** ${position}
+- **Company:** ${company}
+${systemNames}
+${metrics}
+${dealInfo}
+
+## KEY STAKEHOLDERS
+${peopleList}
+
+## CLIENT NOTES
+${notes}
+
+## RESEARCH INSIGHTS
+${researchInfo}
+
+Based on this information, provide THREE highly specific, actionable sales insights in the following format:
+
+## 1️⃣ TAILORED ENGAGEMENT STRATEGY
+* Clear bullet point 1 - Focusing on specific client needs
+* Clear bullet point 2 - Addressing client pain points
+* Brief explanation of why this approach will resonate with the client
+
+## 2️⃣ STRATEGIC OBJECTION HANDLING
+* Clear bullet point 1 - Anticipating likely pushback in current deal stage
+* Clear bullet point 2 - Providing evidence-based counterpoints
+* Brief explanation of psychological/business reasons behind objections
+
+## 3️⃣ COMPETITIVE POSITIONING
+* Clear bullet point 1 - Highlighting direct advantage over competitors
+* Clear bullet point 2 - Demonstrating unique value proposition
+* Brief explanation of how to frame these advantages in client's terms
+
+FORMAT REQUIREMENTS:
+1. KEEP ALL BULLET POINTS UNDER 20 WORDS FOR READABILITY
+2. USE THE CLIENT'S EXACT TERMINOLOGY AND SYSTEMS WHERE POSSIBLE
+3. INCLUDE AT LEAST ONE SPECIFIC METRIC OR QUANTIFIABLE BENEFIT IN EACH SECTION
+4. REFERENCE KEY STAKEHOLDERS BY NAME WHEN RELEVANT`;
+}
+
+/**
+ * Build the client section of the prompt
+ * @param {Object} clientDetails - Client information
+ * @param {Object} intelligenceInfo - Extracted intelligence
+ * @return {string} - Formatted client section
+ */
+function buildClientSection(clientDetails, intelligenceInfo) {
+    // Extract client information
+    const clientName = clientDetails.name || 'Unknown';
+    const position = clientDetails.position || 'Unknown';
+    const company = clientDetails.company || intelligenceInfo.companyDetails.name || 'Unknown';
+    const industry = intelligenceInfo.companyDetails.industry || 'Unknown';
+    
+    // Format system names for inclusion
+    const systemNames = intelligenceInfo.systemNames.length > 0 
+        ? `- **Systems Mentioned:** ${intelligenceInfo.systemNames.join(', ')}`
+        : '';
+    
+    // Format metrics for inclusion
+    const metrics = intelligenceInfo.metrics.length > 0
+        ? `- **Key Metrics Mentioned:** ${intelligenceInfo.metrics.join(', ')}`
+        : '';
+    
+    // Format notes if available
+    const notesSection = clientDetails.notes
+        ? `\n\n**Client Notes:**\n${clientDetails.notes}`
+        : '';
+    
+    // Return the formatted client section
+    return `## CLIENT INFORMATION
+- **Name:** ${clientName}
+- **Position:** ${position}
+- **Company:** ${company}
 - **Industry:** ${industry}
-- **Deal Status:** ${dealStage} (Value: $${clientDetails.deals?.[0]?.value || "Unknown"})
+${systemNames}
+${metrics}${notesSection}`;
+}
 
-${notesAnalysis.hasPoints ? `**🔍 Key Points from Recent Notes**
-${notesAnalysis.concerns.length > 0 ? `- **Concerns Raised:**\n  * ${notesAnalysis.concerns.join('\n  * ')}` : ''}
-${notesAnalysis.requirements.length > 0 ? `- **Requirements Mentioned:**\n  * ${notesAnalysis.requirements.join('\n  * ')}` : ''}
-${notesAnalysis.meetings.length > 0 ? `- **Recent Interactions:**\n  * ${notesAnalysis.meetings.join('\n  * ')}` : ''}
-` : `**🔍 Recent Notes**
-${clientDetails.notes || "No recent updates"}`}
+/**
+ * Build the deal section of the prompt
+ * @param {Object} clientDetails - Client information
+ * @param {Object} intelligenceInfo - Extracted intelligence
+ * @return {string} - Formatted deal section
+ */
+function buildDealSection(clientDetails, intelligenceInfo) {
+    // If no deal information, return empty
+    if (!clientDetails.deals || clientDetails.deals.length === 0) {
+        return `## DEAL STATUS
+- No active deals found`;
+    }
+    
+    // Get primary deal
+    const deal = clientDetails.deals[0];
+    
+    // Format deal stage with context
+    let stageContext = '';
+    switch (deal.status) {
+        case 'prospecting':
+            stageContext = 'Initial interest, value proposition focus';
+            break;
+        case 'qualified':
+            stageContext = 'Needs confirmed, solution-fit validation';
+            break;
+        case 'proposal':
+            stageContext = 'Decision criteria, competing solutions considered';
+            break;
+        case 'negotiation':
+            stageContext = 'Value discussion, decision timeline critical';
+            break;
+        case 'closed_won':
+            stageContext = 'Implementation planning, expansion opportunities';
+            break;
+        case 'closed_lost':
+            stageContext = 'Re-engagement strategy needed';
+            break;
+        default:
+            stageContext = 'Status unknown';
+    }
+    
+    // Format expected close date
+    const closeDateInfo = deal.expectedCloseDate
+        ? `- **Expected Close:** ${new Date(deal.expectedCloseDate).toLocaleDateString()}`
+        : '';
+    
+    // Return the formatted deal section
+    return `## DEAL STATUS
+- **Deal Title:** ${deal.title || 'Unnamed Opportunity'}
+- **Value:** $${(deal.value || 0).toLocaleString()}
+- **Stage:** ${deal.status} (${stageContext})
+${closeDateInfo}`;
+}
 
-**📊 Company Intelligence**
-${JSON.stringify(processedData, null, 2)}
+/**
+ * Build the key people section of the prompt
+ * @param {Object} intelligenceInfo - Extracted intelligence
+ * @return {string} - Formatted key people section
+ */
+function buildPeopleSection(intelligenceInfo) {
+    // If no key people found, return minimal section
+    if (intelligenceInfo.keyPeople.length === 0) {
+        return `## KEY STAKEHOLDERS
+- No specific stakeholders identified yet`;
+    }
+    
+    // Format key people list
+    const peopleList = intelligenceInfo.keyPeople
+        .map(person => `- **${person}**`)
+        .join('\n');
+    
+    // Return the formatted people section with tailoring instructions
+    return `## KEY STAKEHOLDERS
+${peopleList}
 
-${stageGuidance}
+These key stakeholders should be referenced by name in your response when relevant. Personalizing the approach to specific decision-makers significantly increases deal success probability.`;
+}
 
-${industryGuidance}
+/**
+ * Build the research section of the prompt
+ * @param {Object} processedResearch - Processed research data
+ * @return {string} - Formatted research section
+ */
+function buildResearchSection(processedResearch) {
+    let researchOutput = `## RESEARCH INSIGHTS\n`;
+    
+    // Add recent news if available
+    if (processedResearch.recentNews.length > 0) {
+        researchOutput += `\n### Recent Company News\n`;
+        processedResearch.recentNews.slice(0, 3).forEach(news => {
+            researchOutput += `- **${news.title}** (${news.source}): ${news.summary.substring(0, 100)}...\n`;
+        });
+    }
+    
+    // Add social mentions if available
+    if (processedResearch.socialMentions.length > 0) {
+        researchOutput += `\n### Social Media Activity\n`;
+        processedResearch.socialMentions.slice(0, 3).forEach(post => {
+            researchOutput += `- **${post.source}**: "${post.title}" (${post.sentiment} sentiment, ${post.engagement})\n`;
+        });
+    }
+    
+    // Add technical details if available
+    if (processedResearch.technicalDetails.length > 0) {
+        researchOutput += `\n### Technical Keywords\n- ${processedResearch.technicalDetails.join(', ')}\n`;
+    }
+    
+    return researchOutput;
+}
 
----
-Based on the information above, please provide:
+/**
+ * Build the instructions section of the prompt
+ * @param {Object} clientDetails - Client information
+ * @param {Object} intelligenceInfo - Extracted intelligence information
+ * @return {string} - Formatted instructions section
+ */
+function buildPromptInstructions(clientDetails, intelligenceInfo) {
+    // Determine the sales approach based on industry and deal stage
+    const industry = intelligenceInfo.companyDetails.industry || 'unknown';
+    const dealStage = clientDetails.deals?.length > 0 ? clientDetails.deals[0].status : 'prospecting';
+    
+    // Customize instructions based on industry
+    let industryGuidance = '';
+    switch (industry) {
+        case 'finance':
+        case 'fintech':
+        case 'banking':
+        case 'insurance':
+            industryGuidance = 'Focus on compliance, security, and ROI. Use precise financial terminology.';
+            break;
+        case 'healthcare':
+            industryGuidance = 'Emphasize HIPAA compliance, patient outcomes, and operational efficiency.';
+            break;
+        case 'technology':
+        case 'saas':
+        case 'software':
+            industryGuidance = 'Highlight technical integration capabilities, scalability, and innovation advantages.';
+            break;
+        case 'manufacturing':
+            industryGuidance = 'Focus on operational efficiency, supply chain optimization, and cost reduction.';
+            break;
+        case 'retail':
+            industryGuidance = 'Emphasize customer experience, inventory management, and competitive differentiation.';
+            break;
+        default:
+            industryGuidance = 'Balance business value with technical capabilities in your recommendations.';
+    }
+    
+    // Customize instructions based on deal stage
+    let stageGuidance = '';
+    switch (dealStage) {
+        case 'prospecting':
+            stageGuidance = 'Focus on problem identification and initial value proposition.';
+            break;
+        case 'qualified':
+            stageGuidance = 'Emphasize solution fit and validation with specific use cases.';
+            break;
+        case 'proposal':
+            stageGuidance = 'Address competitive differentiation and decision criteria.';
+            break;
+        case 'negotiation':
+            stageGuidance = 'Focus on value justification and implementation planning.';
+            break;
+        case 'closed_won':
+            stageGuidance = 'Emphasize successful implementation and expansion opportunities.';
+            break;
+        case 'closed_lost':
+            stageGuidance = 'Focus on reengagement strategy and addressing previous concerns.';
+            break;
+        default:
+            stageGuidance = 'Provide a balanced approach covering value proposition and technical capabilities.';
+    }
+    
+    // Return the formatted instructions
+    return `# SALES INTELLIGENCE BRIEF
 
-**1️⃣ Situation Analysis (2-3 sentences)**
-- Synthesize the current situation based on recent news, company context, and deal stage
+You are a strategic B2B sales advisor specializing in technical sales. Your task is to generate highly specific, actionable sales intelligence that will help close this deal.
 
-**2️⃣ Recommended Engagement Approach**
-- Provide specific talking points and questions for the next conversation
-- Reference specific company insights where relevant
+## GUIDANCE
+- ${industryGuidance}
+- ${stageGuidance}
+- Be extremely specific and avoid generic sales advice.
+- Use the client's exact terminology for systems and metrics.
+- When mentioning stakeholders, use their actual names for personalization.
+- Focus on tangible business outcomes rather than technical features.`;
+}
 
-**3️⃣ Anticipated Objections & Responses**
-- Identify 2-3 likely objections based on industry, news, and deal stage
-- Provide concise, persuasive responses to each objection
-
-**4️⃣ Competitive Advantage**
-- Highlight 1-2 specific competitive advantages in this situation
-- Explain how these advantages address the client's specific needs/context
-
-Format your response in clean markdown with clear sections and bullet points for readability.
-`;
-
-        // Calculate approximate token count (rough estimate: ~4 chars = 1 token)
-        const estimatedPromptTokens = Math.ceil(prompt.length / 4);
+/**
+ * Generate an AI-powered sales intelligence summary using the structured prompt
+ * @param {Object} researchData - Research data from various sources
+ * @param {Object} clientDetails - Client information
+ * @return {string} - AI-generated sales intelligence
+ */
+async function generateSalesIntelligenceSummary(researchData, clientDetails) {
+    try {
+        console.log("🧠 Generating sales intelligence brief...");
         
-        // Log the input payload
-        console.log("\n🔍 GPT INPUT PAYLOAD 🔍");
-        console.log("=====================");
-        console.log(`Estimated tokens: ~${estimatedPromptTokens}`);
-        console.log("=====================");
-        console.log(prompt);
-        console.log("=====================\n");
-
-        const requestPayload = {
+        // Extract intelligence directly (fallback if utility isn't available)
+        const intelligenceInfo = extractIntelligenceInfo(clientDetails, researchData);
+        console.log("📊 Extracted intelligence information:", JSON.stringify(intelligenceInfo, null, 2));
+        
+        // Create a focused prompt for the LLM
+        const prompt = createSalesIntelligencePrompt(researchData, clientDetails, intelligenceInfo);
+        
+        // Call GPT-4 API with the enhanced prompt
+        const response = await axios.post(OPENAI_API_URL, {
             model: "gpt-4o",
             messages: [{ role: "system", content: prompt }],
             max_tokens: 800,
-            temperature: 0.7,
-        };
-
-        const response = await axios.post(OPENAI_API_URL, requestPayload, {
+            temperature: 0.7
+        }, {
             headers: {
                 "Content-Type": "application/json",
                 "api-key": OPENAI_API_KEY
             }
         });
 
+        // Get the summary from the API response
         const summary = response.data.choices[0].message.content;
+        console.log("✅ Generated sales intelligence summary");
         
-        // Calculate approximate response token count
-        const estimatedResponseTokens = Math.ceil(summary.length / 4);
-        
-        // Log the output payload
-        console.log("\n🔍 GPT OUTPUT PAYLOAD 🔍");
-        console.log("=====================");
-        console.log(`Estimated tokens: ~${estimatedResponseTokens}`);
-        console.log(`Total completion tokens from API: ${response.data.usage?.completion_tokens || 'N/A'}`);
-        console.log(`Total prompt tokens from API: ${response.data.usage?.prompt_tokens || 'N/A'}`);
-        console.log(`Total tokens from API: ${response.data.usage?.total_tokens || 'N/A'}`);
-        console.log("=====================");
-        console.log(summary);
-        console.log("=====================\n");
-
-        console.log("✅ GPT-4 Sales Intelligence Summary Generated with enhanced data");
-
         return summary;
     } catch (error) {
-        console.error("❌ Error generating GPT-4 summary:", error.response?.data || error.message);
-        
-        // Try to return a basic summary if possible
-        if (clientDetails) {
-            return `
-# Sales Intelligence Summary
-
-**Unable to generate a complete analysis at this time.**
-
-## Basic Information
-- Client: ${clientDetails.name}
-- Company: ${clientDetails.company}
-- Deal: ${clientDetails.deals?.[0]?.title || "Unknown"}
-
-## Next Steps
-- Review client notes for context
-- Prepare for next interaction based on current deal stage
-- Contact technical team for support if needed
-`;
-        }
-        return "Summary generation failed. Please try again later.";
+        console.error("❌ Error generating sales intelligence:", error.response?.data || error.message);
+        return "Unable to generate sales intelligence at this time. Please try again later.";
     }
 }
-
 /**
- * Run research for a specific client and generate a summary
- * @param {string} clientId - Client ID
- * @param {string} userId - User ID (optional, will be fetched from client data if missing)
- * @returns {Promise<void>}
+ * Post-process the LLM-generated summary to enhance readability and impact
+ * @param {string} summary - Raw summary from LLM
+ * @param {Object} intelligenceInfo - Extracted client intelligence
+ * @return {string} - Enhanced summary
  */
+function postProcessSalesSummary(summary, intelligenceInfo) {
+    // Skip processing if summary is empty
+    if (!summary) return "No summary available.";
+    
+    // Step 1: Clean up and normalize formatting
+    let enhancedSummary = summary;
+    
+    // Replace markdown headers with cleaner versions
+    enhancedSummary = enhancedSummary.replace(/##\s+(.*?)$/gm, '$1');
+    enhancedSummary = enhancedSummary.replace(/#\s+(.*?)$/gm, '$1');
+    
+    // Add spacing between sections for better readability
+    enhancedSummary = enhancedSummary.replace(/(1️⃣|2️⃣|3️⃣)\s+([A-Z\s]+)/g, '\n\n$1 $2\n');
+    
+    // Step 2: Improve bullet point formatting for readability
+    enhancedSummary = enhancedSummary.replace(/\*\s+/g, '• ');
+    
+    // Step 3: Highlight key terms for emphasis
+    // Highlight system names
+    intelligenceInfo.systemNames.forEach(system => {
+        const regex = new RegExp(`\\b${system}\\b`, 'g');
+        enhancedSummary = enhancedSummary.replace(regex, `**${system}**`);
+    });
+    
+    // Highlight metrics
+    intelligenceInfo.metrics.forEach(metric => {
+        // Escape special regex characters in the metric
+        const escapedMetric = metric.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapedMetric}\\b`, 'g');
+        enhancedSummary = enhancedSummary.replace(regex, `**${metric}**`);
+    });
+    
+    // Highlight stakeholder names
+    intelligenceInfo.keyPeople.forEach(person => {
+        const regex = new RegExp(`\\b${person}\\b`, 'g');
+        enhancedSummary = enhancedSummary.replace(regex, `**${person}**`);
+    });
+    
+    // Step 4: Add action-oriented prefixes to bullet points
+    // This regex finds bullet points and adds action verbs if they don't already start with one
+    enhancedSummary = enhancedSummary.replace(/•\s+(?!(?:Use|Emphasize|Highlight|Focus|Address|Leverage|Demonstrate|Present|Show|Discuss|Identify|Prepare|Develop|Create|Offer|Provide))(.*?)(?=[.:\d]|$)/gm, (match, p1) => {
+        // Choose an appropriate action verb based on context
+        let actionVerb = 'Focus on';
+        if (p1.toLowerCase().includes('objection') || p1.toLowerCase().includes('concern')) {
+            actionVerb = 'Address';
+        } else if (p1.toLowerCase().includes('value') || p1.toLowerCase().includes('benefit')) {
+            actionVerb = 'Highlight';
+        } else if (p1.toLowerCase().includes('competitor') || p1.toLowerCase().includes('vs.')) {
+            actionVerb = 'Demonstrate';
+        }
+        return `• ${actionVerb} ${p1}`;
+    });
+    
+    // Step 5: Add a clear boundary between sections
+    enhancedSummary = enhancedSummary.replace(/(1️⃣|2️⃣|3️⃣)\s+([A-Z\s]+)/g, 
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n$1 $2\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // Return the enhanced summary
+    return enhancedSummary;
+}
+
+
 async function runResearchForClient(clientId, userId) {
     try {
-        // ✅ Fetch `userId` and `companyName` upfront
+        // Fetch client data
         const clientData = await Client.findOne({ _id: clientId });
         if (!clientData) {
             console.log(`❌ No client data found for Client ID: ${clientId}. Skipping research.`);
-            return;
+            return false;
         }
 
-        if (!userId) {
-            userId = clientData.userId;  // Use clientData.userId if userId not provided
-        }
-        
         const companyName = clientData.company;
 
         if (!userId || !clientId) {
             console.log(`❌ Missing userId or clientId. Skipping research for ${companyName}.`);
-            return;
+            return false;
         }
 
         console.log(`🔍 Running research for: ${companyName} (Client ID: ${clientId}, User ID: ${userId})`);
 
-        // ✅ Check if research is already in progress for this client
+        // Prevent duplicate research runs
         if (runningResearch.has(clientId)) {
             console.log(`⚠️ Research already running for ${companyName}. Skipping duplicate run.`);
-            return;
+            return false;
         }
 
         runningResearch.add(clientId);
 
-        // Find existing research document
-        const existingResearch = await Research.findOne({ clientId, userId });
-        
-        // Run enabled research modules in parallel
-        const moduleResults = [];
         try {
+            // Find existing research document to properly merge data
+            const existingResearch = await Research.findOne({ clientId, userId });
+            const existingData = existingResearch?.data || {};
+
+            // Run enabled research modules in parallel and pass clientId and userId
+            const researchResults = {};
             await Promise.all(
                 Object.keys(researchModules).map(async (module) => {
                     console.log(`🔍 Executing ${module} research for ${companyName}...`);
                     try {
-                        await researchModules[module](companyName, clientId, userId);
-                        moduleResults.push(module);
-                    } catch (err) {
-                        console.error(`❌ Error in ${module} research:`, err.message);
-                        // Continue with other modules despite errors
+                        const result = await researchModules[module](companyName, clientId, userId);
+                        researchResults[module] = result;
+                    } catch (error) {
+                        console.error(`Error in ${module} research:`, error.message);
+                        // Continue with other modules even if one fails
+                        researchResults[module] = null;
                     }
                 })
             );
-        } catch (err) {
-            console.error("❌ Error running research modules:", err.message);
-            // Continue anyway to use whatever data was collected
-        }
 
-        console.log("✅ API Research Data Collected:\n", moduleResults.join(", "));
+            console.log("✅ Research data collection completed");
+            
+            // Log what keys are actually in researchResults
+            console.log(`📋 Research result keys: ${Object.keys(researchResults)}`);
+            console.log(`📊 Types of research results: ${Object.keys(researchResults).map(k => 
+                `${k}: ${typeof researchResults[k]} (${researchResults[k] ? 'non-null' : 'null'})`).join(', ')}`);
 
-        // Fetch the updated research document after all modules have finished
-        const updatedResearch = await Research.findOne({ clientId, userId });
-        
-        if (!updatedResearch) {
-            console.log(`⚠️ Research document not found after updates for ${companyName}.`);
-            runningResearch.delete(clientId);
-            return;
-        }
-
-        console.log(`✅ Research completed for ${companyName}. Generating GPT-4 summary...`);
-
-        // Generate AI-powered summary based on updated data
-        const summary = await generateSummary(updatedResearch.data, clientData);
-
-        // Update just the summary field without touching the data fields
-        await Research.updateOne(
-            { clientId, userId },
-            { 
-                $set: { 
-                    summary: summary,
-                    timestamp: new Date()
-                }
+            // Create a clean data object
+            const dataToStore = { ...existingData }; // Start with existing data
+            
+            // Properly assign each module's data
+            if (researchResults.google) {
+                dataToStore.google = researchResults.google;
+                console.log(`✅ Adding Google data: ${Array.isArray(researchResults.google) ? 
+                    `Array with ${researchResults.google.length} items` : 
+                    typeof researchResults.google}`);
             }
-        );
+            
+            if (researchResults.apollo) {
+                dataToStore.apollo = researchResults.apollo;
+                console.log(`✅ Adding Apollo data: ${typeof researchResults.apollo}`);
+            }
+            
+            if (researchResults.reddit) {
+                dataToStore.reddit = researchResults.reddit;
+                console.log(`✅ Adding Reddit data: ${Array.isArray(researchResults.reddit) ? 
+                    `Array with ${researchResults.reddit.length} items` : 
+                    typeof researchResults.reddit}`);
+            }
+            
+            // Log the final data structure
+            console.log(`📦 Final data structure: ${JSON.stringify({
+                keys: Object.keys(dataToStore),
+                hasGoogle: !!dataToStore.google,
+                hasApollo: !!dataToStore.apollo,
+                hasReddit: !!dataToStore.reddit
+            })}`);
 
-        console.log(`✅ Research and summary stored for ${companyName} in database.`);
-        runningResearch.delete(clientId);
+            // Extract intelligence information using local function instead of utility
+            const intelligenceInfo = extractIntelligenceInfo(clientData, dataToStore);
+            console.log(`✅ Extracted intelligence information`);
+
+            console.log(`✅ Research data merging completed. Generating sales intelligence...`);
+
+            // Generate AI-powered sales intelligence based on merged data and intelligence info
+            const summary = await generateSalesIntelligenceSummary(dataToStore, clientData);
+
+            // Track when each data source was last updated
+            const lastUpdated = existingResearch?.lastUpdated || {};
+            Object.keys(researchResults).forEach(module => {
+                if (researchResults[module]) {
+                    lastUpdated[module] = new Date();
+                }
+            });
+
+            // Update the research document with explicit data structure
+            const updateResult = await Research.updateOne(
+                { clientId, userId },
+                { 
+                    $set: { 
+                        clientId: clientId,
+                        userId: userId,
+                        company: companyName,
+                        data: dataToStore,  // Use the clean data object
+                        summary: summary,
+                        lastUpdated: lastUpdated,
+                        timestamp: new Date()
+                    }
+                },
+                { upsert: true }
+            );
+            
+            console.log(`🔄 Database update result: ${JSON.stringify(updateResult)}`);
+            console.log(`✅ Research and summary stored for ${companyName}`);
+            return true;
+        } catch (error) {
+            console.error(`❌ Error in research process: ${error.message}`);
+            return false;
+        } finally {
+            // Always remove from running set when complete
+            runningResearch.delete(clientId);
+        }
     } catch (error) {
         console.error("❌ Error in runResearchForClient:", error.message);
-        runningResearch.delete(clientId);
+        // Ensure we clean up the running set even on unexpected errors
+        if (clientId) runningResearch.delete(clientId);
+        return false;
     }
 }
 
-module.exports = { runResearchForClient };
+/**
+ * Orchestrate research for all active clients
+ * @return {Promise<void>}
+ */
+async function orchestrateResearch() {
+    try {
+        console.log("🚀 Starting orchestrated research process for all active clients...");
+
+        const clients = await Client.find({ isActive: true });
+
+        if (clients.length === 0) {
+            console.log("⚠️ No active clients found. Research skipped.");
+            return;
+        }
+
+        console.log(`🔄 Found ${clients.length} active clients. Starting research...`);
+
+        // Process clients in batches to avoid overloading the system
+        const batchSize = 5;
+        for (let i = 0; i < clients.length; i += batchSize) {
+            const batch = clients.slice(i, i + batchSize);
+            
+            // Process each batch in parallel
+            await Promise.all(
+                batch.map(client => runResearchForClient(client._id.toString(), client.userId))
+            );
+            
+            // Add a small delay between batches
+            if (i + batchSize < clients.length) {
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+        }
+
+        console.log("✅ Research orchestration completed successfully.");
+    } catch (error) {
+        console.error("❌ Error in orchestrateResearch:", error.message);
+    }
+}
+
+/**
+ * Get a client's research data without running new research
+ * @param {string} clientId - Client ID
+ * @param {string} userId - User ID
+ * @return {Promise<Object|null>} - Research data or null if not found
+ */
+async function getClientResearch(clientId, userId) {
+    try {
+        if (!clientId || !userId) {
+            console.log("❌ Missing clientId or userId for research lookup");
+            return null;
+        }
+
+        const research = await Research.findOne({ clientId, userId });
+        if (!research) {
+            console.log(`⚠️ No research found for Client ID: ${clientId}`);
+            return null;
+        }
+
+        return {
+            summary: research.summary,
+            data: research.data,
+            timestamp: research.timestamp,
+            lastUpdated: research.lastUpdated
+        };
+    } catch (error) {
+        console.error(`❌ Error retrieving research for client ${clientId}:`, error.message);
+        return null;
+    }
+}
+
+/**
+ * Refresh research for a specific client on-demand
+ * @param {string} clientId - Client ID
+ * @param {string} userId - User ID
+ * @return {Promise<boolean>} - Success status
+ */
+async function refreshClientResearch(clientId, userId) {
+    try {
+        if (!clientId || !userId) {
+            console.log("❌ Missing clientId or userId for research refresh");
+            return false;
+        }
+
+        // Check if the client exists
+        const client = await Client.findOne({ _id: clientId, userId });
+        if (!client) {
+            console.log(`❌ No client found for ID: ${clientId}`);
+            return false;
+        }
+
+        // Run research for this client specifically
+        await runResearchForClient(clientId, userId);
+        return true;
+    } catch (error) {
+        console.error(`❌ Error refreshing research for client ${clientId}:`, error.message);
+        return false;
+    }
+}
+
+// Export all necessary functions
+module.exports = { 
+    runResearchForClient,
+    orchestrateResearch,
+    generateSalesIntelligenceSummary,
+    postProcessSalesSummary,
+    getClientResearch,
+    refreshClientResearch
+};

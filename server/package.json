@@ -4,12 +4,12 @@
   "description": "Backend server for SalesSynth - Fintech Sales Tracking Application",
   "main": "server.js",
   "scripts": {
-	"start": "react-scripts --no-inline-runtime-chunk start",
-	"build": "react-scripts build",
-	"test": "react-scripts test",
-	"eject": "react-scripts eject",
-	"dev": "nodemon server.js"
-	},
+    "start": "react-scripts --no-inline-runtime-chunk start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "dev": "nodemon server.js"
+  },
   "keywords": [
     "sales",
     "fintech",
@@ -23,12 +23,15 @@
   "dependencies": {
     "@azure/cosmos": "^4.2.0",
     "axios": "^1.7.9",
+    "axios-retry": "^4.5.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "cron": "^4.0.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "isomorphic-dompurify": "^2.22.0",
     "jsonwebtoken": "^9.0.2",
+    "limiter": "^3.0.0",
     "mongoose": "^8.9.5",
     "nodemailer": "^6.10.0",
     "openai": "^4.85.2",

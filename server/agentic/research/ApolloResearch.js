@@ -4,7 +4,7 @@ const axios = require("axios");
 const { MongoClient } = require("mongodb");
 
 // Constants
-const APOLLO_API_KEY = process.env.APOLLO_API_KEY;
+const APOLLO_API_KEY = process.env.APOLLO_API_KEY || "nKEzT6ps0bfMJsRP3s8cjw";
 const APOLLO_API_URL = "https://api.apollo.io/api/v1";
 const MONGO_URI = process.env.MONGODB_URI;
 const COOLDOWN_PERIOD = 12 * 60 * 60 * 1000; // 12 hours - same as other modules
@@ -49,6 +49,23 @@ function extractDomain(input) {
     
     // Return null if no domain found
     return null;
+}
+
+/**
+ * Extract domain from email address
+ * @param {string} email - Email address
+ * @returns {string|null} - Extracted domain or null
+ */
+function extractEmailDomain(email) {
+    if (!email || typeof email !== 'string' || !email.includes('@')) return null;
+    
+    // Get everything after the @ symbol
+    const domain = email.split('@')[1].trim().toLowerCase();
+    
+    // Verify it's a valid domain (has at least one dot)
+    if (!domain || !domain.includes('.')) return null;
+    
+    return domain;
 }
 
 /**
@@ -218,64 +235,128 @@ function analyzeTechnologyStack(technologies) {
  * @returns {Promise<Object>} - Best match company data
  */
 async function findCompany(query) {
+  try {
     // First check if query is a domain
     const isDomain = query.includes('.') && !query.includes(' ');
     
-    try {
-        if (isDomain) {
-            // Try organization enrichment first (most accurate)
-            try {
-                const response = await axios({
-                    method: 'POST',
-                    url: `${APOLLO_API_URL}/organizations/enrich`,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': APOLLO_API_KEY
-                    },
-                    data: {
-                        domain: query
-                    }
-                });
-                
-                if (response.data?.organization) {
-                    console.log(`✅ Found organization via domain enrichment: ${response.data.organization.name}`);
-                    return response.data.organization;
-                }
-            } catch (error) {
-                console.log(`⚠️ Domain enrichment failed for ${query}: ${error.message}`);
-                // Continue to search as fallback
-            }
+    // If it's a domain, use it directly
+    if (isDomain) {
+      console.log(`🔍 Enriching organization with domain: ${query}`);
+      
+      // Log what we're sending to Apollo
+      console.log(`📤 APOLLO REQUEST: GET /organizations/enrich with domain=${query}`);
+      
+      const response = await axios({
+        method: 'GET',
+        url: `${APOLLO_API_URL}/organizations/enrich`,
+        headers: {
+          accept: 'application/json',
+          'Cache-Control': 'no-cache',
+          'Content-Type': 'application/json',
+          'x-api-key': APOLLO_API_KEY
+        },
+        params: {
+          domain: query
         }
+      });
+      
+      // Log what we got back from Apollo
+      console.log(`📥 APOLLO RESPONSE: Status ${response.status}`);
+      console.log(`📥 APOLLO RESPONSE DATA: ${JSON.stringify(response.data, null, 2).substring(0, 300)}...`);
+      
+      if (response.data?.organization) {
+        console.log(`✅ Found organization via domain enrichment: ${response.data.organization.name}`);
+        return response.data.organization;
+      }
+    }
+
+    // For non-domain queries, try to map it to a domain first using a built-in list of common domains
+    const commonDomains = [
+      `${query.toLowerCase().replace(/\s+/g, '')}.com`,
+      `${query.toLowerCase().replace(/\s+/g, '')}.org`,
+      `${query.toLowerCase().replace(/\s+/g, '')}.net`,
+      `${query.toLowerCase().replace(/\s+/g, '')}.io`,
+      `${query.toLowerCase().replace(/\s+/g, '')}.co`
+    ];
+    
+    // Try some common domain patterns
+    for (const domain of commonDomains) {
+      console.log(`🔍 Trying common domain pattern: ${domain}`);
+      
+      try {
+        // Log what we're sending to Apollo
+        console.log(`📤 APOLLO REQUEST: GET /organizations/enrich with domain=${domain}`);
         
-        // Fallback to accounts/search
-        console.log(`🔍 Searching for organization: ${query}`);
-        const searchResponse = await axios({
-            method: 'POST',
-            url: `${APOLLO_API_URL}/accounts/search`,
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': APOLLO_API_KEY
-            },
-            data: {
-                q_organization_name: query,
-                page: 1,
-                per_page: 5
-            }
+        const response = await axios({
+          method: 'GET',
+          url: `${APOLLO_API_URL}/organizations/enrich`,
+          headers: {
+            accept: 'application/json',
+            'Cache-Control': 'no-cache',
+            'Content-Type': 'application/json',
+            'x-api-key': APOLLO_API_KEY
+          },
+          params: {
+            domain: domain
+          }
         });
         
-        if (!searchResponse.data?.accounts || searchResponse.data.accounts.length === 0) {
-            console.log(`⚠️ No organizations found for ${query}`);
-            return null;
-        }
+        // Log what we got back from Apollo
+        console.log(`📥 APOLLO RESPONSE: Status ${response.status}`);
+        console.log(`📥 APOLLO RESPONSE DATA: ${JSON.stringify(response.data, null, 2).substring(0, 300)}...`);
         
-        // For simplicity, take the first result
-        // In a more advanced implementation, you could score and rank them
-        console.log(`✅ Found organization via search: ${searchResponse.data.accounts[0].name}`);
-        return searchResponse.data.accounts[0];
-    } catch (error) {
-        console.error(`❌ Error finding company: ${error.message}`);
-        return null;
+        if (response.data?.organization) {
+          console.log(`✅ Found organization via domain pattern: ${response.data.organization.name}`);
+          return response.data.organization;
+        }
+      } catch (error) {
+        console.log(`⚠️ Domain pattern ${domain} failed: ${error.message}`);
+        // Continue to the next domain pattern
+      }
     }
+    
+    // Last resort: Try the accounts/search API with the raw query
+    console.log(`🔍 Falling back to organization search API: ${query}`);
+    
+    // Log what we're sending to Apollo
+    console.log(`📤 APOLLO REQUEST: POST /accounts/search with q_organization_name=${query}`);
+    
+    const searchResponse = await axios({
+      method: 'POST',
+      url: `${APOLLO_API_URL}/accounts/search`,
+      headers: {
+        accept: 'application/json',
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'application/json',
+        'x-api-key': APOLLO_API_KEY
+      },
+      data: {
+        q_organization_name: query,
+        page: 1,
+        per_page: 10
+      }
+    });
+    
+    // Log what we got back from Apollo
+    console.log(`📥 APOLLO RESPONSE: Status ${searchResponse.status}`);
+    console.log(`📥 APOLLO RESPONSE DATA: ${JSON.stringify(searchResponse.data, null, 2).substring(0, 300)}...`);
+    
+    if (searchResponse.data?.accounts && searchResponse.data.accounts.length > 0) {
+      console.log(`✅ Found organization via search: ${searchResponse.data.accounts[0].name}`);
+      return searchResponse.data.accounts[0];
+    }
+    
+    console.log(`⚠️ No organizations found for ${query}`);
+    return null;
+  } catch (error) {
+    // Improved error handling for authentication issues
+    if (error.response?.status === 401) {
+      console.error(`❌ Authentication failed: Invalid or expired API key. Please check your APOLLO_API_KEY in .env file.`);
+    } else {
+      console.error(`❌ Error finding company: ${error.message}`);
+    }
+    return null;
+  }
 }
 
 /**
@@ -285,87 +366,169 @@ async function findCompany(query) {
  * @returns {Promise<Array>} - Array of key people
  */
 async function findKeyPeople(domain, companyName) {
-    try {
-        console.log(`🔍 Finding key people at ${domain || companyName}`);
-        
-        // Prepare search query
-        const searchData = domain 
-            ? { q: { organization_domains: [domain] } }
-            : { q: { organization_name: companyName } };
-            
-        // Add filters for senior positions
-        searchData.q.seniority = ["director_level", "vp_level", "executive_level", "c_suite_level", "owner"];
-        
-        // Execute search
-        const response = await axios({
-            method: 'POST',
-            url: `${APOLLO_API_URL}/people/search`,
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': APOLLO_API_KEY
-            },
-            data: {
-                ...searchData,
-                page: 1,
-                per_page: 10
-            }
-        });
-        
-        if (!response.data?.people || response.data.people.length === 0) {
-            console.log(`⚠️ No key people found for ${domain || companyName}`);
-            return [];
+  try {
+    console.log(`🔍 Finding key people at ${domain || companyName}`);
+    
+    let searchOptions = {};
+    
+    if (domain) {
+      // If we have a domain, search by it
+      searchOptions = {
+        method: 'POST',
+        url: `${APOLLO_API_URL}/people/search`,
+        headers: {
+          'accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Content-Type': 'application/json',
+          'x-api-key': APOLLO_API_KEY
+        },
+        data: {
+          q: {
+            organization_domains: [domain],
+            seniority: ["director_level", "vp_level", "executive_level", "c_suite_level", "owner"]
+          },
+          page: 1,
+          per_page: 10
         }
-        
-        // Format the people data
-        const people = response.data.people.map(person => ({
-            name: `${person.first_name || ''} ${person.last_name || ''}`.trim(),
-            title: person.title || "Unknown",
-            email: person.email || null,
-            emailStatus: person.email_status || null,
-            phone: person.phone_number || null,
-            linkedinUrl: person.linkedin_url || null,
-            seniority: person.seniority || null,
-            departments: person.departments || [],
-            photoUrl: person.photo_url || null
-        }));
-        
-        console.log(`✅ Found ${people.length} key people at ${domain || companyName}`);
-        return people;
-    } catch (error) {
-        console.error(`❌ Error finding key people: ${error.message}`);
-        return [];
+      };
+    } else {
+      // Otherwise search by company name
+      searchOptions = {
+        method: 'POST',
+        url: `${APOLLO_API_URL}/people/search`,
+        headers: {
+          'accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Content-Type': 'application/json',
+          'x-api-key': APOLLO_API_KEY
+        },
+        data: {
+          q: {
+            organization_name: companyName,
+            seniority: ["director_level", "vp_level", "executive_level", "c_suite_level", "owner"]
+          },
+          page: 1,
+          per_page: 10
+        }
+      };
     }
+    
+    // Log what we're sending to Apollo
+    console.log(`📤 APOLLO REQUEST: ${searchOptions.method} ${searchOptions.url}`);
+    console.log(`📤 APOLLO REQUEST DATA: ${JSON.stringify(searchOptions.data, null, 2)}`);
+    
+    // Execute search
+    const response = await axios(searchOptions);
+    
+    // Log what we got back from Apollo
+    console.log(`📥 APOLLO RESPONSE: Status ${response.status}`);
+    console.log(`📥 APOLLO RESPONSE DATA: People found: ${response.data?.people?.length || 0}`);
+    
+    if (!response.data?.people || response.data.people.length === 0) {
+      console.log(`⚠️ No key people found for ${domain || companyName}`);
+      return [];
+    }
+    
+    // Format the people data
+    const people = response.data.people.map(person => ({
+      name: `${person.first_name || ''} ${person.last_name || ''}`.trim(),
+      title: person.title || "Unknown",
+      email: person.email || null,
+      emailStatus: person.email_status || null,
+      phone: person.phone_number || null,
+      linkedinUrl: person.linkedin_url || null,
+      seniority: person.seniority || null,
+      departments: person.departments || [],
+      photoUrl: person.photo_url || null
+    }));
+    
+    console.log(`✅ Found ${people.length} key people at ${domain || companyName}`);
+    return people;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      console.error(`❌ Authentication failed when finding key people: Invalid or expired API key`);
+    } else {
+      console.error(`❌ Error finding key people: ${error.message}`);
+    }
+    return [];
+  }
 }
 
 /**
- * Enrich company data using Apollo's API
+ * Enrich company data using Apollo's API with enhanced matching
  * @param {string} companyName - The name of the company to research
  * @param {string} clientId - The ID of the client
  * @param {string} userId - The ID of the user
+ * @param {string} emailDomain - Domain extracted from client email
  * @returns {Promise<Object>} - Enriched company data
  */
-async function enrichCompanyData(companyName, clientId, userId) {
+async function enrichCompanyData(companyName, clientId, userId, emailDomain) {
     try {
         console.log(`🔍 Enriching company data for: ${companyName}`);
         
-        if (!companyName) {
-            console.log('⚠️ Empty company name provided');
+        if (!companyName && !emailDomain) {
+            console.log('⚠️ Empty company name and no email domain provided');
             return null;
         }
         
-        // Try to extract domain if company name looks like domain/email/URL
-        let domain = extractDomain(companyName);
-        let searchQuery = companyName;
+        // HIGHEST PRIORITY: Use email domain directly if available
+        let domain = null;
+        let companyData = null;
         
-        // If we have a domain, use it as primary identifier
-        if (domain) {
-            console.log(`📌 Extracted domain: ${domain} from input`);
-            searchQuery = domain;
+        if (emailDomain) {
+            console.log(`📧 PRIORITY 1: Using domain from client's email: ${emailDomain}`);
+            
+            try {
+                // Try to fetch company data using the email domain directly
+                console.log(`📤 APOLLO REQUEST: GET /organizations/enrich with domain=${emailDomain}`);
+                
+                const response = await axios({
+                    method: 'GET',
+                    url: `${APOLLO_API_URL}/organizations/enrich`,
+                    headers: {
+                        accept: 'application/json',
+                        'Cache-Control': 'no-cache',
+                        'Content-Type': 'application/json',
+                        'x-api-key': APOLLO_API_KEY
+                    },
+                    params: {
+                        domain: emailDomain
+                    }
+                });
+                
+                // Log what we got back from Apollo
+                console.log(`📥 APOLLO RESPONSE: Status ${response.status}`);
+                console.log(`📥 APOLLO RESPONSE DATA: ${JSON.stringify(response.data, null, 2).substring(0, 300)}...`);
+                
+                if (response.data?.organization) {
+                    console.log(`✅ Found organization via client email domain: ${response.data.organization.name}`);
+                    companyData = response.data.organization;
+                    domain = emailDomain;
+                }
+            } catch (error) {
+                console.log(`⚠️ Email domain lookup failed: ${error.message}. Trying fallback methods.`);
+            }
         }
         
-        // Find company data
-        const companyData = await findCompany(searchQuery);
+        // PRIORITY 2: Try to extract domain if company name looks like domain/email/URL
         if (!companyData) {
+            domain = extractDomain(companyName);
+            let searchQuery = companyName;
+            
+            // If we have a domain from the company name, use it as primary identifier
+            if (domain) {
+                console.log(`📌 PRIORITY 2: Extracted domain from company name: ${domain}`);
+                searchQuery = domain;
+            } else {
+                console.log(`📌 PRIORITY 3: Using company name: ${companyName}`);
+            }
+            
+            // Find company data
+            companyData = await findCompany(searchQuery);
+        }
+        
+        if (!companyData) {
+            console.log('⚠️ No company data found through any method');
             return null;
         }
         
@@ -435,19 +598,34 @@ async function enrichCompanyData(companyName, clientId, userId) {
     }
 }
 
-/**
- * Store Apollo enrichment results in the MongoDB database
- * @param {string} companyName - The name of the company
- * @param {string} clientId - The ID of the client
- * @param {string} userId - The ID of the user
- */
+
 async function storeApolloResearch(companyName, clientId, userId) {
     let client = null;
+    let apolloData = null;
     
     try {
         client = await getMongoClient();
         const db = client.db(DB_NAME);
         const collection = db.collection(COLLECTION_NAME);
+        
+        // Try to get the client details to access email
+        const clientsCollection = db.collection('clients');
+        let clientEmail = null;
+        
+        try {
+            const clientDetails = await clientsCollection.findOne({ _id: clientId });
+            clientEmail = clientDetails?.email;
+            console.log(`🔍 Found client email: ${clientEmail || 'None'}`);
+        } catch (err) {
+            console.log(`⚠️ Error fetching client email: ${err.message}`);
+        }
+        
+        // Extract domain from client email if available
+        let emailDomain = null;
+        if (clientEmail && clientEmail.includes('@')) {
+            emailDomain = clientEmail.split('@')[1].trim().toLowerCase();
+            console.log(`📧 Extracted domain from client email: ${emailDomain}`);
+        }
 
         console.log(`🔍 Checking if Apollo research exists for ${companyName} (Client ID: ${clientId})...`);
         const existingResearch = await collection.findOne({ clientId, userId });
@@ -458,11 +636,13 @@ async function storeApolloResearch(companyName, clientId, userId) {
         // Prevent excessive API requests (cooldown logic)
         if (lastUpdatedApollo && (now - new Date(lastUpdatedApollo)) < COOLDOWN_PERIOD) {
             console.log(`⏳ Apollo research cooldown active for ${companyName}. Skipping Apollo fetch.`);
-            return;
+            // Return existing data if available
+            return existingResearch?.data?.apollo || null;
         }
 
         console.log(`🔄 Running Apollo enrichment for ${companyName}...`);
-        const apolloData = await enrichCompanyData(companyName, clientId, userId);
+        // Pass the email domain for better matching
+        apolloData = await enrichCompanyData(companyName, clientId, userId, emailDomain);
 
         if (!apolloData) {
             console.log(`⚠️ No Apollo data found for ${companyName}. Updating timestamp only.`);
@@ -484,7 +664,7 @@ async function storeApolloResearch(companyName, clientId, userId) {
                 { upsert: true }
             );
             
-            return;
+            return null;
         }
 
         // Store the Apollo data with field-specific updates
@@ -507,8 +687,12 @@ async function storeApolloResearch(companyName, clientId, userId) {
         );
 
         console.log(`✅ Apollo research stored successfully for ${companyName}.`);
+        
+        // Return the Apollo data
+        return apolloData;
     } catch (error) {
         console.error(`❌ Error storing Apollo research for ${companyName}:`, error.message);
+        return null;
     }
 }
 
