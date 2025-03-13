@@ -85,6 +85,17 @@ const NoReportDisplay = ({ companyName }) => (
   </div>
 );
 
+// No Company Data Display Component
+const NoCompanyDisplay = ({ companyName }) => (
+  <div className="bg-white rounded-lg shadow-sm p-10 text-center">
+    <Building className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+    <h3 className="text-xl font-semibold text-gray-700">{companyName}</h3>
+    <p className="text-gray-500 mt-3 max-w-md mx-auto">
+      We're currently gathering company information. Check back soon for detailed company insights.
+    </p>
+  </div>
+);
+
 // Google News Card Component
 const GoogleNewsCard = ({ item, compact = false }) => (
   <div className={`bg-white border rounded-lg ${compact ? 'p-3 mb-2' : 'p-4 mb-3'} hover:shadow-md transition-shadow`}>
@@ -226,9 +237,11 @@ const KeyPeopleList = ({ people = [] }) => {
     </div>
   );
 };
+  
+// src/components/intelligence/IntelligenceModal.jsx - PART 2
 
 // Deal Intelligence Components
-const DealScoreIndicator = ({ score = 50 }) => {
+const DealScoreIndicator = ({ score = 50, reasoning = "" }) => {
   // Get color based on score
   const getScoreColor = (score) => {
     if (score >= 80) return "text-green-600";
@@ -289,7 +302,289 @@ const DealScoreIndicator = ({ score = 50 }) => {
             {scoreLabel}
           </span>
         </div>
-        <p className="text-gray-700 text-sm">Multiple detailed follow-up questions and technical inquiries indicate serious interest. The client is exploring integration capabilities in-depth.</p>
+        <p className="text-gray-700 text-sm">{reasoning || "Analysis based on engagement patterns, client questions, and deal progression."}</p>
+      </div>
+    </div>
+  );
+};
+
+// Deal Stage Timeline Component
+const DealStageTimeline = ({ stageData = {} }) => {
+  // Default stage data if not provided
+  const defaultStageData = {
+    currentStage: "Prospecting",
+    timeInStage: "N/A",
+    averageTimeToNext: "N/A",
+    nextStage: "Qualified",
+    completedStages: [],
+    upcomingStages: ["Qualified", "Proposal", "Negotiation", "Closed"],
+    nextStageLikelihood: 0
+  };
+
+  // Merge with defaults
+  const mergedStageData = { ...defaultStageData, ...stageData };
+  
+  // All possible stages in order
+  const allStages = ["Initial Contact", "Discovery", "Qualifying", "Demo", "Technical Evaluation", 
+                     "Proposal", "Negotiation", "Contract Review", "Closed Won"];
+  
+  // Filter stages based on what we have
+  const completedStages = mergedStageData.completedStages || [];
+  const currentStage = mergedStageData.currentStage;
+  const upcomingStages = mergedStageData.upcomingStages || [];
+
+  return (
+    <div className="border-l pl-6">
+      <h4 className="font-medium text-gray-800 mb-2">Deal Stage Analysis</h4>
+      <div className="relative">
+        <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+        <div className="space-y-4 relative">
+          {completedStages.map((stage, index) => (
+            <div key={index} className="flex items-center">
+              <div className="w-4 h-4 rounded-full bg-green-500 z-10 mr-3"></div>
+              <span className="text-gray-600 text-sm">{stage}</span>
+              <Check size={14} className="text-green-500 ml-2" />
+            </div>
+          ))}
+          <div className="flex items-center">
+            <div className="w-4 h-4 rounded-full bg-blue-500 z-10 mr-3"></div>
+            <span className="text-gray-800 font-medium text-sm">{currentStage}</span>
+            <Clock size={14} className="text-blue-500 ml-2" />
+            <span className="text-xs text-gray-500 ml-2">{mergedStageData.timeInStage}</span>
+          </div>
+          {upcomingStages.map((stage, index) => (
+            <div key={index} className="flex items-center">
+              <div className="w-4 h-4 rounded-full bg-gray-300 z-10 mr-3"></div>
+              <span className="text-gray-500 text-sm">{stage}</span>
+              {index === 0 && mergedStageData.nextStageLikelihood > 0 && (
+                <span className="text-xs text-blue-600 ml-2">{mergedStageData.nextStageLikelihood}% likelihood</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Deal Factors Component
+const DealFactorsAnalysis = ({ factorsData = null }) => {
+  // Default factors data if not provided
+  const defaultFactors = {
+    positive: [
+      { description: "Client has engaged multiple times", impact: 3 },
+      { description: "Questions focused on implementation", impact: 2 }
+    ],
+    negative: [
+      { description: "No clear decision timeline established", impact: -2 }
+    ]
+  };
+
+  // Use provided data or default
+  const factors = factorsData || defaultFactors;
+
+  return (
+    <div className="p-6 border-b">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Key Success Factors</h3>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <h4 className="font-medium text-green-600 flex items-center">
+            <Check size={16} className="mr-1" />
+            Positive Signals
+          </h4>
+          {factors.positive.map((factor, i) => (
+            <div key={i} className="flex items-center">
+              <div className="w-1 h-6 bg-green-500 rounded-sm mr-2"></div>
+              <span className="text-gray-700 text-sm">{factor.description}</span>
+              <div className="ml-auto flex">
+                {[...Array(Math.abs(factor.impact))].map((_, i) => (
+                  <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-green-500" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="space-y-3">
+          <h4 className="font-medium text-orange-600 flex items-center">
+            <AlertCircle size={16} className="mr-1" />
+            Potential Concerns
+          </h4>
+          {factors.negative.map((factor, i) => (
+            <div key={i} className="flex items-center">
+              <div className="w-1 h-6 bg-orange-500 rounded-sm mr-2"></div>
+              <span className="text-gray-700 text-sm">{factor.description}</span>
+              <div className="ml-auto flex">
+                {[...Array(Math.abs(factor.impact))].map((_, i) => (
+                  <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-orange-500" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Critical Requirements & Next Stage Analysis
+const CriticalRequirementsAndNextStage = ({ requirements = null, nextStageData = null }) => {
+  // Default data if not provided
+  const defaultRequirements = [
+    { title: "Integration Capabilities", description: "API connection to existing systems" },
+    { title: "User Management", description: "Role-based access control" }
+  ];
+
+  const defaultNextStage = {
+    timeframe: "Unknown",
+    value: "Unknown",
+    blockers: [
+      "Undefined decision criteria",
+      "Budget approval process"
+    ]
+  };
+
+  // Use provided data or defaults
+  const reqs = requirements || defaultRequirements;
+  const nextStage = nextStageData || defaultNextStage;
+
+  return (
+    <div className="p-6 border-b grid grid-cols-2 gap-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          <Info size={18} className="mr-2 text-blue-500" />
+          Critical Client Requirements
+        </h3>
+        <div className="space-y-2">
+          {reqs.map((req, idx) => (
+            <div key={idx} className="rounded-md border border-blue-100 bg-blue-50 p-3">
+              <h4 className="font-medium text-blue-800">{req.title}</h4>
+              <p className="text-sm text-blue-700 mt-1">{req.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          <TrendingUp size={18} className="mr-2 text-green-500" />
+          Next Stage Analysis
+        </h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-700">Timeframe:</span>
+            <span className="font-medium">{nextStage.timeframe}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-700">Potential Value:</span>
+            <span className="font-medium text-green-700">{nextStage.value}</span>
+          </div>
+          <div>
+            <div className="text-gray-700 mb-2">Key Blockers:</div>
+            <ul className="space-y-1">
+              {nextStage.blockers.map((blocker, i) => (
+                <li key={i} className="flex items-start">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 mr-2"></span>
+                  <span className="text-sm text-gray-700">{blocker}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Strategic Recommendations Component
+const StrategicRecommendations = ({ recommendations = null }) => {
+  // Default recommendations if not provided
+  const defaultRecommendations = [
+    "Focus on demonstrating clear ROI metrics for the solution",
+    "Address specific integration concerns in follow-up communications",
+    "Prepare for technical validation questions in next meeting"
+  ];
+
+  // Use provided recommendations or defaults
+  const recs = recommendations || defaultRecommendations;
+
+  return (
+    <div className="p-6 bg-gray-50">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+        <Shield size={18} className="mr-2 text-green-600" />
+        Strategic Recommendations
+      </h3>
+      <div className="space-y-3">
+        {recs.map((step, i) => (
+          <div key={i} className="flex items-start">
+            <div className="bg-green-100 text-green-800 rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
+              {i + 1}
+            </div>
+            <span className="text-gray-700">{step}</span>
+          </div>
+        ))}
+      </div>
+      
+      <div className="mt-8 grid grid-cols-2 gap-4">
+        <div>
+          <h4 className="font-medium text-gray-800 mb-3 flex items-center">
+            <GitBranch size={16} className="mr-2" />
+            Response Planning
+          </h4>
+          <button className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+            Generate Response Plan
+          </button>
+        </div>
+        
+        <div>
+          <h4 className="font-medium text-gray-800 mb-3">Quick Actions</h4>
+          <div className="flex space-x-3">
+            <button className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center">
+              <Calendar size={14} className="mr-2" />
+              Schedule Meeting
+            </button>
+            <button className="flex-1 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center justify-center">
+              Update Notes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Market Intelligence Component
+const MarketIntelligence = ({ marketData = null }) => {
+  // Default market intelligence data if not provided
+  const defaultMarketData = [
+    {
+      title: "Industry Regulatory Changes Expected",
+      source: "Industry News",
+      date: "Recent",
+      snippet: "Regulatory changes may drive increased demand for solutions like ours."
+    }
+  ];
+
+  // Use provided data or defaults
+  const data = marketData || defaultMarketData;
+
+  return (
+    <div className="p-6 border-b">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+        <BarChart size={18} className="mr-2 text-indigo-500" />
+        Market Intelligence
+      </h3>
+      <div className="space-y-4">
+        {data.map((item, idx) => (
+          <div key={idx} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
+            <h4 className="font-medium text-indigo-700 flex items-center">
+              {item.title}
+              <ExternalLink size={14} className="ml-2 text-gray-400" />
+            </h4>
+            <p className="text-sm text-gray-500 mt-1">{item.source} • {item.date}</p>
+            <p className="text-sm text-gray-700 mt-2">{item.snippet}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -342,281 +637,10 @@ const BuyingSignalsCard = ({ insights }) => {
     </div>
   );
 };
-// src/components/intelligence/IntelligenceModal.jsx - PART 2
-
-// Deal Stage Timeline Component
-const DealStageTimeline = () => {
-  // Placeholder data for deal stages
-  const stageData = {
-    currentStage: "Technical Evaluation",
-    timeInStage: "7+ days",
-    averageTimeToNext: "12-15 days",
-    nextStage: "Vendor Selection",
-    completedStages: ["Initial Contact", "Discovery", "Demo"],
-    upcomingStages: ["Vendor Selection", "Contract Negotiation"],
-    nextStageLikelihood: 65
-  };
-
-  return (
-    <div className="border-l pl-6">
-      <h4 className="font-medium text-gray-800 mb-2">Deal Stage Analysis</h4>
-      <div className="relative">
-        <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-        <div className="space-y-4 relative">
-          {stageData.completedStages.map((stage, index) => (
-            <div key={index} className="flex items-center">
-              <div className="w-4 h-4 rounded-full bg-green-500 z-10 mr-3"></div>
-              <span className="text-gray-600 text-sm">{stage}</span>
-              <Check size={14} className="text-green-500 ml-2" />
-            </div>
-          ))}
-          <div className="flex items-center">
-            <div className="w-4 h-4 rounded-full bg-blue-500 z-10 mr-3"></div>
-            <span className="text-gray-800 font-medium text-sm">{stageData.currentStage}</span>
-            <Clock size={14} className="text-blue-500 ml-2" />
-            <span className="text-xs text-gray-500 ml-2">{stageData.timeInStage}</span>
-          </div>
-          {stageData.upcomingStages.map((stage, index) => (
-            <div key={index} className="flex items-center">
-              <div className="w-4 h-4 rounded-full bg-gray-300 z-10 mr-3"></div>
-              <span className="text-gray-500 text-sm">{stage}</span>
-              {index === 0 && (
-                <span className="text-xs text-blue-600 ml-2">{stageData.nextStageLikelihood}% likelihood</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Deal Factors Component
-const DealFactorsAnalysis = () => {
-  // Placeholder data for deal factors
-  const factorsData = {
-    positive: [
-      { description: "Multiple detailed technical questions", impact: 4 },
-      { description: "Demo request for specific teams", impact: 5 },
-      { description: "Integration inquiries with existing systems", impact: 3 },
-      { description: "Budget discussion initiated", impact: 4 }
-    ],
-    negative: [
-      { description: "Competing solution evaluation in progress", impact: -3 },
-      { description: "No clear decision timeline established", impact: -2 },
-      { description: "Technical integration concerns raised", impact: -2 }
-    ]
-  };
-
-  return (
-    <div className="p-6 border-b">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Key Success Factors</h3>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-3">
-          <h4 className="font-medium text-green-600 flex items-center">
-            <Check size={16} className="mr-1" />
-            Positive Signals
-          </h4>
-          {factorsData.positive.map((factor, i) => (
-            <div key={i} className="flex items-center">
-              <div className="w-1 h-6 bg-green-500 rounded-sm mr-2"></div>
-              <span className="text-gray-700 text-sm">{factor.description}</span>
-              <div className="ml-auto flex">
-                {[...Array(Math.abs(factor.impact))].map((_, i) => (
-                  <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-green-500" />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        <div className="space-y-3">
-          <h4 className="font-medium text-orange-600 flex items-center">
-            <AlertCircle size={16} className="mr-1" />
-            Potential Concerns
-          </h4>
-          {factorsData.negative.map((factor, i) => (
-            <div key={i} className="flex items-center">
-              <div className="w-1 h-6 bg-orange-500 rounded-sm mr-2"></div>
-              <span className="text-gray-700 text-sm">{factor.description}</span>
-              <div className="ml-auto flex">
-                {[...Array(Math.abs(factor.impact))].map((_, i) => (
-                  <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-orange-500" />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Critical Requirements & Next Stage Analysis
-const CriticalRequirementsAndNextStage = () => {
-  // Placeholder data
-  const requirements = [
-    { title: "Integration Capabilities", description: "API connection to existing systems" },
-    { title: "Compliance Features", description: "Support for regulatory requirements" },
-    { title: "User Management", description: "Role-based access control and workflow" }
-  ];
-
-  const nextStageData = {
-    timeframe: "3-4 weeks",
-    value: "$350,000",
-    blockers: [
-      "Technical validation with IT team",
-      "Competitive evaluation completion",
-      "Budget approval process"
-    ]
-  };
-
-  return (
-    <div className="p-6 border-b grid grid-cols-2 gap-6">
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-          <Info size={18} className="mr-2 text-blue-500" />
-          Critical Client Requirements
-        </h3>
-        <div className="space-y-2">
-          {requirements.map((req, idx) => (
-            <div key={idx} className="rounded-md border border-blue-100 bg-blue-50 p-3">
-              <h4 className="font-medium text-blue-800">{req.title}</h4>
-              <p className="text-sm text-blue-700 mt-1">{req.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-          <TrendingUp size={18} className="mr-2 text-green-500" />
-          Next Stage Analysis
-        </h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-700">Timeframe:</span>
-            <span className="font-medium">{nextStageData.timeframe}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-700">Potential Value:</span>
-            <span className="font-medium text-green-700">{nextStageData.value}</span>
-          </div>
-          <div>
-            <div className="text-gray-700 mb-2">Key Blockers:</div>
-            <ul className="space-y-1">
-              {nextStageData.blockers.map((blocker, i) => (
-                <li key={i} className="flex items-start">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 mr-2"></span>
-                  <span className="text-sm text-gray-700">{blocker}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Strategic Recommendations Component
-const StrategicRecommendations = () => {
-  // Placeholder recommendations
-  const recommendations = [
-    "Focus on integration capabilities with their existing systems",
-    "Prepare detailed compliance documentation for security review",
-    "Schedule technical deep dive with IT stakeholders",
-    "Provide case studies from similar industry implementations"
-  ];
-
-  return (
-    <div className="p-6 bg-gray-50">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <Shield size={18} className="mr-2 text-green-600" />
-        Strategic Recommendations
-      </h3>
-      <div className="space-y-3">
-        {recommendations.map((step, i) => (
-          <div key={i} className="flex items-start">
-            <div className="bg-green-100 text-green-800 rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
-              {i + 1}
-            </div>
-            <span className="text-gray-700">{step}</span>
-          </div>
-        ))}
-      </div>
-      
-      <div className="mt-8 grid grid-cols-2 gap-4">
-        <div>
-          <h4 className="font-medium text-gray-800 mb-3 flex items-center">
-            <GitBranch size={16} className="mr-2" />
-            Response Planning
-          </h4>
-          <button className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm">
-            Generate Response Plan
-          </button>
-        </div>
-        
-        <div>
-          <h4 className="font-medium text-gray-800 mb-3">Quick Actions</h4>
-          <div className="flex space-x-3">
-            <button className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center">
-              <Calendar size={14} className="mr-2" />
-              Schedule Meeting
-            </button>
-            <button className="flex-1 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center justify-center">
-              Update Notes
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Market Intelligence Component
-const MarketIntelligence = () => {
-  // Placeholder market intelligence data
-  const marketData = [
-    {
-      title: "Company Expands Technology Division with New Hires",
-      source: "Business Wire",
-      date: "Mar 5, 2025",
-      snippet: "Client is expanding internal technology team, representing both an opportunity and potential competition."
-    },
-    {
-      title: "Industry Regulatory Changes Expected in Q2",
-      source: "Financial Times",
-      date: "Feb 22, 2025",
-      snippet: "New compliance requirements may drive increased demand for advanced analytics solutions."
-    }
-  ];
-
-  return (
-    <div className="p-6 border-b">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <BarChart size={18} className="mr-2 text-indigo-500" />
-        Market Intelligence
-      </h3>
-      <div className="space-y-4">
-        {marketData.map((item, idx) => (
-          <div key={idx} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
-            <h4 className="font-medium text-indigo-700 flex items-center">
-              {item.title}
-              <ExternalLink size={14} className="ml-2 text-gray-400" />
-            </h4>
-            <p className="text-sm text-gray-500 mt-1">{item.source} • {item.date}</p>
-            <p className="text-sm text-gray-700 mt-2">{item.snippet}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // Enhanced Company Profile Component
 const CompanyProfile = ({ data }) => {
-  if (!data) return null;
+  if (!data) return <NoCompanyDisplay companyName="Unknown Company" />;
   
   const companyInfo = data.company || {};
   const keyPeople = data.keyPeople || [];
@@ -734,6 +758,7 @@ const CompanyProfile = ({ data }) => {
     </div>
   );
 };
+
 // src/components/intelligence/IntelligenceModal.jsx - PART 3
 
 // Enhanced Dashboard Company Card
@@ -860,6 +885,49 @@ const KeyPeopleDashboardCard = ({ people = [] }) => {
   );
 };
 
+// DealInsightPreview for Dashboard
+const DealInsightPreview = ({ pdlData }) => {
+  if (!pdlData) return null;
+  
+  // Get score colors
+  const getScoreColor = (score) => {
+    if (score >= 70) return "text-green-600";
+    if (score >= 50) return "text-blue-600";
+    if (score >= 30) return "text-yellow-600";
+    return "text-orange-600";
+  };
+  
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-6">
+        <div className="text-center">
+          <div className={`text-3xl font-bold ${getScoreColor(pdlData.dealScore || 0)}`}>
+            {pdlData.dealScore || 0}%
+          </div>
+          <div className="text-xs text-gray-500 mt-1">Success Probability</div>
+        </div>
+        <div className="h-12 w-px bg-gray-200"></div>
+        <div>
+          <div className="text-sm font-medium text-gray-800">{pdlData.currentStage || "Early Stage"}</div>
+          <div className="text-xs text-gray-500 mt-1">Current Stage</div>
+        </div>
+        <div className="h-12 w-px bg-gray-200"></div>
+        <div>
+          <div className="text-sm font-bold text-green-600">{pdlData.dealValue || "Unknown"}</div>
+          <div className="text-xs text-gray-500 mt-1">Potential Value</div>
+        </div>
+      </div>
+      
+      <div>
+        <button className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 flex items-center text-sm">
+          <Rocket className="w-4 h-4 mr-1" />
+          Deal Analysis
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // Format the Markdown text properly
 const formatMarkdown = (text) => {
   if (!text) return '';
@@ -897,7 +965,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
   const [googleData, setGoogleData] = useState(null);
   const [redditData, setRedditData] = useState(null);
   const [apolloData, setApolloData] = useState(null);
-  const [pdlData, setPdlData] = useState(null); // Placeholder for PDL data
+  const [pdlData, setPdlData] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
@@ -925,12 +993,10 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
         setRedditData(data.data?.reddit || []);
         setApolloData(data.data?.apollo || null);
         
-        // Set placeholder PDL data (in the future, this will be real data)
-        setPdlData({
-          dealScore: 73,
-          dealStage: "Technical Evaluation",
-          dealValue: "$350,000"
-        });
+        // Extract PDL data if available
+        if (data.data?.pdl) {
+          setPdlData(data.data.pdl);
+        }
         
         // Set last updated using the MongoDB timestamp format
         setLastUpdated(data.timestamp || null);
@@ -960,12 +1026,14 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
   const areGoogleResultsAvailable = googleData && Array.isArray(googleData) && googleData.length > 0;
   const areRedditResultsAvailable = redditData && Array.isArray(redditData) && redditData.length > 0;
   const isApolloDataAvailable = apolloData && Object.keys(apolloData).length > 0;
-  const isPdlDataAvailable = pdlData !== null;
+  const isPdlDataAvailable = pdlData && Object.keys(pdlData).length > 0;
 
   // Generate dynamic title based on data availability
   let dynamicTitle = "Sales Intelligence";
-  if (areGoogleResultsAvailable && areRedditResultsAvailable && isApolloDataAvailable) {
+  if (isPdlDataAvailable && (areGoogleResultsAvailable || areRedditResultsAvailable || isApolloDataAvailable)) {
     dynamicTitle = "360° Intelligence Brief";
+  } else if (isPdlDataAvailable) {
+    dynamicTitle = "Deal Intelligence";
   } else if (isApolloDataAvailable) {
     dynamicTitle = "Company Intelligence Profile";
   } else if (areGoogleResultsAvailable) {
@@ -1086,34 +1154,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                         </div>
                         
                         {isPdlDataAvailable ? (
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-6">
-                              <div className="text-center">
-                                <div className="text-3xl font-bold text-green-600">{pdlData.dealScore}%</div>
-                                <div className="text-xs text-gray-500 mt-1">Success Probability</div>
-                              </div>
-                              <div className="h-12 w-px bg-gray-200"></div>
-                              <div>
-                                <div className="text-sm font-medium text-gray-800">{pdlData.dealStage}</div>
-                                <div className="text-xs text-gray-500 mt-1">Current Stage</div>
-                              </div>
-                              <div className="h-12 w-px bg-gray-200"></div>
-                              <div>
-                                <div className="text-sm font-bold text-green-600">{pdlData.dealValue}</div>
-                                <div className="text-xs text-gray-500 mt-1">Potential Value</div>
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <button
-                                onClick={() => handleTabClick('deal-intelligence')}
-                                className="bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 flex items-center text-sm"
-                              >
-                                <Rocket className="w-4 h-4 mr-1" />
-                                Deal Analysis
-                              </button>
-                            </div>
-                          </div>
+                          <DealInsightPreview pdlData={pdlData} />
                         ) : (
                           <div className="text-center py-8">
                             <Rocket className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -1239,38 +1280,55 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
               {/* Deal Intelligence Tab */}
               {activeTab === 'deal-intelligence' && (
                 <div className="p-6">
-                  <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                    {/* Header */}
-                    <div className="bg-gradient-to-r from-green-600 to-green-800 px-6 py-4">
-                      <div className="flex justify-between items-center">
-                        <h2 className="text-white text-xl font-bold flex items-center">
-                          <Rocket className="mr-2" size={20} />
-                          Deal Intelligence Report: {displayName}
-                        </h2>
-                        <div className="bg-white bg-opacity-20 rounded-lg px-3 py-1">
-                          <span className="text-white font-medium">Updated: {formatTimestamp(lastUpdated)}</span>
+                  {isPdlDataAvailable ? (
+                    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                      {/* Header */}
+                      <div className="bg-gradient-to-r from-green-600 to-green-800 px-6 py-4">
+                        <div className="flex justify-between items-center">
+                          <h2 className="text-white text-xl font-bold flex items-center">
+                            <Rocket className="mr-2" size={20} />
+                            Deal Intelligence Report: {displayName}
+                          </h2>
+                          <div className="bg-white bg-opacity-20 rounded-lg px-3 py-1">
+                            <span className="text-white font-medium">Updated: {formatTimestamp(lastUpdated)}</span>
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Score & Stage Section */}
+                      <div className="p-6 border-b grid grid-cols-2 gap-6">
+                        <DealScoreIndicator 
+                          score={pdlData.dealScore || 50} 
+                          reasoning={pdlData.reasoning || ""} 
+                        />
+                        <DealStageTimeline stageData={pdlData.stageData || {}} />
+                      </div>
+                      
+                      {/* Key Factors Analysis */}
+                      <DealFactorsAnalysis factorsData={pdlData.factors || null} />
+                      
+                      {/* Critical Requirements & Next Stage */}
+                      <CriticalRequirementsAndNextStage 
+                        requirements={pdlData.requirements || null} 
+                        nextStageData={pdlData.nextStage || null} 
+                      />
+                      
+                      {/* Market Intelligence */}
+                      <MarketIntelligence marketData={pdlData.marketData || null} />
+                      
+                      {/* Strategic Recommendations */}
+                      <StrategicRecommendations recommendations={pdlData.recommendations || null} />
                     </div>
-                    
-                    {/* Score & Stage Section */}
-                    <div className="p-6 border-b grid grid-cols-2 gap-6">
-                      <DealScoreIndicator score={pdlData?.dealScore || 50} />
-                      <DealStageTimeline />
+                  ) : (
+                    <div className="text-center py-16 bg-white rounded-lg shadow-sm">
+                      <Rocket className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-700 mb-2">Deal Intelligence Coming Soon</h3>
+                      <p className="text-gray-500 max-w-md mx-auto">
+                        We're analyzing your interaction data to generate tailored deal intelligence. 
+                        This information will help predict deal success and provide strategic recommendations.
+                      </p>
                     </div>
-                    
-                    {/* Key Factors Analysis */}
-                    <DealFactorsAnalysis />
-                    
-                    {/* Critical Requirements & Next Stage */}
-                    <CriticalRequirementsAndNextStage />
-                    
-                    {/* Market Intelligence */}
-                    <MarketIntelligence />
-                    
-                    {/* Strategic Recommendations */}
-                    <StrategicRecommendations />
-                  </div>
+                  )}
                 </div>
               )}
               
@@ -1297,13 +1355,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                   {isApolloDataAvailable ? (
                     <CompanyProfile data={apolloData} />
                   ) : (
-                    <div className="bg-white rounded-lg shadow-sm p-10 text-center">
-                      <Building className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-700">{displayName}</h3>
-                      <p className="text-gray-500 mt-3 max-w-md mx-auto">
-                        We're currently gathering company information. Check back soon for detailed company insights.
-                      </p>
-                    </div>
+                    <NoCompanyDisplay companyName={displayName} />
                   )}
                 </div>
               )}
