@@ -2,12 +2,14 @@
   "research_modules": {
     "google": true,
     "reddit": false,
-    "apollo": true
+    "apollo": false,
+	"pdl": true  
   },
   "source_priorities": {
     "apollo": 10,
     "google": 8,
-    "reddit": 6
+    "reddit": 6,
+	"pdl": 9     
   },
   "filtering": {
     "google": {
@@ -26,6 +28,12 @@
       "excluded_topics": ["gaming", "sports", "entertainment", "memes"],
       "min_upvotes": 10,
       "fallback_when_no_results": true
+    },
+	"pdl": {     
+      "min_match_confidence": 0.7,
+      "require_company_data": true,
+      "max_similar_profiles": 5,
+      "auto_update_client": true
     },
     "apollo": {
       "min_match_score": 50,

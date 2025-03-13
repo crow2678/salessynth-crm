@@ -22,13 +22,18 @@ if (config.research_modules.apollo) {
 if (config.research_modules.reddit) {
     researchModules.reddit = require('./RedditResearch');
 }
+
+// Add PDL research module if enabled in config
+if (config.research_modules.pdl) {
+    researchModules.pdl = require('./PDLResearch').runPDLResearch;
+}
+
 // GPT-4 API details
 const OPENAI_API_URL = "https://88f.openai.azure.com/openai/deployments/88FGPT4o/chat/completions?api-version=2024-02-15-preview";
 const OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
 
 // Prevent duplicate research runs
 const runningResearch = new Set();
-
 /**
  * Extract technical terms and key stakeholders from client notes and research data
  * @param {Object} clientDetails - Client information
@@ -71,8 +76,7 @@ function extractIntelligenceInfo(clientDetails, researchData) {
             .map(match => match.trim());
         
         // Extract potential stakeholders (capitalized names)
-      //  const namePattern = /\b([A-Z][A-Z]+(?:\s+[A-Z][a-Z]+)?)\b/g;
-		const namePattern = /\b([A-Z][A-Z]+(?:\s+[A-Z][A-Za-z]+)?)\b/g;
+        const namePattern = /\b([A-Z][A-Z]+(?:\s+[A-Z][A-Za-z]+)?)\b/g;
         const nameMatches = [...clientDetails.notes.matchAll(namePattern)];
         result.keyPeople = nameMatches
             .map(match => match[1])
@@ -92,6 +96,14 @@ function extractIntelligenceInfo(clientDetails, researchData) {
         name: clientDetails.company || "Unknown",
         industry: clientDetails.industry || "unknown"
     };
+    
+    // Add PDL company details if available
+    if (researchData && researchData.pdl && researchData.pdl.companyData) {
+        result.companyDetails.size = researchData.pdl.companyData.size || result.companyDetails.size;
+        result.companyDetails.industry = researchData.pdl.companyData.industry || result.companyDetails.industry;
+        result.companyDetails.founded = researchData.pdl.companyData.founded_year;
+        result.companyDetails.location = researchData.pdl.companyData.location;
+    }
     
     // Deal information
     if (clientDetails.deals && clientDetails.deals.length > 0) {
@@ -121,6 +133,11 @@ function determineIndustry(clientDetails, researchData) {
         'education', 'government', 'nonprofit', 'media', 'telecommunications',
         'real estate', 'construction', 'automotive', 'energy', 'hospitality'
     ];
+    
+    // First check for PDL industry data, which is most reliable
+    if (researchData?.pdl?.companyData?.industry) {
+        return researchData.pdl.companyData.industry.toLowerCase();
+    }
     
     let foundIndustry = '';
     
@@ -205,6 +222,33 @@ function processResearchData(data) {
         })).filter(post => post.title);
     }
     
+    // Process PDL data if available
+    if (data.pdl) {
+        // Add company data
+        if (data.pdl.companyData) {
+            result.companyInsights.push({
+                type: 'pdl',
+                name: data.pdl.companyData.name,
+                industry: data.pdl.companyData.industry,
+                size: data.pdl.companyData.size,
+                location: data.pdl.companyData.location_name,
+                founded: data.pdl.companyData.founded_year
+            });
+        }
+        
+        // Add key people data
+        if (data.pdl.personData) {
+            const person = data.pdl.personData;
+            if (person.skills && Array.isArray(person.skills)) {
+                person.skills.forEach(skill => {
+                    if (!result.technicalDetails.includes(skill)) {
+                        result.technicalDetails.push(skill);
+                    }
+                });
+            }
+        }
+    }
+    
     // Extract technical details across all sources
     const technicalTerms = new Set();
     
@@ -229,7 +273,8 @@ function processResearchData(data) {
         }
     });
     
-    result.technicalDetails = Array.from(technicalTerms);
+    // Add extracted technical terms
+    result.technicalDetails = [...result.technicalDetails, ...Array.from(technicalTerms)];
     
     return result;
 }
@@ -308,6 +353,55 @@ function createSalesIntelligencePrompt(researchData, clientDetails, intelligence
         if (researchData.apollo.insights?.buyingSignals?.length > 0) {
             researchInfo += "- **Buying Signals:** " + 
                 researchData.apollo.insights.buyingSignals.join(', ') + "\n";
+        }
+    }
+    
+    // Add PDL data if available
+    if (researchData.pdl) {
+        // Add company data
+        if (researchData.pdl.companyData) {
+            const companyData = researchData.pdl.companyData;
+            researchInfo += "\n### Company Intelligence (PDL)\n";
+            
+            if (companyData.industry) {
+                researchInfo += `- **Industry:** ${companyData.industry}\n`;
+            }
+            
+            if (companyData.size) {
+                researchInfo += `- **Size:** ${companyData.size} employees\n`;
+            }
+            
+            if (companyData.founded_year) {
+                researchInfo += `- **Founded:** ${companyData.founded_year}\n`;
+            }
+            
+            if (companyData.location_name) {
+                researchInfo += `- **Headquarters:** ${companyData.location_name}\n`;
+            }
+        }
+        
+        // Add person data
+        if (researchData.pdl.personData) {
+            const personData = researchData.pdl.personData;
+            researchInfo += "\n### Contact Intelligence (PDL)\n";
+            
+            if (personData.experience && Array.isArray(personData.experience) && personData.experience.length > 0) {
+                const currentRole = personData.experience[0];
+                researchInfo += `- **Current Role:** ${currentRole.title || 'Unknown'} (since ${currentRole.start_date || 'Unknown'})\n`;
+                
+                if (personData.experience.length > 1) {
+                    researchInfo += `- **Previous:** ${personData.experience[1].title || 'Unknown'} at ${personData.experience[1].company || 'Unknown'}\n`;
+                }
+            }
+            
+            if (personData.skills && Array.isArray(personData.skills) && personData.skills.length > 0) {
+                researchInfo += `- **Skills:** ${personData.skills.slice(0, 5).join(', ')}\n`;
+            }
+            
+            if (personData.education && Array.isArray(personData.education) && personData.education.length > 0) {
+                const education = personData.education[0];
+                researchInfo += `- **Education:** ${education.school} (${education.degree || 'Degree unknown'})\n`;
+            }
         }
     }
     
@@ -482,6 +576,19 @@ These key stakeholders should be referenced by name in your response when releva
 function buildResearchSection(processedResearch) {
     let researchOutput = `## RESEARCH INSIGHTS\n`;
     
+    // Add company insights if available
+    if (processedResearch.companyInsights.length > 0) {
+        researchOutput += `\n### Company Information\n`;
+        processedResearch.companyInsights.forEach(insight => {
+            researchOutput += `- **${insight.name || 'Company'}**: `;
+            if (insight.industry) researchOutput += `Industry: ${insight.industry}, `;
+            if (insight.size) researchOutput += `Size: ${insight.size}, `;
+            if (insight.founded) researchOutput += `Founded: ${insight.founded}, `;
+            if (insight.location) researchOutput += `Location: ${insight.location}`;
+            researchOutput += `\n`;
+        });
+    }
+    
     // Add recent news if available
     if (processedResearch.recentNews.length > 0) {
         researchOutput += `\n### Recent Company News\n`;
@@ -505,7 +612,6 @@ function buildResearchSection(processedResearch) {
     
     return researchOutput;
 }
-
 /**
  * Build the instructions section of the prompt
  * @param {Object} clientDetails - Client information
@@ -623,6 +729,7 @@ async function generateSalesIntelligenceSummary(researchData, clientDetails) {
         return "Unable to generate sales intelligence at this time. Please try again later.";
     }
 }
+
 /**
  * Post-process the LLM-generated summary to enhance readability and impact
  * @param {string} summary - Raw summary from LLM
@@ -689,7 +796,6 @@ function postProcessSalesSummary(summary, intelligenceInfo) {
     // Return the enhanced summary
     return enhancedSummary;
 }
-
 
 async function runResearchForClient(clientId, userId) {
     try {
@@ -768,12 +874,19 @@ async function runResearchForClient(clientId, userId) {
                     typeof researchResults.reddit}`);
             }
             
+            // Add PDL data if available
+            if (researchResults.pdl) {
+                dataToStore.pdl = researchResults.pdl.data || researchResults.pdl;
+                console.log(`✅ Adding PDL data: ${typeof researchResults.pdl}`);
+            }
+            
             // Log the final data structure
             console.log(`📦 Final data structure: ${JSON.stringify({
                 keys: Object.keys(dataToStore),
                 hasGoogle: !!dataToStore.google,
                 hasApollo: !!dataToStore.apollo,
-                hasReddit: !!dataToStore.reddit
+                hasReddit: !!dataToStore.reddit,
+                hasPDL: !!dataToStore.pdl
             })}`);
 
             // Extract intelligence information using local function instead of utility

@@ -13,7 +13,8 @@ const PDL_BASE_URL = 'https://api.peopledatalabs.com/v5';
 const pendingOperations = new Set();
 
 /**
- * Perform PDL research for a client
+ * Main function to fetch PDL research data for a company
+ * Returns data in a format consistent with other research modules
  * @param {string} companyName - The company name to research
  * @param {string} clientId - The MongoDB ID of the client
  * @param {string} userId - The user ID who initiated the research
@@ -26,7 +27,7 @@ async function runPDLResearch(companyName, clientId, userId) {
     // Prevent duplicate research operations
     if (pendingOperations.has(operationKey)) {
       console.log(`PDL research already in progress for client ${clientId}`);
-      return { success: false, message: 'Research already in progress' };
+      return null;
     }
     
     pendingOperations.add(operationKey);
@@ -38,7 +39,7 @@ async function runPDLResearch(companyName, clientId, userId) {
     if (!client) {
       console.error(`Client not found: ${clientId}`);
       pendingOperations.delete(operationKey);
-      return { success: false, message: 'Client not found' };
+      return null;
     }
     
     // Run both person and company research in parallel
@@ -47,28 +48,28 @@ async function runPDLResearch(companyName, clientId, userId) {
       getCompanyData(companyName)
     ]);
     
-    // Create a combined research result
+    // Create a research result object (directly in the format needed for storage)
     const pdlResearch = {
       personData: personData.success ? personData.data : null,
       companyData: companyData.success ? companyData.data : null,
       timestamp: new Date(),
+      company: companyName,
+      clientId: clientId,
+      userId: userId
     };
     
-    // Store the research results
-    await storeResearchResults(clientId, userId, companyName, pdlResearch);
+    // Update the lastUpdated field in the research collection
+    await updateResearchTimestamp(clientId, userId);
     
     pendingOperations.delete(operationKey);
     
-    return {
-      success: true,
-      personSuccess: personData.success,
-      companySuccess: companyData.success,
-      data: pdlResearch
-    };
+    // Return the data directly (not wrapped in a success object)
+    // This makes it consistent with other research modules
+    return pdlResearch;
   } catch (error) {
     console.error(`PDL research error for client ${clientId}:`, error);
     pendingOperations.delete(`pdl-${clientId}-${userId}`);
-    return { success: false, message: error.message };
+    return null;
   }
 }
 
@@ -164,45 +165,34 @@ async function getCompanyData(companyName) {
 }
 
 /**
- * Store PDL research results in the database
+ * Update the lastUpdated timestamp in the research collection
  * @param {string} clientId - Client ID
  * @param {string} userId - User ID
- * @param {string} companyName - Company name
- * @param {Object} data - Research data
  * @returns {Promise<void>}
  */
-async function storeResearchResults(clientId, userId, companyName, data) {
+async function updateResearchTimestamp(clientId, userId) {
   try {
+    const now = new Date();
+    
     // Check if research document exists
     const existingResearch = await Research.findOne({ clientId, userId });
     
     if (existingResearch) {
-      // Update existing document
+      // Update only the timestamp fields
       await Research.updateOne(
         { clientId, userId },
         {
           $set: {
-            'data.pdl': data,
-            'lastUpdated.pdl': new Date()
+            'lastUpdatedPDL': now,
+            'lastUpdated.pdl': now
           }
         }
       );
-    } else {
-      // Create new research document
-      await Research.create({
-        clientId,
-        userId,
-        company: companyName,
-        data: { pdl: data },
-        lastUpdated: { pdl: new Date() },
-        timestamp: new Date()
-      });
     }
     
-    console.log(`✅ PDL research stored for client ${clientId}`);
+    console.log(`✅ PDL research timestamp updated for client ${clientId}`);
   } catch (error) {
-    console.error('Error storing PDL research:', error);
-    throw error;
+    console.error('Error updating research timestamp:', error);
   }
 }
 
