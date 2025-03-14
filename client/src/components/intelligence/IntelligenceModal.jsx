@@ -1,4 +1,3 @@
-// src/components/intelligence/IntelligenceModal.jsx - PART 1
 import React, { useState, useEffect } from 'react';
 import { 
   Brain, 
@@ -39,7 +38,6 @@ import axios from 'axios';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
-// Loading Skeleton Component
 const LoadingSkeleton = () => (
   <div className="p-8 space-y-6">
     <div className="animate-pulse">
@@ -53,7 +51,6 @@ const LoadingSkeleton = () => (
   </div>
 );
 
-// Error Display Component
 const ErrorDisplay = ({ message }) => (
   <div className="h-full flex items-center justify-center">
     <div className="text-center">
@@ -63,7 +60,6 @@ const ErrorDisplay = ({ message }) => (
   </div>
 );
 
-// No Report Display Component
 const NoReportDisplay = ({ companyName }) => (
   <div className="h-full flex flex-col items-center justify-center p-8 text-center">
     <Brain className="w-16 h-16 text-blue-200 mb-6" />
@@ -85,7 +81,6 @@ const NoReportDisplay = ({ companyName }) => (
   </div>
 );
 
-// No Company Data Display Component
 const NoCompanyDisplay = ({ companyName }) => (
   <div className="bg-white rounded-lg shadow-sm p-10 text-center">
     <Building className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -96,7 +91,6 @@ const NoCompanyDisplay = ({ companyName }) => (
   </div>
 );
 
-// Google News Card Component
 const GoogleNewsCard = ({ item, compact = false }) => (
   <div className={`bg-white border rounded-lg ${compact ? 'p-3 mb-2' : 'p-4 mb-3'} hover:shadow-md transition-shadow`}>
     <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-start space-x-2">
@@ -116,29 +110,37 @@ const GoogleNewsCard = ({ item, compact = false }) => (
   </div>
 );
 
-// Reddit Post Card Component
-const RedditPostCard = ({ post, compact = false }) => (
-  <div className={`bg-white border rounded-lg ${compact ? 'p-3 mb-2' : 'p-4 mb-3'} hover:shadow-md transition-shadow`}>
-    <a href={post.url} target="_blank" rel="noopener noreferrer" className="block">
-      <h3 className={`font-medium text-blue-600 hover:underline ${compact ? 'text-sm' : ''}`}>{post.title}</h3>
-      <div className={`flex items-center ${compact ? 'mt-1 text-xs' : 'mt-2 text-xs'} text-gray-500`}>
-        <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
-          r/{post.subreddit}
-        </span>
-        <span className="mx-2">•</span>
-        <span>{post.upvotes} upvotes</span>
-        {!compact && (
-          <>
-            <span className="mx-2">•</span>
-            <span>{post.comments} comments</span>
-          </>
-        )}
+const ProfessionalExperienceCard = ({ experience }) => {
+  if (!experience) return null;
+  
+  return (
+    <div className="border rounded-lg p-3 mb-3 bg-white">
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="font-medium text-gray-900">{experience.title?.name || "Role"}</h3>
+          <p className="text-sm text-gray-700">{experience.company?.name || "Company"}</p>
+        </div>
+        <div className="text-xs text-gray-500">
+          {experience.start_date && (
+            <span>
+              {experience.start_date} - {experience.end_date || "Present"}
+            </span>
+          )}
+        </div>
       </div>
-    </a>
-  </div>
-);
+      {experience.summary && (
+        <p className="text-sm text-gray-600 mt-2 line-clamp-3">{experience.summary}</p>
+      )}
+      {experience.location_names && experience.location_names.length > 0 && (
+        <div className="mt-2 flex items-center text-xs text-gray-500">
+          <Building className="w-3 h-3 mr-1" />
+          <span>{experience.location_names[0]}</span>
+        </div>
+      )}
+    </div>
+  );
+};
 
-// Enhanced Technology Stack Component
 const TechnologyStackDisplay = ({ technologies = [] }) => {
   if (!technologies || !technologies.categories || technologies.categories.length === 0) {
     return (
@@ -173,7 +175,6 @@ const TechnologyStackDisplay = ({ technologies = [] }) => {
   );
 };
 
-// Enhanced Key People Component
 const KeyPeopleList = ({ people = [] }) => {
   if (!people || people.length === 0) {
     return (
@@ -237,12 +238,7 @@ const KeyPeopleList = ({ people = [] }) => {
     </div>
   );
 };
-  
-// src/components/intelligence/IntelligenceModal.jsx - PART 2
-
-// Deal Intelligence Components
 const DealScoreIndicator = ({ score = 50, reasoning = "" }) => {
-  // Get color based on score
   const getScoreColor = (score) => {
     if (score >= 80) return "text-green-600";
     if (score >= 70) return "text-green-500";
@@ -251,7 +247,6 @@ const DealScoreIndicator = ({ score = 50, reasoning = "" }) => {
     return "text-orange-500";
   };
 
-  // Get label based on score
   const getScoreLabel = (score) => {
     if (score >= 80) return "Highly Likely";
     if (score >= 70) return "Promising";
@@ -267,7 +262,6 @@ const DealScoreIndicator = ({ score = 50, reasoning = "" }) => {
   return (
     <div className="flex items-center">
       <div className="relative w-28 h-28 mr-6 flex-shrink-0">
-        {/* Circular progress */}
         <svg className="w-full h-full" viewBox="0 0 100 100">
           <circle 
             cx="50" cy="50" r="45" 
@@ -308,9 +302,7 @@ const DealScoreIndicator = ({ score = 50, reasoning = "" }) => {
   );
 };
 
-// Deal Stage Timeline Component
 const DealStageTimeline = ({ stageData = {} }) => {
-  // Default stage data if not provided
   const defaultStageData = {
     currentStage: "Prospecting",
     timeInStage: "N/A",
@@ -321,14 +313,11 @@ const DealStageTimeline = ({ stageData = {} }) => {
     nextStageLikelihood: 0
   };
 
-  // Merge with defaults
   const mergedStageData = { ...defaultStageData, ...stageData };
   
-  // All possible stages in order
   const allStages = ["Initial Contact", "Discovery", "Qualifying", "Demo", "Technical Evaluation", 
                      "Proposal", "Negotiation", "Contract Review", "Closed Won"];
   
-  // Filter stages based on what we have
   const completedStages = mergedStageData.completedStages || [];
   const currentStage = mergedStageData.currentStage;
   const upcomingStages = mergedStageData.upcomingStages || [];
@@ -367,9 +356,7 @@ const DealStageTimeline = ({ stageData = {} }) => {
   );
 };
 
-// Deal Factors Component
 const DealFactorsAnalysis = ({ factorsData = null }) => {
-  // Default factors data if not provided
   const defaultFactors = {
     positive: [
       { description: "Client has engaged multiple times", impact: 3 },
@@ -380,7 +367,6 @@ const DealFactorsAnalysis = ({ factorsData = null }) => {
     ]
   };
 
-  // Use provided data or default
   const factors = factorsData || defaultFactors;
 
   return (
@@ -427,9 +413,7 @@ const DealFactorsAnalysis = ({ factorsData = null }) => {
   );
 };
 
-// Critical Requirements & Next Stage Analysis
 const CriticalRequirementsAndNextStage = ({ requirements = null, nextStageData = null }) => {
-  // Default data if not provided
   const defaultRequirements = [
     { title: "Integration Capabilities", description: "API connection to existing systems" },
     { title: "User Management", description: "Role-based access control" }
@@ -444,7 +428,6 @@ const CriticalRequirementsAndNextStage = ({ requirements = null, nextStageData =
     ]
   };
 
-  // Use provided data or defaults
   const reqs = requirements || defaultRequirements;
   const nextStage = nextStageData || defaultNextStage;
 
@@ -496,16 +479,13 @@ const CriticalRequirementsAndNextStage = ({ requirements = null, nextStageData =
   );
 };
 
-// Strategic Recommendations Component
 const StrategicRecommendations = ({ recommendations = null }) => {
-  // Default recommendations if not provided
   const defaultRecommendations = [
     "Focus on demonstrating clear ROI metrics for the solution",
     "Address specific integration concerns in follow-up communications",
     "Prepare for technical validation questions in next meeting"
   ];
 
-  // Use provided recommendations or defaults
   const recs = recommendations || defaultRecommendations;
 
   return (
@@ -553,9 +533,7 @@ const StrategicRecommendations = ({ recommendations = null }) => {
   );
 };
 
-// Market Intelligence Component
 const MarketIntelligence = ({ marketData = null }) => {
-  // Default market intelligence data if not provided
   const defaultMarketData = [
     {
       title: "Industry Regulatory Changes Expected",
@@ -565,7 +543,6 @@ const MarketIntelligence = ({ marketData = null }) => {
     }
   ];
 
-  // Use provided data or defaults
   const data = marketData || defaultMarketData;
 
   return (
@@ -590,7 +567,6 @@ const MarketIntelligence = ({ marketData = null }) => {
   );
 };
 
-// Buying Signals & Growth Indicators Components
 const BuyingSignalsCard = ({ insights }) => {
   if (!insights || (!insights.buyingSignals || insights.buyingSignals.length === 0) && 
       (!insights.growthIndicators || insights.growthIndicators.length === 0)) {
@@ -637,16 +613,12 @@ const BuyingSignalsCard = ({ insights }) => {
     </div>
   );
 };
-
-// Enhanced Company Profile Component
 const CompanyProfile = ({ data, pdlData }) => {
-  // First, handle the case when PDL company data is available
   if (pdlData?.companyData) {
     const companyData = pdlData.companyData;
     
     return (
       <div className="space-y-6">
-        {/* Company Overview */}
         <div className="bg-white border rounded-lg p-5">
           <div className="flex justify-between items-start">
             <div>
@@ -742,10 +714,8 @@ const CompanyProfile = ({ data, pdlData }) => {
     );
   }
   
-  // Fallback to default empty state if no data available
   if (!data) return <NoCompanyDisplay companyName="Unknown Company" />;
   
-  // Original Apollo-based profile rendering as fallback
   const companyInfo = data.company || {};
   const keyPeople = data.keyPeople || [];
   const technologies = data.technologies || {};
@@ -754,7 +724,6 @@ const CompanyProfile = ({ data, pdlData }) => {
   
   return (
     <div className="space-y-6">
-      {/* Company Overview */}
       <div className="bg-white border rounded-lg p-5">
         <div className="flex justify-between items-start">
           <div>
@@ -833,7 +802,6 @@ const CompanyProfile = ({ data, pdlData }) => {
           </div>
         )}
         
-        {/* Latest Funding */}
         {funding.lastFunding && (
           <div className="mt-4 bg-green-50 p-3 rounded-lg flex items-start">
             <TrendingUp className="h-5 w-5 text-green-600 mt-0.5 mr-2 flex-shrink-0" />
@@ -847,15 +815,12 @@ const CompanyProfile = ({ data, pdlData }) => {
         )}
       </div>
       
-      {/* Buying Signals & Growth Card */}
       <BuyingSignalsCard insights={insights} />
       
-      {/* Technology Stack */}
       <div className="bg-white border rounded-lg p-5">
         <TechnologyStackDisplay technologies={technologies} />
       </div>
       
-      {/* Key People */}
       <div className="bg-white border rounded-lg p-5">
         <KeyPeopleList people={keyPeople} />
       </div>
@@ -863,17 +828,181 @@ const CompanyProfile = ({ data, pdlData }) => {
   );
 };
 
-// src/components/intelligence/IntelligenceModal.jsx - PART 3
+const ProfileView = ({ pdlData }) => {
+  if (!pdlData || !pdlData.personData || !pdlData.personData.data) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-10 text-center">
+        <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-gray-700">No Profile Data Available</h3>
+        <p className="text-gray-500 mt-3 max-w-md mx-auto">
+          We don't have detailed profile information for this contact yet.
+        </p>
+      </div>
+    );
+  }
 
-// Enhanced Dashboard Company Card
-const CompanyDashboardCard = ({ data }) => {
-  if (!data) return null;
+  const personData = pdlData.personData.data;
   
-  const companyInfo = data.company || {};
-  const insights = data.insights || {};
-  const funding = data.funding || {};
+  return (
+    <div className="space-y-6">
+      <div className="bg-white border rounded-lg p-5">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center">
+            <div className="w-16 h-16 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center mr-4">
+              {personData.first_name && personData.last_name ? 
+                `${personData.first_name[0]}${personData.last_name[0]}` : "??"
+              }
+            </div>
+            <div>
+              <h3 className="font-bold text-xl text-gray-900">
+                {personData.full_name || `${personData.first_name || ''} ${personData.last_name || ''}`}
+              </h3>
+              <p className="text-md text-blue-600 mt-1">{personData.job_title || 'No Title'}</p>
+              <p className="text-sm text-gray-600">
+                {personData.job_company_name ? `at ${personData.job_company_name}` : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            {personData.linkedin_url && (
+              <a 
+                href={`https://${personData.linkedin_url}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="p-2 bg-blue-50 rounded-full hover:bg-blue-100 text-blue-600"
+                title="LinkedIn"
+              >
+                <Link className="h-5 w-5" />
+              </a>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-4">
+          <div className="flex items-start">
+            <Briefcase className="h-5 w-5 text-gray-400 mt-0.5 mr-2" />
+            <div>
+              <p className="text-xs text-gray-500">Industry</p>
+              <p className="font-medium capitalize">{personData.industry || 'Unknown'}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-start">
+            <Calendar className="h-5 w-5 text-gray-400 mt-0.5 mr-2" />
+            <div>
+              <p className="text-xs text-gray-500">Job Start Date</p>
+              <p className="font-medium">{personData.job_start_date || 'Unknown'}</p>
+            </div>
+          </div>
+          
+          {personData.job_company_size && (
+            <div className="flex items-start">
+              <Building className="h-5 w-5 text-gray-400 mt-0.5 mr-2" />
+              <div>
+                <p className="text-xs text-gray-500">Company Size</p>
+                <p className="font-medium">{personData.job_company_size}</p>
+              </div>
+            </div>
+          )}
+          
+          {personData.job_company_location_name && (
+            <div className="flex items-start">
+              <Globe className="h-5 w-5 text-gray-400 mt-0.5 mr-2" />
+              <div>
+                <p className="text-xs text-gray-500">Location</p>
+                <p className="font-medium">{personData.job_company_location_name}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {personData.skills && personData.skills.length > 0 && (
+        <div className="bg-white border rounded-lg p-5">
+          <h3 className="font-semibold text-gray-900 mb-3">Skills</h3>
+          <div className="flex flex-wrap gap-2">
+            {personData.skills.map((skill, idx) => (
+              <span key={idx} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm">
+                {skill}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {personData.experience && personData.experience.length > 0 && (
+        <div className="bg-white border rounded-lg p-5">
+          <h3 className="font-semibold text-gray-900 mb-3">Professional Experience</h3>
+          <div className="space-y-4">
+            {personData.experience.slice(0, 4).map((exp, idx) => (
+              <ProfessionalExperienceCard key={idx} experience={exp} />
+            ))}
+            {personData.experience.length > 4 && (
+              <div className="text-center">
+                <button className="text-blue-600 text-sm hover:underline">
+                  Show {personData.experience.length - 4} more...
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {personData.education && personData.education.length > 0 && (
+        <div className="bg-white border rounded-lg p-5">
+          <h3 className="font-semibold text-gray-900 mb-3">Education</h3>
+          <div className="space-y-3">
+            {personData.education.map((edu, idx) => (
+              <div key={idx} className="border rounded-lg p-3">
+                <h4 className="font-medium text-gray-900">{edu.school?.name || 'Unknown Institution'}</h4>
+                <div className="text-sm text-gray-600 flex flex-wrap items-center gap-1 mt-1">
+                  {edu.degrees && edu.degrees.length > 0 && (
+                    <span className="capitalize">
+                      {edu.degrees.join(', ')}
+                    </span>
+                  )}
+                  {edu.majors && edu.majors.length > 0 && (
+                    <span>
+                      {edu.degrees && edu.degrees.length > 0 ? ' in ' : ''}
+                      {edu.majors.join(', ')}
+                    </span>
+                  )}
+                </div>
+                {(edu.start_date || edu.end_date) && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {edu.start_date || ''}{edu.start_date && edu.end_date ? ' - ' : ''}{edu.end_date || ''}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+const CompanyDashboardCard = ({ data, pdlData }) => {
+  const companyInfo = {
+    name: pdlData?.companyData?.display_name || pdlData?.companyData?.name || 
+          data?.company?.name || "Unknown Company",
+    industry: pdlData?.companyData?.industry || data?.company?.industry || "Unknown Industry",
+    size: pdlData?.companyData?.employee_count ? 
+          `${pdlData.companyData.employee_count.toLocaleString()} employees` : 
+          pdlData?.companyData?.size || data?.company?.size || "Unknown size",
+    revenue: data?.company?.revenue || "Unknown revenue",
+    location: pdlData?.companyData?.location ? 
+              [pdlData.companyData.location.locality, pdlData.companyData.location.region]
+                .filter(Boolean).join(', ') : 
+              [data?.company?.location?.city, data?.company?.location?.state]
+                .filter(Boolean).join(', ') || "Unknown location",
+    linkedinUrl: pdlData?.companyData?.linkedin_url || data?.company?.socialProfiles?.linkedin || null,
+    website: pdlData?.companyData?.website || data?.company?.website || null,
+    type: pdlData?.companyData?.type || null
+  };
   
-  // Extract the most important signals
+  const insights = data?.insights || {};
+  const funding = data?.funding || {};
+  
   const topGrowthIndicator = insights.growthIndicators && insights.growthIndicators.length > 0 
     ? insights.growthIndicators[0] : null;
   const topBuyingSignal = insights.buyingSignals && insights.buyingSignals.length > 0
@@ -887,9 +1016,9 @@ const CompanyDashboardCard = ({ data }) => {
           <p className="text-sm text-gray-600">{companyInfo.industry}</p>
         </div>
         
-        {companyInfo.socialProfiles?.linkedin && (
+        {companyInfo.linkedinUrl && (
           <a 
-            href={companyInfo.socialProfiles.linkedin} 
+            href={`https://${companyInfo.linkedinUrl}`.replace(/^https:\/\/https:\/\//, 'https://')} 
             target="_blank" 
             rel="noopener noreferrer"
             className="text-blue-600 hover:text-blue-800"
@@ -902,12 +1031,20 @@ const CompanyDashboardCard = ({ data }) => {
       <div className="grid grid-cols-2 gap-3 text-sm mb-4">
         <div>
           <p className="text-gray-500">Size</p>
-          <p className="font-medium">{companyInfo.size ? `~${companyInfo.size} employees` : 'Unknown'}</p>
+          <p className="font-medium">{companyInfo.size}</p>
         </div>
-        <div>
-          <p className="text-gray-500">Revenue</p>
-          <p className="font-medium">{companyInfo.revenue || 'Unknown'}</p>
-        </div>
+        
+        {companyInfo.type ? (
+          <div>
+            <p className="text-gray-500">Type</p>
+            <p className="font-medium capitalize">{companyInfo.type}</p>
+          </div>
+        ) : (
+          <div>
+            <p className="text-gray-500">Revenue</p>
+            <p className="font-medium">{companyInfo.revenue}</p>
+          </div>
+        )}
       </div>
       
       {(topGrowthIndicator || topBuyingSignal || funding.lastFunding) && (
@@ -940,22 +1077,36 @@ const CompanyDashboardCard = ({ data }) => {
   );
 };
 
-// Key People Dashboard Card
-const KeyPeopleDashboardCard = ({ people = [] }) => {
-  if (!people || people.length === 0) return null;
+const KeyPeopleDashboardCard = ({ people = [], pdlPerson = null }) => {
+  let displayPeople = [];
   
-  // Show only top 3 people for dashboard
-  const topPeople = people.slice(0, 3);
+  if (pdlPerson && pdlPerson.data) {
+    const personData = pdlPerson.data;
+    displayPeople.push({
+      name: personData.full_name || `${personData.first_name || ''} ${personData.last_name || ''}`,
+      title: personData.job_title || 'Unknown Title',
+      email: null,
+      emailStatus: null,
+      linkedinUrl: personData.linkedin_url,
+      isPrimary: true
+    });
+  }
+  
+  if (people && people.length > 0) {
+    displayPeople = [...displayPeople, ...people.slice(0, Math.max(0, 3 - displayPeople.length))];
+  }
+  
+  if (displayPeople.length === 0) return null;
   
   return (
     <div className="bg-white rounded-lg shadow-sm p-5 mt-4">
       <h3 className="font-bold text-lg text-gray-900 mb-4">Key Decision Makers</h3>
       
       <div className="space-y-3">
-        {topPeople.map((person, idx) => (
+        {displayPeople.map((person, idx) => (
           <div key={idx} className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center flex-shrink-0 text-sm">
-              {person.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+              {person.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">{person.name}</p>
@@ -966,7 +1117,7 @@ const KeyPeopleDashboardCard = ({ people = [] }) => {
             )}
             {person.linkedinUrl && (
               <a 
-                href={person.linkedinUrl} 
+                href={`https://${person.linkedinUrl}`.replace(/^https:\/\/https:\/\//, 'https://')} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-800"
@@ -978,10 +1129,10 @@ const KeyPeopleDashboardCard = ({ people = [] }) => {
         ))}
       </div>
       
-      {people.length > 3 && (
+      {people.length > 3 - (pdlPerson && pdlPerson.data ? 1 : 0) && (
         <div className="mt-3 text-center">
           <button className="text-xs text-blue-600 hover:text-blue-800">
-            View all {people.length} contacts
+            View all {people.length + (pdlPerson && pdlPerson.data ? 1 : 0)} contacts
           </button>
         </div>
       )}
@@ -989,11 +1140,9 @@ const KeyPeopleDashboardCard = ({ people = [] }) => {
   );
 };
 
-// DealInsightPreview for Dashboard
 const DealInsightPreview = ({ pdlData }) => {
   if (!pdlData) return null;
   
-  // Get score colors
   const getScoreColor = (score) => {
     if (score >= 70) return "text-green-600";
     if (score >= 50) return "text-blue-600";
@@ -1032,32 +1181,23 @@ const DealInsightPreview = ({ pdlData }) => {
   );
 };
 
-// Format the Markdown text properly
 const formatMarkdown = (text) => {
   if (!text) return '';
   
-  // Handle bold text
   let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  
-  // Make section titles bold
   formattedText = formattedText.replace(/(###\s+[0-9️⃣]+\s+.*?)$/gm, '<h3 class="font-bold text-lg mb-3">$1</h3>');
-  
-  // Replace newlines with <br>
   formattedText = formattedText.replace(/\n/g, '<br>');
   
   return formattedText;
 };
 
-// Format the MongoDB timestamp
 const formatTimestamp = (timestamp) => {
   if (!timestamp) return 'Not available';
   
-  // Check if it's a MongoDB $date object
   if (timestamp.$date) {
     return new Date(timestamp.$date).toLocaleDateString();
   }
   
-  // Regular date string
   return new Date(timestamp).toLocaleDateString();
 };
 
@@ -1067,7 +1207,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
   const [error, setError] = useState(null);
   const [researchData, setResearchData] = useState(null);
   const [googleData, setGoogleData] = useState(null);
-  const [redditData, setRedditData] = useState(null);
   const [apolloData, setApolloData] = useState(null);
   const [pdlData, setPdlData] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -1077,66 +1216,52 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
       return;
     }
 
- const fetchResearchData = async () => {
-  setLoading(true);
-  setError(null);
-  try {
-    const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
-    const data = response.data;
-    
-    if (!data) {
-      setError("No research data available for this client.");
-      setLoading(false);
-      return;
-    }
-    
-    // Extract data and update state
-    setResearchData(data);
-    setGoogleData(data.data?.google || []);
-    setRedditData(data.data?.reddit || []);
-    setApolloData(data.data?.apollo || null);
-    
-    // Extract PDL data if available
-    if (data.data?.pdl) {
-      // Handle the nested structure of PDL data
-      const pdlData = data.data.pdl;
-      
-      // Construct a properly structured PDL object that components can use
-      setPdlData({
-        // Include the entire original PDL object
-        ...pdlData,
+    const fetchResearchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+        const data = response.data;
         
-        // Extract company data for easier access
-        companyName: pdlData.companyData?.display_name || pdlData.companyData?.name || pdlData.company || "Unknown",
-        industry: pdlData.companyData?.industry || "Unknown",
-        size: pdlData.companyData?.employee_count || pdlData.companyData?.size || "Unknown",
-        location: pdlData.companyData?.location || null,
-        summary: pdlData.companyData?.summary || null,
-        linkedInUrl: pdlData.companyData?.linkedin_url || null,
+        if (!data) {
+          setError("No research data available for this client.");
+          setLoading(false);
+          return;
+        }
         
-        // Set default values for deal intelligence if not present
-        dealScore: pdlData.dealScore || 0,
-        currentStage: pdlData.currentStage || "Prospecting",
-        dealValue: pdlData.dealValue || "$0",
+        setResearchData(data);
+        setGoogleData(data.data?.google || []);
+        setApolloData(data.data?.apollo || null);
         
-        // Flag to indicate we have company data from PDL
-        hasPdlCompanyData: !!pdlData.companyData
-      });
-    } else {
-      setPdlData(null);
-    }
-    
-    // Set last updated using the MongoDB timestamp format
-    setLastUpdated(data.timestamp || null);
-  } catch (err) {
-    console.error("❌ Error fetching research data:", err.response?.data || err.message);
-    setError(err.response?.status === 404 
-      ? "No research data available for this client yet."
-      : "Failed to load research data. Please try again later.");
-  } finally {
-    setLoading(false);
-  }
-};
+        if (data.data?.pdl) {
+          const pdlData = data.data.pdl;
+          setPdlData({
+            ...pdlData,
+            companyName: pdlData.companyData?.display_name || pdlData.companyData?.name || pdlData.company || "Unknown",
+            industry: pdlData.companyData?.industry || "Unknown",
+            size: pdlData.companyData?.employee_count || pdlData.companyData?.size || "Unknown",
+            location: pdlData.companyData?.location || null,
+            summary: pdlData.companyData?.summary || null,
+            linkedInUrl: pdlData.companyData?.linkedin_url || null,
+            dealScore: pdlData.dealScore || 0,
+            currentStage: pdlData.currentStage || "Prospecting",
+            dealValue: pdlData.dealValue || "$0",
+            hasPdlCompanyData: !!pdlData.companyData
+          });
+        } else {
+          setPdlData(null);
+        }
+        
+        setLastUpdated(data.timestamp || null);
+      } catch (err) {
+        console.error("Error fetching research data:", err.response?.data || err.message);
+        setError(err.response?.status === 404 
+          ? "No research data available for this client yet."
+          : "Failed to load research data. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
     fetchResearchData();
   }, [clientId, userId, isOpen]);
@@ -1147,17 +1272,14 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
 
   if (!isOpen) return null;
 
-  // Use companyName from the research data instead of clientName
   const displayName = apolloData?.company?.name || researchData?.companyName || clientName || "Company";
   const isSummaryAvailable = researchData?.summary;
   const areGoogleResultsAvailable = googleData && Array.isArray(googleData) && googleData.length > 0;
-  const areRedditResultsAvailable = redditData && Array.isArray(redditData) && redditData.length > 0;
   const isApolloDataAvailable = apolloData && Object.keys(apolloData).length > 0;
   const isPdlDataAvailable = pdlData && Object.keys(pdlData).length > 0;
 
-  // Generate dynamic title based on data availability
   let dynamicTitle = "Sales Intelligence";
-  if (isPdlDataAvailable && (areGoogleResultsAvailable || areRedditResultsAvailable || isApolloDataAvailable)) {
+  if (isPdlDataAvailable && (areGoogleResultsAvailable || isApolloDataAvailable)) {
     dynamicTitle = "360° Intelligence Brief";
   } else if (isPdlDataAvailable) {
     dynamicTitle = "Deal Intelligence";
@@ -1165,8 +1287,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
     dynamicTitle = "Company Intelligence Profile";
   } else if (areGoogleResultsAvailable) {
     dynamicTitle = "Market Intelligence Report";
-  } else if (areRedditResultsAvailable) {
-    dynamicTitle = "Social Intelligence Insights";
   }
 
   return (
@@ -1184,7 +1304,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
           </button>
         </div>
         
-        {/* Tab Navigation */}
         <div className="flex border-b border-gray-200 bg-gray-50">
           <button 
             className={`flex items-center px-6 py-3 border-b-2 ${activeTab === 'dashboard' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -1201,11 +1320,11 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
             <span>Deal Intelligence</span>
           </button>
           <button 
-            className={`flex items-center px-6 py-3 border-b-2 ${activeTab === 'ai' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-            onClick={() => handleTabClick('ai')}
+            className={`flex items-center px-6 py-3 border-b-2 ${activeTab === 'profile' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            onClick={() => handleTabClick('profile')}
           >
-            <Brain className="w-5 h-5 mr-2" />
-            <span>AI Analysis</span>
+            <Users className="w-5 h-5 mr-2" />
+            <span>Profile</span>
           </button>
           <button 
             className={`flex items-center px-6 py-3 border-b-2 ${activeTab === 'company' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -1221,16 +1340,8 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
             <Globe className="w-5 h-5 mr-2" />
             <span>Web Research</span>
           </button>
-          <button 
-            className={`flex items-center px-6 py-3 border-b-2 ${activeTab === 'social' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-            onClick={() => handleTabClick('social')}
-          >
-            <MessageCircle className="w-5 h-5 mr-2" />
-            <span>Social Insights</span>
-          </button>
         </div>
         
-        {/* Content Area */}
         <div className="flex-1 overflow-y-auto bg-gray-50">
           {loading ? (
             <LoadingSkeleton />
@@ -1241,16 +1352,15 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
               {activeTab === 'dashboard' && (
                 <div className="p-6">
                   <div className="grid grid-cols-3 gap-6">
-                    {/* Summary Column */}
                     <div className="col-span-2 space-y-4">
                       <div className="bg-white rounded-lg shadow-sm p-6">
                         <div className="flex justify-between items-center mb-4">
                           <h3 className="text-lg font-bold text-gray-900">Key Sales Insights</h3>
                           <button 
-                            onClick={() => handleTabClick('ai')}
+                            onClick={() => handleTabClick('deal-intelligence')}
                             className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
                           >
-                            Full Analysis <ChevronRight size={16} />
+                            View Details <ChevronRight size={16} />
                           </button>
                         </div>
                         
@@ -1268,7 +1378,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                         )}
                       </div>
                       
-                      {/* Deal Intelligence Preview */}
                       <div className="bg-white rounded-lg shadow-sm p-6">
                         <div className="flex justify-between items-center mb-4">
                           <h3 className="text-lg font-bold text-gray-900">Deal Intelligence</h3>
@@ -1290,7 +1399,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                         )}
                       </div>
                       
-                      {/* Web Research Preview */}
                       <div className="bg-white rounded-lg shadow-sm p-6">
                         <div className="flex justify-between items-center mb-4">
                           <h3 className="text-lg font-bold text-gray-900">Latest News</h3>
@@ -1317,42 +1425,16 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                           </div>
                         )}
                       </div>
-                      
-                      {/* Social Insights Preview */}
-                      <div className="bg-white rounded-lg shadow-sm p-6">
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-lg font-bold text-gray-900">Social Media Mentions</h3>
-                          {areRedditResultsAvailable && (
-                            <button 
-                              onClick={() => handleTabClick('social')}
-                              className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                            >
-                              View All <ChevronRight size={16} />
-                            </button>
-                          )}
-                        </div>
-                        
-                        {areRedditResultsAvailable ? (
-                          <div>
-                            {redditData.slice(0, 2).map((post, index) => (
-                              <RedditPostCard key={index} post={post} compact={true} />
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8">
-                            <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                            <p className="text-gray-500">No social media mentions found</p>
-                          </div>
-                        )}
-                      </div>
                     </div>
                     
-                    {/* Company Profile Column */}
                     <div className="space-y-4">
-                      {isApolloDataAvailable ? (
+                      {(isApolloDataAvailable || isPdlDataAvailable) ? (
                         <>
-                          <CompanyDashboardCard data={apolloData} />
-                          <KeyPeopleDashboardCard people={apolloData.keyPeople} />
+                          <CompanyDashboardCard data={apolloData} pdlData={pdlData} />
+                          <KeyPeopleDashboardCard 
+                            people={apolloData?.keyPeople || []} 
+                            pdlPerson={pdlData?.personData} 
+                          />
                         </>
                       ) : (
                         <div className="bg-white rounded-lg shadow-sm p-6 text-center py-8">
@@ -1362,7 +1444,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                         </div>
                       )}
                       
-                      {/* Intelligence Source Card */}
                       <div className="bg-white rounded-lg shadow-sm p-6">
                         <h3 className="font-bold text-gray-900 mb-4">Intelligence Sources</h3>
                         <div className="space-y-3">
@@ -1375,12 +1456,8 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                             <span className="text-sm">News Articles</span>
                           </div>
                           <div className="flex items-center">
-                            <div className={`w-3 h-3 rounded-full mr-2 ${areRedditResultsAvailable ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                            <span className="text-sm">Social Mentions</span>
-                          </div>
-                          <div className="flex items-center">
                             <div className={`w-3 h-3 rounded-full mr-2 ${isSummaryAvailable ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                            <span className="text-sm">AI Analysis</span>
+                            <span className="text-sm">Sales Insights</span>
                           </div>
                           <div className="flex items-center">
                             <div className={`w-3 h-3 rounded-full mr-2 ${isPdlDataAvailable ? 'bg-green-500' : 'bg-gray-300'}`}></div>
@@ -1389,7 +1466,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                         </div>
                       </div>
                       
-                      {/* Last Updated Card */}
                       <div className="bg-white rounded-lg shadow-sm p-6">
                         <div className="flex items-start">
                           <Calendar className="text-blue-500 mr-3 mt-1" />
@@ -1404,12 +1480,10 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                 </div>
               )}
               
-              {/* Deal Intelligence Tab */}
               {activeTab === 'deal-intelligence' && (
                 <div className="p-6">
                   {isPdlDataAvailable ? (
                     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                      {/* Header */}
                       <div className="bg-gradient-to-r from-green-600 to-green-800 px-6 py-4">
                         <div className="flex justify-between items-center">
                           <h2 className="text-white text-xl font-bold flex items-center">
@@ -1422,7 +1496,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                         </div>
                       </div>
                       
-                      {/* Score & Stage Section */}
                       <div className="p-6 border-b grid grid-cols-2 gap-6">
                         <DealScoreIndicator 
                           score={pdlData.dealScore || 50} 
@@ -1431,19 +1504,15 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                         <DealStageTimeline stageData={pdlData.stageData || {}} />
                       </div>
                       
-                      {/* Key Factors Analysis */}
                       <DealFactorsAnalysis factorsData={pdlData.factors || null} />
                       
-                      {/* Critical Requirements & Next Stage */}
                       <CriticalRequirementsAndNextStage 
                         requirements={pdlData.requirements || null} 
                         nextStageData={pdlData.nextStage || null} 
                       />
                       
-                      {/* Market Intelligence */}
                       <MarketIntelligence marketData={pdlData.marketData || null} />
                       
-                      {/* Strategic Recommendations */}
                       <StrategicRecommendations recommendations={pdlData.recommendations || null} />
                     </div>
                   ) : (
@@ -1459,33 +1528,24 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                 </div>
               )}
               
-              {activeTab === 'ai' && (
-                <div className="p-8 max-w-4xl mx-auto bg-white shadow-sm rounded-lg my-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">AI-Powered Sales Intelligence</h2>
-                  
-                  {isSummaryAvailable ? (
-                    <div className="prose prose-blue max-w-none">
-                      <div dangerouslySetInnerHTML={{ 
-                        __html: formatMarkdown(researchData.summary) 
-                      }} />
-                    </div>
-                  ) : (
-                    <NoReportDisplay companyName={displayName} />
-                  )}
+              {activeTab === 'profile' && (
+                <div className="p-8 max-w-3xl mx-auto">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Profile</h2>
+                  <ProfileView pdlData={pdlData} />
                 </div>
               )}
               
               {activeTab === 'company' && (
-				  <div className="p-8 max-w-3xl mx-auto">
-					<h2 className="text-2xl font-bold text-gray-900 mb-6">Company Profile</h2>
-					
-					{isApolloDataAvailable || isPdlDataAvailable ? (
-					  <CompanyProfile data={apolloData} pdlData={pdlData} />
-					) : (
-					  <NoCompanyDisplay companyName={displayName} />
-					)}
-				  </div>
-			 )}
+                <div className="p-8 max-w-3xl mx-auto">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Company Profile</h2>
+                  
+                  {isApolloDataAvailable || isPdlDataAvailable ? (
+                    <CompanyProfile data={apolloData} pdlData={pdlData} />
+                  ) : (
+                    <NoCompanyDisplay companyName={displayName} />
+                  )}
+                </div>
+              )}
               
               {activeTab === 'web' && (
                 <div className="p-8">
@@ -1503,28 +1563,6 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                       <h3 className="text-xl font-semibold text-gray-700 mb-2">No News Articles Found</h3>
                       <p className="text-gray-500 max-w-md mx-auto">
                         We couldn't find any recent news articles for {displayName}. Check back later for updates.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {activeTab === 'social' && (
-                <div className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Social Media Insights</h2>
-                  
-                  {areRedditResultsAvailable ? (
-                    <div className="space-y-4 max-w-4xl">
-                      {redditData.map((post, index) => (
-                        <RedditPostCard key={index} post={post} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-16 bg-white rounded-lg shadow-sm">
-                      <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-700 mb-2">No Social Media Mentions</h3>
-                      <p className="text-gray-500 max-w-md mx-auto">
-                        We couldn't find any recent social media mentions for {displayName}. Check back later for updates.
                       </p>
                     </div>
                   )}
