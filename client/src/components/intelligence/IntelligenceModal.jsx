@@ -639,9 +639,113 @@ const BuyingSignalsCard = ({ insights }) => {
 };
 
 // Enhanced Company Profile Component
-const CompanyProfile = ({ data }) => {
+const CompanyProfile = ({ data, pdlData }) => {
+  // First, handle the case when PDL company data is available
+  if (pdlData?.companyData) {
+    const companyData = pdlData.companyData;
+    
+    return (
+      <div className="space-y-6">
+        {/* Company Overview */}
+        <div className="bg-white border rounded-lg p-5">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-bold text-xl text-gray-900">
+                {companyData.display_name || companyData.name || pdlData.company || "Unknown"}
+              </h3>
+              <p className="text-md text-gray-600 mt-1">{companyData.industry || "Industry not available"}</p>
+            </div>
+            <div className="flex space-x-2">
+              {companyData.linkedin_url && (
+                <a 
+                  href={`https://${companyData.linkedin_url}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="p-2 bg-blue-50 rounded-full hover:bg-blue-100 text-blue-600"
+                  title="LinkedIn"
+                >
+                  <Link className="h-5 w-5" />
+                </a>
+              )}
+              {companyData.website && (
+                <a 
+                  href={companyData.website} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="p-2 bg-blue-50 rounded-full hover:bg-blue-100 text-blue-600"
+                  title="Website"
+                >
+                  <Globe className="h-5 w-5" />
+                </a>
+              )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mt-5">
+            <div className="flex items-start">
+              <Briefcase className="h-5 w-5 text-gray-400 mt-0.5 mr-2" />
+              <div>
+                <p className="text-xs text-gray-500">Company Size</p>
+                <p className="font-medium">
+                  {companyData.employee_count 
+                    ? `${companyData.employee_count.toLocaleString()} employees` 
+                    : companyData.size || 'Unknown'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start">
+              <Building className="h-5 w-5 text-gray-400 mt-0.5 mr-2" />
+              <div>
+                <p className="text-xs text-gray-500">Headquarters</p>
+                <p className="font-medium">
+                  {companyData.location 
+                    ? [
+                        companyData.location.locality, 
+                        companyData.location.region, 
+                        companyData.location.country
+                      ].filter(Boolean).join(', ') 
+                    : 'Unknown'}
+                </p>
+              </div>
+            </div>
+            
+            {companyData.type && (
+              <div className="flex items-start">
+                <DollarSign className="h-5 w-5 text-gray-400 mt-0.5 mr-2" />
+                <div>
+                  <p className="text-xs text-gray-500">Company Type</p>
+                  <p className="font-medium capitalize">{companyData.type}</p>
+                </div>
+              </div>
+            )}
+            
+            {companyData.founded && (
+              <div className="flex items-start">
+                <Calendar className="h-5 w-5 text-gray-400 mt-0.5 mr-2" />
+                <div>
+                  <p className="text-xs text-gray-500">Founded</p>
+                  <p className="font-medium">{companyData.founded}</p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {companyData.summary && (
+            <div className="mt-5 border-t pt-4">
+              <p className="text-xs text-gray-500 mb-1">Company Description</p>
+              <p className="text-sm text-gray-700">{companyData.summary}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  // Fallback to default empty state if no data available
   if (!data) return <NoCompanyDisplay companyName="Unknown Company" />;
   
+  // Original Apollo-based profile rendering as fallback
   const companyInfo = data.company || {};
   const keyPeople = data.keyPeople || [];
   const technologies = data.technologies || {};
@@ -973,43 +1077,66 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
       return;
     }
 
-    const fetchResearchData = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
-        const data = response.data;
+ const fetchResearchData = async () => {
+  setLoading(true);
+  setError(null);
+  try {
+    const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+    const data = response.data;
+    
+    if (!data) {
+      setError("No research data available for this client.");
+      setLoading(false);
+      return;
+    }
+    
+    // Extract data and update state
+    setResearchData(data);
+    setGoogleData(data.data?.google || []);
+    setRedditData(data.data?.reddit || []);
+    setApolloData(data.data?.apollo || null);
+    
+    // Extract PDL data if available
+    if (data.data?.pdl) {
+      // Handle the nested structure of PDL data
+      const pdlData = data.data.pdl;
+      
+      // Construct a properly structured PDL object that components can use
+      setPdlData({
+        // Include the entire original PDL object
+        ...pdlData,
         
-        if (!data) {
-          setError("No research data available for this client.");
-          setLoading(false);
-          return;
-        }
+        // Extract company data for easier access
+        companyName: pdlData.companyData?.display_name || pdlData.companyData?.name || pdlData.company || "Unknown",
+        industry: pdlData.companyData?.industry || "Unknown",
+        size: pdlData.companyData?.employee_count || pdlData.companyData?.size || "Unknown",
+        location: pdlData.companyData?.location || null,
+        summary: pdlData.companyData?.summary || null,
+        linkedInUrl: pdlData.companyData?.linkedin_url || null,
         
-        // Extract data and update state
-        setResearchData(data);
-        setGoogleData(data.data?.google || []);
-        setRedditData(data.data?.reddit || []);
-        setApolloData(data.data?.apollo || null);
+        // Set default values for deal intelligence if not present
+        dealScore: pdlData.dealScore || 0,
+        currentStage: pdlData.currentStage || "Prospecting",
+        dealValue: pdlData.dealValue || "$0",
         
-        // Extract PDL data if available
-        if (data.data?.pdl) {
-          setPdlData(data.data.pdl);
-        }
-        
-        // Set last updated using the MongoDB timestamp format
-        setLastUpdated(data.timestamp || null);
-
-      } catch (err) {
-        console.error("❌ Error fetching research data:", err.response?.data || err.message);
-        setError(err.response?.status === 404 
-          ? "No research data available for this client yet."
-          : "Failed to load research data. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
+        // Flag to indicate we have company data from PDL
+        hasPdlCompanyData: !!pdlData.companyData
+      });
+    } else {
+      setPdlData(null);
+    }
+    
+    // Set last updated using the MongoDB timestamp format
+    setLastUpdated(data.timestamp || null);
+  } catch (err) {
+    console.error("❌ Error fetching research data:", err.response?.data || err.message);
+    setError(err.response?.status === 404 
+      ? "No research data available for this client yet."
+      : "Failed to load research data. Please try again later.");
+  } finally {
+    setLoading(false);
+  }
+};
 
     fetchResearchData();
   }, [clientId, userId, isOpen]);
@@ -1349,16 +1476,16 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
               )}
               
               {activeTab === 'company' && (
-                <div className="p-8 max-w-3xl mx-auto">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Company Profile</h2>
-                  
-                  {isApolloDataAvailable ? (
-                    <CompanyProfile data={apolloData} />
-                  ) : (
-                    <NoCompanyDisplay companyName={displayName} />
-                  )}
-                </div>
-              )}
+				  <div className="p-8 max-w-3xl mx-auto">
+					<h2 className="text-2xl font-bold text-gray-900 mb-6">Company Profile</h2>
+					
+					{isApolloDataAvailable || isPdlDataAvailable ? (
+					  <CompanyProfile data={apolloData} pdlData={pdlData} />
+					) : (
+					  <NoCompanyDisplay companyName={displayName} />
+					)}
+				  </div>
+			 )}
               
               {activeTab === 'web' && (
                 <div className="p-8">
