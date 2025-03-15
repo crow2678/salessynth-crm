@@ -426,41 +426,6 @@ app.post('/api/deals', authMiddleware, async (req, res) => {
   }
 });
 
-app.get('/api/deals/:id', authMiddleware, async (req, res) => {
-  try {
-    const deal = await Deal.findOne({ _id: req.params.id, userId: req.userId }).lean();
-    
-    if (!deal) {
-      return res.status(404).json({ message: 'Deal not found' });
-    }
-    
-    res.json(deal);
-  } catch (error) {
-    console.error('Error fetching deal:', error);
-    res.status(500).json({ message: 'Error fetching deal', error: error.message });
-  }
-});
-
-app.put('/api/deals/:id', authMiddleware, async (req, res) => {
-  try {
-    const deal = await Deal.findOneAndUpdate(
-      { _id: req.params.id, userId: req.userId },
-      { ...req.body, updatedAt: new Date() },
-      { new: true, runValidators: true }
-    ).lean();
-    
-    if (!deal) {
-      return res.status(404).json({ message: 'Deal not found' });
-    }
-    
-    res.json(deal);
-  } catch (error) {
-    console.error('Error updating deal:', error);
-    res.status(400).json({ message: 'Error updating deal', error: error.message });
-  }
-});
-
-// Deal Routes
 app.get('/api/deals/stats', authMiddleware, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -531,6 +496,43 @@ app.get('/api/deals/stats', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Error fetching deal stats', error: error.message });
   }
 });
+
+app.get('/api/deals/:id', authMiddleware, async (req, res) => {
+  try {
+    const deal = await Deal.findOne({ _id: req.params.id, userId: req.userId }).lean();
+    
+    if (!deal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
+    
+    res.json(deal);
+  } catch (error) {
+    console.error('Error fetching deal:', error);
+    res.status(500).json({ message: 'Error fetching deal', error: error.message });
+  }
+});
+
+app.put('/api/deals/:id', authMiddleware, async (req, res) => {
+  try {
+    const deal = await Deal.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      { ...req.body, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).lean();
+    
+    if (!deal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
+    
+    res.json(deal);
+  } catch (error) {
+    console.error('Error updating deal:', error);
+    res.status(400).json({ message: 'Error updating deal', error: error.message });
+  }
+});
+
+// Deal Routes
+
 // Interaction Routes
 app.get('/api/interactions', authMiddleware, async (req, res) => {
   try {
