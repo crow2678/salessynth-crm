@@ -20,6 +20,9 @@ const Interaction = require('./models/Interaction');
 // Add with other model imports
 //const Research = require('./agentic/database/models/Research');
 const researchRoutes = require('./agentic/routes/researchRoutes');
+
+// Add this line after other imports
+let isConnecting = false;
 // Initialize express
 const app = express();
 
@@ -95,7 +98,14 @@ const adminMiddleware = async (req, res, next) => {
 
 // Database Connection and Error Handling
 const connectDB = async (retries = 5) => {
+  // Check if already connected
+  if (mongoose.connection.readyState === 1) {
+    console.log('✅ Already connected to CosmosDB (MongoDB API)');
+    return true;
+  }
+  
   console.log('Starting Cosmos DB connection attempt...');
+  
   
   const connectionString = 
     process.env.MONGODB_URI || 
@@ -136,9 +146,17 @@ mongoose.connection.on('error', (err) => {
 
 mongoose.connection.on('disconnected', () => {
   console.log('Cosmos DB disconnected, attempting to reconnect...');
-  setTimeout(() => {
-    connectDB().catch(console.error);
-  }, 5000);
+  if (!isConnecting && mongoose.connection.readyState !== 1) {
+    setTimeout(() => {
+      isConnecting = true;
+      connectDB()
+        .then(() => { isConnecting = false; })
+        .catch(err => { 
+          isConnecting = false; 
+          console.error('❌ CosmosDB Connection Error:', err);
+        });
+    }, 5000);
+  }
 });
 
 // Set bcrypt fallback for Cosmos DB compatibility
@@ -1084,6 +1102,30 @@ function generateStagePredictions(currentStage, dealData) {
   
   return stagePredictions;
 }
+
+const gracefulShutdown = async (server) => {
+  console.log('Received shutdown signal, closing connections...');
+  
+  try {
+    // Close HTTP server if it exists
+    if (server) {
+      await new Promise((resolve) => {
+        server.close(() => resolve());
+      });
+      console.log('HTTP server closed');
+    }
+    
+    // Close MongoDB connection if connected
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+      console.log('Database connection closed');
+    }
+    
+    console.log('Graceful shutdown completed');
+  } catch (error) {
+    console.error('Error during graceful shutdown:', error);
+  }
+};
 // Application initialization
 const initializeApp = async () => {
   try {
