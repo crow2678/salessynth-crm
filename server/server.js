@@ -122,39 +122,29 @@ const adminMiddleware = async (req, res, next) => {
 
 // Database Connection and Error Handling
 // Modify your connectDB function to properly handle connection state
-const connectDB = async (retries = 5) => {
-  // If already connected, don't try to connect again
+
+
+const connectDB = async () => {
   if (mongoose.connection.readyState === 1) {
     console.log('✅ Already connected to CosmosDB (MongoDB API)');
-    return true;
+    return mongoose.connection;
   }
-  
-  // If a connection attempt is in progress, don't start another one
+
   if (isConnecting) {
-    console.log('Connection already in progress, waiting...');
-    // Wait for the current connection attempt to finish
-    return new Promise(resolve => {
-      const checkConnection = setInterval(() => {
-        if (!isConnecting) {
-          clearInterval(checkConnection);
-          resolve(mongoose.connection.readyState === 1);
-        }
-      }, 100);
-    });
+    console.log('⚠️ Connection already in progress, please wait...');
+    while (isConnecting) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return mongoose.connection;
   }
-  
-  isConnecting = true;
-  console.log('Starting Cosmos DB connection attempt...');
-  
+
   const connectionString = 
     process.env.MONGODB_URI || 
     process.env.CUSTOMCONNSTR_MONGODB_URI || 
     process.env.MONGODBCONNSTR_MONGODB_URI;
 
   if (!connectionString) {
-    console.error('No Cosmos DB connection string found.');
-    isConnecting = false;
-    return false;
+    throw new Error('No Cosmos DB connection string found.');
   }
 
   const options = {
@@ -170,14 +160,15 @@ const connectDB = async (retries = 5) => {
   };
 
   try {
+    isConnecting = true;
     await mongoose.connect(connectionString, options);
     console.log('✅ Connected to CosmosDB (MongoDB API)');
-    isConnecting = false;
-    return true;
+    return mongoose.connection;
   } catch (err) {
     console.error('❌ Cosmos DB connection error:', err.message);
-    isConnecting = false;
     throw err;
+  } finally {
+    isConnecting = false;
   }
 };
 
@@ -1146,26 +1137,8 @@ function generateStagePredictions(currentStage, dealData) {
 const initializeApp = async () => {
   try {
     console.log('Starting application initialization...');
-    
-    let connected = false;
-    const maxRetries = 5;
-    
-    for (let i = 0; i < maxRetries && !connected; i++) {
-      try {
-        // If connection was successful, no need to retry
-        connected = await connectDB();
-        if (connected) break;
-      } catch (error) {
-        console.error(`Connection attempt ${i + 1} failed:`, error);
-        if (i < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 5000));
-        }
-      }
-    }
 
-    if (!connected) {
-      throw new Error('Failed to connect to Cosmos DB after multiple attempts');
-    }
+    await connectDB();
 
     const PORT = process.env.PORT || 5000;
     const server = app.listen(PORT, () => {
@@ -1173,9 +1146,12 @@ const initializeApp = async () => {
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
-    // Rest of your initialization code...
-  } catch (err) {
-    console.error('Fatal error during initialization:', err);
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => gracefulShutdown(server));
+    process.on('SIGINT', () => gracefulShutdown(server));
+
+  } catch (error) {
+    console.error('Initialization failed:', error);
     process.exit(1);
   }
 };
