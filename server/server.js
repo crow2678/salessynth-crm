@@ -14,6 +14,9 @@ const Task = require('./models/Task');
 const Bookmark = require('./models/Bookmark');
 const User = require('./models/User');
 const Flight = require('./models/Flight');
+const Deal = require('./models/Deal');
+const Feedback = require('./models/Feedback');
+const Interaction = require('./models/Interaction');
 // Add with other model imports
 //const Research = require('./agentic/database/models/Research');
 const researchRoutes = require('./agentic/routes/researchRoutes');
@@ -27,6 +30,7 @@ app.use(express.json());
 // Flight routes - specific API route
 app.use('/api/flights', require('./routes/flightRoutes'));
 app.use('/api', researchRoutes);
+
 
 // Early health check
 app.get('/early-health', (req, res) => {
@@ -301,7 +305,326 @@ app.get('/api/research/:clientId', authMiddleware, async (req, res) => {
     }
 });
 
-// Add this route to your server.js
+// Deal Routes
+app.get('/api/deals', authMiddleware, async (req, res) => {
+  try {
+    const { clientId } = req.query;
+    let query = { userId: req.userId };
+    
+    if (clientId) {
+      query.clientId = clientId;
+    }
+    
+    const deals = await Deal.find(query).sort({ updatedAt: -1 }).lean();
+    res.json(deals);
+  } catch (error) {
+    console.error('Error fetching deals:', error);
+    res.status(500).json({ message: 'Error fetching deals', error: error.message });
+  }
+});
+
+// Feedback Routes
+app.post('/api/feedback', authMiddleware, async (req, res) => {
+  try {
+    const feedback = new Feedback({
+      ...req.body,
+      userId: req.userId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    await feedback.save();
+    res.status(201).json(feedback);
+  } catch (error) {
+    console.error('Error saving feedback:', error);
+    res.status(400).json({ message: 'Error saving feedback', error: error.message });
+  }
+});
+
+app.get('/api/feedback', authMiddleware, async (req, res) => {
+  try {
+    const { itemType, itemId } = req.query;
+    let query = { userId: req.userId };
+    
+    if (itemType) {
+      query.itemType = itemType;
+    }
+    
+    if (itemId) {
+      query.itemId = itemId;
+    }
+    
+    const feedback = await Feedback.find(query).sort({ createdAt: -1 }).lean();
+    res.json(feedback);
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+    res.status(500).json({ message: 'Error fetching feedback', error: error.message });
+  }
+});
+
+app.post('/api/deals', authMiddleware, async (req, res) => {
+  try {
+    const deal = new Deal({
+      ...req.body,
+      userId: req.userId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    await deal.save();
+    res.status(201).json(deal);
+  } catch (error) {
+    console.error('Error creating deal:', error);
+    res.status(400).json({ message: 'Error creating deal', error: error.message });
+  }
+});
+
+app.get('/api/deals/:id', authMiddleware, async (req, res) => {
+  try {
+    const deal = await Deal.findOne({ _id: req.params.id, userId: req.userId }).lean();
+    
+    if (!deal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
+    
+    res.json(deal);
+  } catch (error) {
+    console.error('Error fetching deal:', error);
+    res.status(500).json({ message: 'Error fetching deal', error: error.message });
+  }
+});
+
+app.put('/api/deals/:id', authMiddleware, async (req, res) => {
+  try {
+    const deal = await Deal.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      { ...req.body, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).lean();
+    
+    if (!deal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
+    
+    res.json(deal);
+  } catch (error) {
+    console.error('Error updating deal:', error);
+    res.status(400).json({ message: 'Error updating deal', error: error.message });
+  }
+});
+// Deal Routes
+app.get('/api/deals/stats', authMiddleware, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    let query = { userId: req.userId };
+    
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+    
+    const [
+      totalDeals,
+      openDeals,
+      closedWonDeals,
+      closedLostDeals,
+      dealValuePipeline
+    ] = await Promise.all([
+      Deal.countDocuments({ userId: req.userId }),
+      Deal.countDocuments({ userId: req.userId, status: { $nin: ['closed_won', 'closed_lost'] } }),
+      Deal.countDocuments({ userId: req.userId, status: 'closed_won' }),
+      Deal.countDocuments({ userId: req.userId, status: 'closed_lost' }),
+      Deal.aggregate([
+        { $match: { userId: req.userId.toString() } },
+        { $group: {
+            _id: '$status',
+            totalValue: { $sum: '$value' },
+            count: { $sum: 1 }
+          }
+        }
+      ])
+    ]);
+    
+    // Calculate win rate
+    const winRate = (closedWonDeals / (closedWonDeals + closedLostDeals)) * 100 || 0;
+    
+    // Process deal values by stage
+    const dealValueByStage = {};
+    let totalPipelineValue = 0;
+    let closedValue = 0;
+    
+    dealValuePipeline.forEach(stage => {
+      dealValueByStage[stage._id] = {
+        value: stage.totalValue,
+        count: stage.count
+      };
+      
+      if (stage._id === 'closed_won') {
+        closedValue = stage.totalValue;
+      } else if (stage._id !== 'closed_lost') {
+        totalPipelineValue += stage.totalValue;
+      }
+    });
+    
+    res.json({
+      totalDeals,
+      openDeals,
+      closedWonDeals,
+      closedLostDeals,
+      winRate: Math.round(winRate),
+      pipelineValue: totalPipelineValue,
+      closedValue,
+      dealValueByStage
+    });
+  } catch (error) {
+    console.error('Error fetching deal stats:', error);
+    res.status(500).json({ message: 'Error fetching deal stats', error: error.message });
+  }
+});
+
+// Interaction Routes
+app.get('/api/interactions', authMiddleware, async (req, res) => {
+  try {
+    const { clientId, dealId, limit } = req.query;
+    let query = { userId: req.userId };
+    
+    if (clientId) {
+      query.clientId = clientId;
+    }
+    
+    if (dealId) {
+      query.dealId = dealId;
+    }
+    
+    const interactions = await Interaction.find(query)
+      .sort({ date: -1 })
+      .limit(limit ? parseInt(limit) : 0)
+      .lean();
+      
+    res.json(interactions);
+  } catch (error) {
+    console.error('Error fetching interactions:', error);
+    res.status(500).json({ message: 'Error fetching interactions', error: error.message });
+  }
+});
+
+app.post('/api/interactions', authMiddleware, async (req, res) => {
+  try {
+    const interaction = new Interaction({
+      ...req.body,
+      userId: req.userId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    await interaction.save();
+    res.status(201).json(interaction);
+  } catch (error) {
+    console.error('Error creating interaction:', error);
+    res.status(400).json({ message: 'Error creating interaction', error: error.message });
+  }
+});
+
+app.get('/api/interactions/stats', authMiddleware, async (req, res) => {
+  try {
+    const { clientId } = req.query;
+    
+    if (!clientId) {
+      return res.status(400).json({ message: 'Client ID is required' });
+    }
+    
+    const engagementScore = await Interaction.calculateEngagementScore(clientId, req.userId);
+    res.json(engagementScore);
+  } catch (error) {
+    console.error('Error calculating engagement score:', error);
+    res.status(500).json({ message: 'Error calculating engagement score', error: error.message });
+  }
+});
+
+// Prediction Routes
+app.post('/api/deals/:dealId/predict', authMiddleware, async (req, res) => {
+  try {
+    const deal = await Deal.findOne({ _id: req.params.dealId, userId: req.userId });
+    
+    if (!deal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
+    
+    const client = await Client.findById(deal.clientId);
+    
+    if (!client) {
+      return res.status(404).json({ message: 'Associated client not found' });
+    }
+    
+    // Get recent interactions
+    const interactions = await Interaction.find({ 
+      dealId: deal._id,
+      userId: req.userId 
+    }).sort({ date: -1 }).limit(10).lean();
+    
+    // Extract factors from deal and client data
+    const factors = extractDealFactors(deal, client, { interactions });
+    
+    // Calculate probability
+    const probability = calculateWeightedProbability(deal, factors);
+    
+    // Create prediction object
+    const prediction = {
+      predictedAt: new Date(),
+      probability,
+      predictedCloseDate: calculateEstimatedCloseDate(deal),
+      predictedStage: getRemainingStages(deal.status)[0] || deal.status,
+      factors,
+      confidenceScore: calculateConfidenceScore({ probability }, deal, ['internal']),
+      stageEstimates: generateStagePredictions(deal.status, deal),
+      timeToCloseEstimate: calculateTimeToClose(deal),
+      actualOutcome: 'pending',
+      source: 'system',
+      dataSources: ['internal']
+    };
+    
+    // Add prediction to deal
+    deal.predictions.push(prediction);
+    await deal.save();
+    
+    res.json(prediction);
+  } catch (error) {
+    console.error('Error generating prediction:', error);
+    res.status(500).json({ message: 'Error generating prediction', error: error.message });
+  }
+});
+
+// Helper function for calculating time to close
+function calculateTimeToClose(deal) {
+  if (!deal.stageHistory || deal.stageHistory.length === 0) {
+    return 30; // Default 30 days
+  }
+  
+  const remainingStages = getRemainingStages(deal.status);
+  let totalDays = 0;
+  
+  // Add time for each remaining stage based on average durations
+  remainingStages.forEach(stage => {
+    switch (stage) {
+      case 'proposal':
+        totalDays += 14;
+        break;
+      case 'negotiation':
+        totalDays += 10;
+        break;
+      case 'closed_won':
+        totalDays += 7;
+        break;
+      default:
+        totalDays += 15;
+    }
+  });
+  
+  return totalDays;
+}
+
 app.get('/api/summary/:clientId/:userId', authMiddleware, async (req, res) => {
   try {
     // Fetch research summary for the client
@@ -404,7 +727,20 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
         }
       ])
     ]);
+	const dealSuccessRate = await Deal.aggregate([
+	  { $match: { userId: req.userId.toString(), status: { $in: ['closed_won', 'closed_lost'] } } },
+	  { $group: {
+		  _id: null,
+		  totalClosed: { $sum: 1 },
+		  wonDeals: { $sum: { $cond: [{ $eq: ['$status', 'closed_won'] }, 1, 0] } }
+		}
+	  }
+	]);
 
+	// Then include this in your response JSON
+	dealSuccessRate: dealSuccessRate.length > 0 
+	  ? Math.round((dealSuccessRate[0].wonDeals / dealSuccessRate[0].totalClosed) * 100)
+	  : 0,
     res.json({
       totalClients,
       activeClients,
@@ -580,6 +916,174 @@ app.get('*', (req, res, next) => {
   }
 });
 
+// Prediction utility functions
+function getRemainingStages(currentStage) {
+  const orderedStages = [
+    'prospecting',
+    'qualified',
+    'proposal',
+    'negotiation',
+    'closed_won'
+  ];
+  
+  const currentIndex = orderedStages.indexOf(currentStage);
+  if (currentIndex === -1) return [];
+  
+  return orderedStages.slice(currentIndex + 1);
+}
+
+function extractDealFactors(deal, client, metadata = {}) {
+  const factors = {
+    positive: [],
+    negative: []
+  };
+  
+  // Analyze factors based on deal and client data
+  // This is a simplified version of the utility function
+  
+  if (deal.value && deal.value > 0) {
+    factors.positive.push('Deal value specified');
+  }
+  
+  if (deal.expectedCloseDate) {
+    factors.positive.push('Expected close date defined');
+  }
+  
+  if (client.lastContact) {
+    const lastContactDate = new Date(client.lastContact);
+    const daysSinceContact = Math.floor((new Date() - lastContactDate) / (1000 * 60 * 60 * 24));
+    
+    if (daysSinceContact < 7) {
+      factors.positive.push('Recent client contact');
+    } else if (daysSinceContact > 30) {
+      factors.negative.push('No recent client contact');
+    }
+  } else {
+    factors.negative.push('No contact history recorded');
+  }
+  
+  // Add more factor extraction logic as needed
+  
+  return factors;
+}
+
+function calculateWeightedProbability(deal, factors) {
+  // Base probability based on deal stage
+  const stageWeights = {
+    'prospecting': 20,
+    'qualified': 40,
+    'proposal': 60,
+    'negotiation': 75,
+    'closed_won': 100,
+    'closed_lost': 0
+  };
+  
+  // Start with base probability from stage
+  let probability = stageWeights[deal.status] || 50;
+  
+  // Adjust based on positive factors
+  if (factors.positive && factors.positive.length > 0) {
+    probability += Math.min(factors.positive.length * 3, 15);
+  }
+  
+  // Adjust based on negative factors
+  if (factors.negative && factors.negative.length > 0) {
+    probability -= Math.min(factors.negative.length * 4, 20);
+  }
+  
+  // Ensure probability stays within 0-100 range
+  return Math.min(Math.max(probability, 0), 100);
+}
+
+function calculateEstimatedCloseDate(deal) {
+  // Get the current date as starting point
+  const today = new Date();
+  
+  // Calculate based on average stage durations
+  const remainingStages = getRemainingStages(deal.status);
+  let totalRemainingDays = 0;
+  
+  remainingStages.forEach(stage => {
+    switch (stage) {
+      case 'proposal':
+        totalRemainingDays += 14;
+        break;
+      case 'negotiation':
+        totalRemainingDays += 10;
+        break;
+      case 'closed_won':
+        totalRemainingDays += 7;
+        break;
+      default:
+        totalRemainingDays += 15;
+    }
+  });
+  
+  // Calculate the close date
+  const estimatedCloseDate = new Date(today);
+  estimatedCloseDate.setDate(today.getDate() + totalRemainingDays);
+  
+  return estimatedCloseDate;
+}
+
+function calculateConfidenceScore(prediction, dealData, dataSources = []) {
+  let score = 70; // Default base confidence
+  
+  // More data sources increases confidence
+  if (dataSources && dataSources.length > 0) {
+    score += Math.min(dataSources.length * 5, 15);
+  }
+  
+  // More complete deal data increases confidence
+  const hasCompleteData = dealData.value && 
+                         dealData.expectedCloseDate && 
+                         dealData.stageHistory && 
+                         dealData.stageHistory.length > 1;
+  
+  if (hasCompleteData) {
+    score += 5;
+  } else {
+    score -= 10;
+  }
+  
+  // Ensure score stays within 0-100 range
+  return Math.min(Math.max(score, 0), 100);
+}
+
+function generateStagePredictions(currentStage, dealData) {
+  const remainingStages = getRemainingStages(currentStage);
+  const stagePredictions = [];
+  
+  if (remainingStages.length === 0) {
+    return [];
+  }
+  
+  // Calculate baseline estimates
+  remainingStages.forEach(stage => {
+    let estimatedDays;
+    
+    switch (stage) {
+      case 'proposal':
+        estimatedDays = 14;
+        break;
+      case 'negotiation':
+        estimatedDays = 10;
+        break;
+      case 'closed_won':
+        estimatedDays = 7;
+        break;
+      default:
+        estimatedDays = 15;
+    }
+    
+    stagePredictions.push({
+      stage,
+      estimatedDays
+    });
+  });
+  
+  return stagePredictions;
+}
 // Application initialization
 const initializeApp = async () => {
   try {

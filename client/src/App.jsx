@@ -29,6 +29,9 @@ import DateFilter from './components/DateFilter';
 import { getClientStatus, calculateMetrics } from './utils/statusUtils';
 import { STATUS_CONFIG } from './utils/statusUtils';
 import IntelligenceModal from './components/intelligence/IntelligenceModal';
+import RiskFactors from './components/predictions/RiskFactors';
+import FeedbackForm from './components/predictions/FeedbackForm';
+import { calculateProbabilityTrend, extractDealFactors } from './utils/predictionUtils';
 
 // Auth-related imports
 import LoginPage from './components/auth/LoginPage';
@@ -40,6 +43,7 @@ import FlightTracker from './components/FlightTracker';
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 const CLIENTS_PER_PAGE = 30;
 const RECENT_CLIENTS_COUNT = 5;
+
 
 // Priority options - Removed BOOKMARKED as requested
 const PRIORITY_OPTIONS = {
@@ -188,6 +192,31 @@ const calculateClientScore = (client, priorityType) => {
   return score;
 };
 
+/// Update the existing function - around line 228
+const handleFeedbackSubmit = async (feedback) => {
+  try {
+    // Add client ID and user ID from the context
+    const enhancedFeedback = {
+      ...feedback,
+      userId: user.id,
+      clientId: feedbackTarget?.clientId
+    };
+    
+    await axios.post(`${API_URL}/feedback`, enhancedFeedback);
+    setShowFeedbackForm(false);
+    showAlert('success', 'Thank you for your feedback!');
+  } catch (error) {
+    showAlert('error', 'Failed to submit feedback. Please try again.');
+    console.error('Feedback submission error:', error);
+  }
+};
+
+// Part 4: Add a handler to open the feedback form
+const handleOpenFeedback = (targetItem) => {
+  setFeedbackTarget(targetItem);
+  setShowFeedbackForm(true);
+};
+
 // Sort clients by priority score
 const sortClientsByPriority = (clients, priorityType) => {
   return [...clients].sort((a, b) => {
@@ -230,6 +259,8 @@ const Dashboard = () => {
   const [showRecentClients, setShowRecentClients] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [selectedIntelligenceClient, setSelectedIntelligenceClient] = useState(null);
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedbackTarget, setFeedbackTarget] = useState(null);
   
   // New state for view mode with localStorage persistence
   const [viewMode, setViewMode] = useState(() => {
@@ -394,6 +425,18 @@ const Dashboard = () => {
     setTimeout(() => setAlert(null), 3000);
   };
 
+  const { data: dealStats = {} } = useQuery({
+	  queryKey: ['dealStats', dateFilter],
+	  queryFn: async () => {
+		const { data } = await axios.get(`${API_URL}/deals/stats`, {
+		  params: {
+			startDate: dateFilter.start,
+			endDate: dateFilter.end
+		  }
+		});
+		return data;
+	  }
+	});
   // Handler Functions
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
@@ -736,16 +779,28 @@ const Dashboard = () => {
         client={selectedClient}
       />
 
-      <IntelligenceModal 
-        isOpen={showIntelligenceModal}
-        onClose={() => {
-          setShowIntelligenceModal(false);
-          setSelectedIntelligenceClient(null);
-        }}
-        clientId={selectedIntelligenceClient?._id}
-        userId={selectedIntelligenceClient?.userId}
-        clientName={selectedIntelligenceClient?.name}
-      />
+		<IntelligenceModal 
+		  isOpen={showIntelligenceModal}
+		  onClose={() => {
+			setShowIntelligenceModal(false);
+			setSelectedIntelligenceClient(null);
+		  }}
+		  clientId={selectedIntelligenceClient?._id}
+		  userId={selectedIntelligenceClient?.userId}
+		  clientName={selectedIntelligenceClient?.name}
+		  onFeedback={handleOpenFeedback}
+		/>
+		
+		{showFeedbackForm && (
+		  <FeedbackForm
+			itemId={feedbackTarget?.id}
+			itemType={feedbackTarget?.type || 'prediction'}
+			onSubmit={handleFeedbackSubmit}
+			onCancel={() => setShowFeedbackForm(false)}
+			initialValues={{}}
+			className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+		  />
+		)}
     </div>
   );
 };
