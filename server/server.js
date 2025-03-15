@@ -121,17 +121,26 @@ const adminMiddleware = async (req, res, next) => {
 };
 
 // Database Connection and Error Handling
+// Modify your connectDB function to properly handle connection state
 const connectDB = async (retries = 5) => {
-  // Check if already connected
+  // If already connected, don't try to connect again
   if (mongoose.connection.readyState === 1) {
     console.log('✅ Already connected to CosmosDB (MongoDB API)');
     return true;
   }
   
-  // Check if connection is in progress
+  // If a connection attempt is in progress, don't start another one
   if (isConnecting) {
-    console.log('Connection already in progress, skipping duplicate attempt');
-    return false;
+    console.log('Connection already in progress, waiting...');
+    // Wait for the current connection attempt to finish
+    return new Promise(resolve => {
+      const checkConnection = setInterval(() => {
+        if (!isConnecting) {
+          clearInterval(checkConnection);
+          resolve(mongoose.connection.readyState === 1);
+        }
+      }, 100);
+    });
   }
   
   isConnecting = true;
@@ -162,7 +171,7 @@ const connectDB = async (retries = 5) => {
 
   try {
     await mongoose.connect(connectionString, options);
-    console.log('✅ Connected to CosmosDB successfully');
+    console.log('✅ Connected to CosmosDB (MongoDB API)');
     isConnecting = false;
     return true;
   } catch (err) {
@@ -177,6 +186,7 @@ mongoose.connection.on('error', (err) => {
   console.error('Cosmos DB connection error:', err);
 });
 
+// Modify your disconnection event handler
 mongoose.connection.on('disconnected', () => {
   console.log('⚠️ Disconnected from CosmosDB');
   if (!isConnecting && mongoose.connection.readyState !== 1) {
@@ -1142,8 +1152,9 @@ const initializeApp = async () => {
     
     for (let i = 0; i < maxRetries && !connected; i++) {
       try {
-        await connectDB();
-        connected = true;
+        // If connection was successful, no need to retry
+        connected = await connectDB();
+        if (connected) break;
       } catch (error) {
         console.error(`Connection attempt ${i + 1} failed:`, error);
         if (i < maxRetries - 1) {
@@ -1162,39 +1173,7 @@ const initializeApp = async () => {
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
-    // Shutdown handlers
-    ['SIGTERM', 'SIGINT', 'SIGUSR2'].forEach(signal => {
-      process.on(signal, async () => {
-        try {
-          await gracefulShutdown(server);
-        } catch (err) {
-          console.error(`Error during ${signal} shutdown:`, err);
-          process.exit(1);
-        }
-      });
-    });
-
-    // Error handlers
-    process.on('uncaughtException', async (err) => {
-      console.error('Uncaught exception:', err);
-      try {
-        await gracefulShutdown(server);
-      } catch (shutdownErr) {
-        console.error('Error during exception shutdown:', shutdownErr);
-        process.exit(1);
-      }
-    });
-
-    process.on('unhandledRejection', async (err) => {
-      console.error('Unhandled rejection:', err);
-      try {
-        await gracefulShutdown(server);
-      } catch (shutdownErr) {
-        console.error('Error during rejection shutdown:', shutdownErr);
-        process.exit(1);
-      }
-    });
-
+    // Rest of your initialization code...
   } catch (err) {
     console.error('Fatal error during initialization:', err);
     process.exit(1);
