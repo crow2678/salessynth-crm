@@ -8,6 +8,31 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
+// Define gracefulShutdown at the top level so it's accessible throughout the file
+const gracefulShutdown = async (server) => {
+  console.log('Received shutdown signal, closing connections...');
+  
+  try {
+    // Close HTTP server if it exists
+    if (server) {
+      await new Promise((resolve) => {
+        server.close(() => resolve());
+      });
+      console.log('HTTP server closed');
+    }
+    
+    // Close MongoDB connection if connected
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+      console.log('Database connection closed');
+    }
+    
+    console.log('Graceful shutdown completed');
+  } catch (error) {
+    console.error('Error during graceful shutdown:', error);
+  }
+};
+
 // Model imports
 const Client = require('./models/Client');
 const Task = require('./models/Task');
@@ -39,7 +64,6 @@ app.use('/api', researchRoutes);
 app.get('/early-health', (req, res) => {
   res.json({ status: 'starting' });
 });
-
 // Auth Middleware with Cosmos DB specific error handling
 const authMiddleware = async (req, res, next) => {
   try {
@@ -104,8 +128,14 @@ const connectDB = async (retries = 5) => {
     return true;
   }
   
-  console.log('Starting Cosmos DB connection attempt...');
+  // Check if connection is in progress
+  if (isConnecting) {
+    console.log('Connection already in progress, skipping duplicate attempt');
+    return false;
+  }
   
+  isConnecting = true;
+  console.log('Starting Cosmos DB connection attempt...');
   
   const connectionString = 
     process.env.MONGODB_URI || 
@@ -114,6 +144,7 @@ const connectDB = async (retries = 5) => {
 
   if (!connectionString) {
     console.error('No Cosmos DB connection string found.');
+    isConnecting = false;
     return false;
   }
 
@@ -131,10 +162,12 @@ const connectDB = async (retries = 5) => {
 
   try {
     await mongoose.connect(connectionString, options);
-    console.log('✅ Connected to Cosmos DB successfully');
+    console.log('✅ Connected to CosmosDB successfully');
+    isConnecting = false;
     return true;
   } catch (err) {
     console.error('❌ Cosmos DB connection error:', err.message);
+    isConnecting = false;
     throw err;
   }
 };
@@ -145,14 +178,11 @@ mongoose.connection.on('error', (err) => {
 });
 
 mongoose.connection.on('disconnected', () => {
-  console.log('Cosmos DB disconnected, attempting to reconnect...');
+  console.log('⚠️ Disconnected from CosmosDB');
   if (!isConnecting && mongoose.connection.readyState !== 1) {
     setTimeout(() => {
-      isConnecting = true;
       connectDB()
-        .then(() => { isConnecting = false; })
         .catch(err => { 
-          isConnecting = false; 
           console.error('❌ CosmosDB Connection Error:', err);
         });
     }, 5000);
@@ -322,7 +352,6 @@ app.get('/api/research/:clientId', authMiddleware, async (req, res) => {
         });
     }
 });
-
 // Deal Routes
 app.get('/api/deals', authMiddleware, async (req, res) => {
   try {
@@ -430,6 +459,7 @@ app.put('/api/deals/:id', authMiddleware, async (req, res) => {
     res.status(400).json({ message: 'Error updating deal', error: error.message });
   }
 });
+
 // Deal Routes
 app.get('/api/deals/stats', authMiddleware, async (req, res) => {
   try {
@@ -501,7 +531,6 @@ app.get('/api/deals/stats', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Error fetching deal stats', error: error.message });
   }
 });
-
 // Interaction Routes
 app.get('/api/interactions', authMiddleware, async (req, res) => {
   try {
@@ -696,7 +725,6 @@ app.patch('/api/clients/:id/bookmark', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Error toggling bookmark', error: error.message });
   }
 });
-
 // Stats endpoint
 app.get('/api/stats', authMiddleware, async (req, res) => {
   try {
@@ -745,20 +773,18 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
         }
       ])
     ]);
-	const dealSuccessRate = await Deal.aggregate([
-	  { $match: { userId: req.userId.toString(), status: { $in: ['closed_won', 'closed_lost'] } } },
-	  { $group: {
-		  _id: null,
-		  totalClosed: { $sum: 1 },
-		  wonDeals: { $sum: { $cond: [{ $eq: ['$status', 'closed_won'] }, 1, 0] } }
-		}
-	  }
-	]);
+    
+    // Calculate deal success rate
+    const dealSuccessRate = await Deal.aggregate([
+      { $match: { userId: req.userId.toString(), status: { $in: ['closed_won', 'closed_lost'] } } },
+      { $group: {
+          _id: null,
+          totalClosed: { $sum: 1 },
+          wonDeals: { $sum: { $cond: [{ $eq: ['$status', 'closed_won'] }, 1, 0] } }
+        }
+      }
+    ]);
 
-	// Then include this in your response JSON
-	dealSuccessRate: dealSuccessRate.length > 0 
-	  ? Math.round((dealSuccessRate[0].wonDeals / dealSuccessRate[0].totalClosed) * 100)
-	  : 0,
     res.json({
       totalClients,
       activeClients,
@@ -766,14 +792,16 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
       totalDeals: dealsPipeline[0]?.dealCount || 0,
       pipelineValue: dealsPipeline[0]?.totalValue || 0,
       closedValue: closedDealsPipeline[0]?.closedValue || 0,
-      closedDealCount: closedDealsPipeline[0]?.closedDealCount || 0
+      closedDealCount: closedDealsPipeline[0]?.closedDealCount || 0,
+      dealSuccessRate: dealSuccessRate.length > 0 
+        ? Math.round((dealSuccessRate[0].wonDeals / dealSuccessRate[0].totalClosed) * 100)
+        : 0
     });
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ message: 'Error fetching stats', error: error.message });
   }
 });
-// Part 3: Additional Routes and Server Initialization
 
 // Task Routes optimized for Cosmos DB
 app.get('/api/tasks', authMiddleware, async (req, res) => {
@@ -880,7 +908,6 @@ app.delete('/api/bookmarks/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Error deleting bookmark', error: error.message });
   }
 });
-
 // Health check endpoint
 app.get('/health', async (req, res) => {
   try {
@@ -1103,29 +1130,6 @@ function generateStagePredictions(currentStage, dealData) {
   return stagePredictions;
 }
 
-const gracefulShutdown = async (server) => {
-  console.log('Received shutdown signal, closing connections...');
-  
-  try {
-    // Close HTTP server if it exists
-    if (server) {
-      await new Promise((resolve) => {
-        server.close(() => resolve());
-      });
-      console.log('HTTP server closed');
-    }
-    
-    // Close MongoDB connection if connected
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.connection.close();
-      console.log('Database connection closed');
-    }
-    
-    console.log('Graceful shutdown completed');
-  } catch (error) {
-    console.error('Error during graceful shutdown:', error);
-  }
-};
 // Application initialization
 const initializeApp = async () => {
   try {
