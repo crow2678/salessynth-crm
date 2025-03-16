@@ -1137,15 +1137,16 @@ function generateStagePredictions(currentStage, dealData) {
 
 // Application initialization
 // Replace your initializeApp and startup code with this
+// Application initialization
 const initializeApp = () => {
   console.log('Starting application initialization...');
   
   // Setup process event handlers first - synchronously
-  process.on('SIGTERM', () => gracefulShutdown());
-  process.on('SIGINT', () => gracefulShutdown());
+  process.on('SIGTERM', () => gracefulShutdown(server));
+  process.on('SIGINT', () => gracefulShutdown(server));
   process.on('uncaughtException', (err) => {
     console.error('Uncaught exception:', err);
-    gracefulShutdown();
+    gracefulShutdown(server);
   });
   
   // Start HTTP server regardless of DB connection
@@ -1165,32 +1166,5 @@ const initializeApp = () => {
 // Synchronous startup
 console.log('Beginning application startup...');
 const server = initializeApp();
-
-// Modify gracefulShutdown to handle this case
-const gracefulShutdown = async () => {
-  console.log('Received shutdown signal, closing connections...');
-  
-  try {
-    // Close HTTP server if it exists
-    if (server) {
-      await new Promise((resolve) => {
-        server.close(() => resolve());
-      });
-      console.log('HTTP server closed');
-    }
-    
-    // Close MongoDB connection if connected
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.connection.close();
-      console.log('Database connection closed');
-    }
-    
-    console.log('Graceful shutdown completed');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error during graceful shutdown:', error);
-    process.exit(1);
-  }
-};
 
 module.exports = app;
