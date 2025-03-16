@@ -8,6 +8,17 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
+const logAppInfo = () => {
+  console.log('Node.js version:', process.version);
+  console.log('Environment variables:');
+  console.log('- NODE_ENV:', process.env.NODE_ENV);
+  console.log('- Database connection string available:', !!process.env.MONGODB_URI);
+  console.log('Current directory:', process.cwd());
+};
+
+// Call this at the start of your app
+logAppInfo();
+
 // Define gracefulShutdown at the top level so it's accessible throughout the file
 const gracefulShutdown = async (server) => {
   console.log('Received shutdown signal, closing connections...');
@@ -124,58 +135,49 @@ const adminMiddleware = async (req, res, next) => {
 // Modify your connectDB function to properly handle connection state
 
 
-let isConnecting = false;
-let connectionPromise = null;
+// Define at the top of your file
+let mongooseConnection = null;
 
+// Replace your connectDB function with this simpler version
 const connectDB = async () => {
-  if (mongoose.connection.readyState === 1) {
-    console.log('✅ Already connected to CosmosDB (MongoDB API)');
-    return mongoose.connection;
-  }
+  try {
+    // If already connected, return
+    if (mongoose.connection.readyState === 1) {
+      console.log('✅ Already connected to CosmosDB');
+      return true;
+    }
 
-  if (isConnecting && connectionPromise) {
-    console.log('⚠️ Connection already in progress. Awaiting existing promise.');
-    return connectionPromise;
-  }
+    console.log('Starting CosmosDB connection...');
+    
+    const connectionString = 
+      process.env.MONGODB_URI || 
+      process.env.CUSTOMCONNSTR_MONGODB_URI || 
+      process.env.MONGODBCONNSTR_MONGODB_URI;
 
-  const connectionString =
-    process.env.MONGODB_URI ||
-    process.env.CUSTOMCONNSTR_MONGODB_URI ||
-    process.env.MONGODBCONNSTR_MONGODB_URI;
+    if (!connectionString) {
+      console.error('❌ No database connection string found');
+      return false;
+    }
 
-  if (!connectionString) {
-    throw new Error('❌ No Cosmos DB connection string found.');
-  }
-
-  const options = {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    retryWrites: false,
-    ssl: true,
-    maxPoolSize: 5,
-    minPoolSize: 1,
-    serverSelectionTimeoutMS: 30000,
-    connectTimeoutMS: 30000,
-    socketTimeoutMS: 360000,
-  };
-
-  isConnecting = true;
-
-  connectionPromise = mongoose.connect(connectionString, options)
-    .then(conn => {
-      console.log('✅ Connected to CosmosDB (MongoDB API)');
-      return mongoose.connection;
-    })
-    .catch(err => {
-      console.error('❌ Cosmos DB connection error:', err.message);
-      throw err;
-    })
-    .finally(() => {
-      isConnecting = false;
-      connectionPromise = null;
+    // Disconnect if there's any existing connection
+    if (mongoose.connection.readyState !== 0) {
+      console.log('Closing existing connection before reconnecting...');
+      await mongoose.disconnect();
+    }
+    
+    await mongoose.connect(connectionString, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      retryWrites: false,
+      ssl: true
     });
-
-  return connectionPromise;
+    
+    console.log('✅ Connected to CosmosDB successfully');
+    return true;
+  } catch (err) {
+    console.error('❌ Database connection error:', err.message);
+    return false;
+  }
 };
 
 
@@ -1141,33 +1143,61 @@ function generateStagePredictions(currentStage, dealData) {
 }
 
 // Application initialization
-const initializeApp = async () => {
-  try {
-    console.log('Starting application initialization...');
-
-    await connectDB();
-
-    const PORT = process.env.PORT || 5000;
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+// Replace your initializeApp and startup code with this
+const initializeApp = () => {
+  console.log('Starting application initialization...');
+  
+  // Setup process event handlers first - synchronously
+  process.on('SIGTERM', () => gracefulShutdown());
+  process.on('SIGINT', () => gracefulShutdown());
+  process.on('uncaughtException', (err) => {
+    console.error('Uncaught exception:', err);
+    gracefulShutdown();
+  });
+  
+  // Start HTTP server regardless of DB connection
+  const PORT = process.env.PORT || 8080;
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    
+    // Try to connect to database after server is started
+    connectDB().catch(err => {
+      console.error('Database connection failed but server continues:', err);
     });
+  });
+  
+  return server;
+};
 
-    // Handle graceful shutdown
-    process.on('SIGTERM', () => gracefulShutdown(server));
-    process.on('SIGINT', () => gracefulShutdown(server));
+// Synchronous startup
+console.log('Beginning application startup...');
+const server = initializeApp();
 
+// Modify gracefulShutdown to handle this case
+const gracefulShutdown = async () => {
+  console.log('Received shutdown signal, closing connections...');
+  
+  try {
+    // Close HTTP server if it exists
+    if (server) {
+      await new Promise((resolve) => {
+        server.close(() => resolve());
+      });
+      console.log('HTTP server closed');
+    }
+    
+    // Close MongoDB connection if connected
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+      console.log('Database connection closed');
+    }
+    
+    console.log('Graceful shutdown completed');
+    process.exit(0);
   } catch (error) {
-    console.error('Initialization failed:', error);
+    console.error('Error during graceful shutdown:', error);
     process.exit(1);
   }
 };
-
-// Start the application
-console.log('Beginning application startup...');
-initializeApp().catch(err => {
-  console.error('Fatal error during startup:', err);
-  process.exit(1);
-});
 
 module.exports = app;
