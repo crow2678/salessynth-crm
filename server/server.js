@@ -47,7 +47,7 @@ const Interaction = require('./models/Interaction');
 const researchRoutes = require('./agentic/routes/researchRoutes');
 
 // Add this line after other imports
-let isConnecting = false;
+//let isConnecting = false;
 // Initialize express
 const app = express();
 
@@ -124,27 +124,27 @@ const adminMiddleware = async (req, res, next) => {
 // Modify your connectDB function to properly handle connection state
 
 
+let isConnecting = false;
+let connectionPromise = null;
+
 const connectDB = async () => {
   if (mongoose.connection.readyState === 1) {
     console.log('✅ Already connected to CosmosDB (MongoDB API)');
     return mongoose.connection;
   }
 
-  if (isConnecting) {
-    console.log('⚠️ Connection already in progress, please wait...');
-    while (isConnecting) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return mongoose.connection;
+  if (isConnecting && connectionPromise) {
+    console.log('⚠️ Connection already in progress. Awaiting existing promise.');
+    return connectionPromise;
   }
 
-  const connectionString = 
-    process.env.MONGODB_URI || 
-    process.env.CUSTOMCONNSTR_MONGODB_URI || 
+  const connectionString =
+    process.env.MONGODB_URI ||
+    process.env.CUSTOMCONNSTR_MONGODB_URI ||
     process.env.MONGODBCONNSTR_MONGODB_URI;
 
   if (!connectionString) {
-    throw new Error('No Cosmos DB connection string found.');
+    throw new Error('❌ No Cosmos DB connection string found.');
   }
 
   const options = {
@@ -156,21 +156,28 @@ const connectDB = async () => {
     minPoolSize: 1,
     serverSelectionTimeoutMS: 30000,
     connectTimeoutMS: 30000,
-    socketTimeoutMS: 360000
+    socketTimeoutMS: 360000,
   };
 
-  try {
-    isConnecting = true;
-    await mongoose.connect(connectionString, options);
-    console.log('✅ Connected to CosmosDB (MongoDB API)');
-    return mongoose.connection;
-  } catch (err) {
-    console.error('❌ Cosmos DB connection error:', err.message);
-    throw err;
-  } finally {
-    isConnecting = false;
-  }
+  isConnecting = true;
+
+  connectionPromise = mongoose.connect(connectionString, options)
+    .then(conn => {
+      console.log('✅ Connected to CosmosDB (MongoDB API)');
+      return mongoose.connection;
+    })
+    .catch(err => {
+      console.error('❌ Cosmos DB connection error:', err.message);
+      throw err;
+    })
+    .finally(() => {
+      isConnecting = false;
+      connectionPromise = null;
+    });
+
+  return connectionPromise;
 };
+
 
 // Connection monitoring for Cosmos DB
 mongoose.connection.on('error', (err) => {
