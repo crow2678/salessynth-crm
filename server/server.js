@@ -189,15 +189,8 @@ mongoose.connection.on('error', (err) => {
 // Modify your disconnection event handler
 mongoose.connection.on('disconnected', () => {
   console.log('⚠️ Disconnected from CosmosDB');
-  if (!isConnecting && mongoose.connection.readyState !== 1) {
-    setTimeout(() => {
-      connectDB()
-        .catch(err => { 
-          console.error('❌ CosmosDB Connection Error:', err);
-        });
-    }, 5000);
-  }
 });
+
 
 // Set bcrypt fallback for Cosmos DB compatibility
 bcrypt.setRandomFallback((len) => {
