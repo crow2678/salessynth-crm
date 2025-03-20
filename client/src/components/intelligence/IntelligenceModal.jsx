@@ -32,7 +32,9 @@ import {
   Info,
   Shield,
   BarChart,
-  GitBranch
+  GitBranch,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -140,7 +142,6 @@ const ProfessionalExperienceCard = ({ experience }) => {
     </div>
   );
 };
-
 const TechnologyStackDisplay = ({ technologies = [] }) => {
   if (!technologies || !technologies.categories || technologies.categories.length === 0) {
     return (
@@ -238,7 +239,23 @@ const KeyPeopleList = ({ people = [] }) => {
     </div>
   );
 };
-const DealScoreIndicator = ({ score = 50, reasoning = "" }) => {
+
+// Updated to handle null data properly without defaults
+const DealScoreIndicator = ({ score, reasoning }) => {
+  // Early return if no score data to prevent rendering with placeholders
+  if (score === undefined || score === null) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <div className="text-center">
+          <div className="mx-auto w-20 h-20 border-4 border-dashed border-gray-200 rounded-full flex items-center justify-center mb-3">
+            <Zap className="w-8 h-8 text-gray-300" />
+          </div>
+          <p className="text-gray-500 text-sm">No deal score available</p>
+        </div>
+      </div>
+    );
+  }
+
   const getScoreColor = (score) => {
     if (score >= 80) return "text-green-600";
     if (score >= 70) return "text-green-500";
@@ -301,26 +318,30 @@ const DealScoreIndicator = ({ score = 50, reasoning = "" }) => {
     </div>
   );
 };
-
+// Updated to handle null data properly
 const DealStageTimeline = ({ stageData = {} }) => {
-  const defaultStageData = {
-    currentStage: "Prospecting",
-    timeInStage: "N/A",
-    averageTimeToNext: "N/A",
-    nextStage: "Qualified",
-    completedStages: [],
-    upcomingStages: ["Qualified", "Proposal", "Negotiation", "Closed"],
-    nextStageLikelihood: 0
-  };
-
-  const mergedStageData = { ...defaultStageData, ...stageData };
+  // Early return if no substantial stage data is available
+  if (!stageData || Object.keys(stageData).length === 0 || 
+      (!stageData.currentStage && !stageData.completedStages?.length && !stageData.upcomingStages?.length)) {
+    return (
+      <div className="border-l pl-6">
+        <h4 className="font-medium text-gray-800 mb-2">Deal Stage Analysis</h4>
+        <div className="relative">
+          <div className="flex items-center justify-center py-4 text-center">
+            <div className="text-gray-500 text-sm">
+              <Clock className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+              <p>No deal stage data available</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
-  const allStages = ["Initial Contact", "Discovery", "Qualifying", "Demo", "Technical Evaluation", 
-                     "Proposal", "Negotiation", "Contract Review", "Closed Won"];
-  
-  const completedStages = mergedStageData.completedStages || [];
-  const currentStage = mergedStageData.currentStage;
-  const upcomingStages = mergedStageData.upcomingStages || [];
+  // Use provided data or empty arrays to prevent errors
+  const completedStages = stageData.completedStages || [];
+  const currentStage = stageData.currentStage || "Unknown";
+  const upcomingStages = stageData.upcomingStages || [];
 
   return (
     <div className="border-l pl-6">
@@ -339,14 +360,14 @@ const DealStageTimeline = ({ stageData = {} }) => {
             <div className="w-4 h-4 rounded-full bg-blue-500 z-10 mr-3"></div>
             <span className="text-gray-800 font-medium text-sm">{currentStage}</span>
             <Clock size={14} className="text-blue-500 ml-2" />
-            <span className="text-xs text-gray-500 ml-2">{mergedStageData.timeInStage}</span>
+            <span className="text-xs text-gray-500 ml-2">{stageData.timeInStage || "Unknown"}</span>
           </div>
           {upcomingStages.map((stage, index) => (
             <div key={index} className="flex items-center">
               <div className="w-4 h-4 rounded-full bg-gray-300 z-10 mr-3"></div>
               <span className="text-gray-500 text-sm">{stage}</span>
-              {index === 0 && mergedStageData.nextStageLikelihood > 0 && (
-                <span className="text-xs text-blue-600 ml-2">{mergedStageData.nextStageLikelihood}% likelihood</span>
+              {index === 0 && stageData.nextStageLikelihood > 0 && (
+                <span className="text-xs text-blue-600 ml-2">{stageData.nextStageLikelihood}% likelihood</span>
               )}
             </div>
           ))}
@@ -356,18 +377,25 @@ const DealStageTimeline = ({ stageData = {} }) => {
   );
 };
 
-const DealFactorsAnalysis = ({ factorsData = null }) => {
-  const defaultFactors = {
-    positive: [
-      { description: "Client has engaged multiple times", impact: 3 },
-      { description: "Questions focused on implementation", impact: 2 }
-    ],
-    negative: [
-      { description: "No clear decision timeline established", impact: -2 }
-    ]
-  };
+// Updated to handle null data properly
+const DealFactorsAnalysis = ({ factorsData }) => {
+  // Early return if no factors data is available
+  if (!factorsData || 
+      (!factorsData.positive?.length && !factorsData.negative?.length)) {
+    return (
+      <div className="p-6 border-b text-center">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Key Success Factors</h3>
+        <div className="py-4">
+          <AlertCircle className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">No deal factors available</p>
+        </div>
+      </div>
+    );
+  }
 
-  const factors = factorsData || defaultFactors;
+  // Ensure we have arrays to work with even if data is partially empty
+  const positiveFactors = factorsData.positive || [];
+  const negativeFactors = factorsData.negative || [];
 
   return (
     <div className="p-6 border-b">
@@ -378,17 +406,21 @@ const DealFactorsAnalysis = ({ factorsData = null }) => {
             <Check size={16} className="mr-1" />
             Positive Signals
           </h4>
-          {factors.positive.map((factor, i) => (
-            <div key={i} className="flex items-center">
-              <div className="w-1 h-6 bg-green-500 rounded-sm mr-2"></div>
-              <span className="text-gray-700 text-sm">{factor.description}</span>
-              <div className="ml-auto flex">
-                {[...Array(Math.abs(factor.impact))].map((_, i) => (
-                  <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-green-500" />
-                ))}
+          {positiveFactors.length > 0 ? (
+            positiveFactors.map((factor, i) => (
+              <div key={i} className="flex items-center">
+                <div className="w-1 h-6 bg-green-500 rounded-sm mr-2"></div>
+                <span className="text-gray-700 text-sm">{factor.description}</span>
+                <div className="ml-auto flex">
+                  {[...Array(typeof factor.impact === 'number' ? Math.abs(factor.impact) : 3)].map((_, i) => (
+                    <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-green-500" />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="text-gray-500 text-sm italic">No positive factors identified</div>
+          )}
         </div>
         
         <div className="space-y-3">
@@ -396,40 +428,43 @@ const DealFactorsAnalysis = ({ factorsData = null }) => {
             <AlertCircle size={16} className="mr-1" />
             Potential Concerns
           </h4>
-          {factors.negative.map((factor, i) => (
-            <div key={i} className="flex items-center">
-              <div className="w-1 h-6 bg-orange-500 rounded-sm mr-2"></div>
-              <span className="text-gray-700 text-sm">{factor.description}</span>
-              <div className="ml-auto flex">
-                {[...Array(Math.abs(factor.impact))].map((_, i) => (
-                  <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-orange-500" />
-                ))}
+          {negativeFactors.length > 0 ? (
+            negativeFactors.map((factor, i) => (
+              <div key={i} className="flex items-center">
+                <div className="w-1 h-6 bg-orange-500 rounded-sm mr-2"></div>
+                <span className="text-gray-700 text-sm">{factor.description}</span>
+                <div className="ml-auto flex">
+                  {[...Array(typeof factor.impact === 'number' ? Math.abs(factor.impact) : 2)].map((_, i) => (
+                    <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-orange-500" />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="text-gray-500 text-sm italic">No concerns identified</div>
+          )}
         </div>
       </div>
     </div>
   );
 };
-
-const CriticalRequirementsAndNextStage = ({ requirements = null, nextStageData = null }) => {
-  const defaultRequirements = [
-    { title: "Integration Capabilities", description: "API connection to existing systems" },
-    { title: "User Management", description: "Role-based access control" }
-  ];
-
-  const defaultNextStage = {
-    timeframe: "Unknown",
-    value: "Unknown",
-    blockers: [
-      "Undefined decision criteria",
-      "Budget approval process"
-    ]
-  };
-
-  const reqs = requirements || defaultRequirements;
-  const nextStage = nextStageData || defaultNextStage;
+// Updated to handle null data properly
+const CriticalRequirementsAndNextStage = ({ requirements, nextStageData }) => {
+  const hasRequirements = requirements && Array.isArray(requirements) && requirements.length > 0;
+  const hasNextStageData = nextStageData && Object.keys(nextStageData).length > 0;
+  
+  // Early return if no data is available for both sections
+  if (!hasRequirements && !hasNextStageData) {
+    return (
+      <div className="p-6 border-b text-center">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Client Requirements & Next Stage</h3>
+        <div className="py-4">
+          <FileText className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">No requirements or next stage data available</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 border-b grid grid-cols-2 gap-6">
@@ -438,14 +473,20 @@ const CriticalRequirementsAndNextStage = ({ requirements = null, nextStageData =
           <Info size={18} className="mr-2 text-blue-500" />
           Critical Client Requirements
         </h3>
-        <div className="space-y-2">
-          {reqs.map((req, idx) => (
-            <div key={idx} className="rounded-md border border-blue-100 bg-blue-50 p-3">
-              <h4 className="font-medium text-blue-800">{req.title}</h4>
-              <p className="text-sm text-blue-700 mt-1">{req.description}</p>
-            </div>
-          ))}
-        </div>
+        {hasRequirements ? (
+          <div className="space-y-2">
+            {requirements.map((req, idx) => (
+              <div key={idx} className="rounded-md border border-blue-100 bg-blue-50 p-3">
+                <h4 className="font-medium text-blue-800">{req.title}</h4>
+                <p className="text-sm text-blue-700 mt-1">{req.description}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-gray-500 text-sm">No client requirements identified</p>
+          </div>
+        )}
       </div>
       
       <div>
@@ -453,40 +494,109 @@ const CriticalRequirementsAndNextStage = ({ requirements = null, nextStageData =
           <TrendingUp size={18} className="mr-2 text-green-500" />
           Next Stage Analysis
         </h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-700">Timeframe:</span>
-            <span className="font-medium">{nextStage.timeframe}</span>
+        {hasNextStageData ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-700">Timeframe:</span>
+              <span className="font-medium">{nextStageData.timeframe || "Unknown"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-700">Potential Value:</span>
+              <span className="font-medium text-green-700">{nextStageData.value || "Unknown"}</span>
+            </div>
+            {nextStageData.blockers && nextStageData.blockers.length > 0 && (
+              <div>
+                <div className="text-gray-700 mb-2">Key Blockers:</div>
+                <ul className="space-y-1">
+                  {nextStageData.blockers.map((blocker, i) => (
+                    <li key={i} className="flex items-start">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 mr-2"></span>
+                      <span className="text-sm text-gray-700">{blocker}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-700">Potential Value:</span>
-            <span className="font-medium text-green-700">{nextStage.value}</span>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-gray-500 text-sm">No next stage analysis available</p>
           </div>
-          <div>
-            <div className="text-gray-700 mb-2">Key Blockers:</div>
-            <ul className="space-y-1">
-              {nextStage.blockers.map((blocker, i) => (
-                <li key={i} className="flex items-start">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 mr-2"></span>
-                  <span className="text-sm text-gray-700">{blocker}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
 
-const StrategicRecommendations = ({ recommendations = null }) => {
-  const defaultRecommendations = [
-    "Focus on demonstrating clear ROI metrics for the solution",
-    "Address specific integration concerns in follow-up communications",
-    "Prepare for technical validation questions in next meeting"
-  ];
+// Updated to handle null data properly
+const MarketIntelligence = ({ marketData }) => {
+  const hasMarketData = marketData && Array.isArray(marketData) && marketData.length > 0;
+  
+  // Early return if no market data is available
+  if (!hasMarketData) {
+    return (
+      <div className="p-6 border-b text-center">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          <BarChart size={18} className="mr-2 text-indigo-500" />
+          Market Intelligence
+        </h3>
+        <div className="py-4">
+          <Globe className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">No market intelligence data available</p>
+        </div>
+      </div>
+    );
+  }
 
-  const recs = recommendations || defaultRecommendations;
+  return (
+    <div className="p-6 border-b">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+        <BarChart size={18} className="mr-2 text-indigo-500" />
+        Market Intelligence
+      </h3>
+      <div className="space-y-4">
+        {marketData.map((item, idx) => (
+          <div key={idx} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
+            <h4 className="font-medium text-indigo-700 flex items-center">
+              {item.title}
+              {item.url && (
+                <a 
+                  href={item.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="ml-2 text-gray-400 hover:text-gray-600"
+                >
+                  <ExternalLink size={14} />
+                </a>
+              )}
+            </h4>
+            <p className="text-sm text-gray-500 mt-1">{item.source} • {item.date}</p>
+            <p className="text-sm text-gray-700 mt-2">{item.snippet}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+// Updated to handle null data properly
+const StrategicRecommendations = ({ recommendations }) => {
+  const hasRecommendations = recommendations && Array.isArray(recommendations) && recommendations.length > 0;
+  
+  // Early return if no recommendations are available
+  if (!hasRecommendations) {
+    return (
+      <div className="p-6 bg-gray-50 text-center">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-center">
+          <Shield size={18} className="mr-2 text-green-600" />
+          Strategic Recommendations
+        </h3>
+        <div className="py-4">
+          <FileText className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">No strategic recommendations available</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-gray-50">
@@ -495,7 +605,7 @@ const StrategicRecommendations = ({ recommendations = null }) => {
         Strategic Recommendations
       </h3>
       <div className="space-y-3">
-        {recs.map((step, i) => (
+        {recommendations.map((step, i) => (
           <div key={i} className="flex items-start">
             <div className="bg-green-100 text-green-800 rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
               {i + 1}
@@ -528,40 +638,6 @@ const StrategicRecommendations = ({ recommendations = null }) => {
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-};
-
-const MarketIntelligence = ({ marketData = null }) => {
-  const defaultMarketData = [
-    {
-      title: "Industry Regulatory Changes Expected",
-      source: "Industry News",
-      date: "Recent",
-      snippet: "Regulatory changes may drive increased demand for solutions like ours."
-    }
-  ];
-
-  const data = marketData || defaultMarketData;
-
-  return (
-    <div className="p-6 border-b">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <BarChart size={18} className="mr-2 text-indigo-500" />
-        Market Intelligence
-      </h3>
-      <div className="space-y-4">
-        {data.map((item, idx) => (
-          <div key={idx} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
-            <h4 className="font-medium text-indigo-700 flex items-center">
-              {item.title}
-              <ExternalLink size={14} className="ml-2 text-gray-400" />
-            </h4>
-            <p className="text-sm text-gray-500 mt-1">{item.source} • {item.date}</p>
-            <p className="text-sm text-gray-700 mt-2">{item.snippet}</p>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -1141,7 +1217,7 @@ const KeyPeopleDashboardCard = ({ people = [], pdlPerson = null }) => {
 };
 
 const DealInsightPreview = ({ pdlData }) => {
-  if (!pdlData) return null;
+  if (!pdlData || !pdlData.dealScore) return null;
   
   const getScoreColor = (score) => {
     if (score >= 70) return "text-green-600";
@@ -1200,7 +1276,6 @@ const formatTimestamp = (timestamp) => {
   
   return new Date(timestamp).toLocaleDateString();
 };
-
 const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
@@ -1232,27 +1307,10 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
         setResearchData(data);
         setGoogleData(data.data?.google || []);
         setApolloData(data.data?.apollo || null);
-        
-        if (data.data?.pdl) {
-          const pdlData = data.data.pdl;
-          setPdlData({
-            ...pdlData,
-            companyName: pdlData.companyData?.display_name || pdlData.companyData?.name || pdlData.company || "Unknown",
-            industry: pdlData.companyData?.industry || "Unknown",
-            size: pdlData.companyData?.employee_count || pdlData.companyData?.size || "Unknown",
-            location: pdlData.companyData?.location || null,
-            summary: pdlData.companyData?.summary || null,
-            linkedInUrl: pdlData.companyData?.linkedin_url || null,
-            dealScore: pdlData.dealScore || 0,
-            currentStage: pdlData.currentStage || "Prospecting",
-            dealValue: pdlData.dealValue || "$0",
-            hasPdlCompanyData: !!pdlData.companyData
-          });
-        } else {
-          setPdlData(null);
-        }
-        
         setLastUpdated(data.timestamp || null);
+        
+        // Process data into the PDL structure for deal intelligence
+        processIntelligenceData(data);
       } catch (err) {
         console.error("Error fetching research data:", err.response?.data || err.message);
         setError(err.response?.status === 404 
@@ -1260,6 +1318,161 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
           : "Failed to load research data. Please try again later.");
       } finally {
         setLoading(false);
+      }
+    };
+
+    // Improved data processing function
+    const processIntelligenceData = (data) => {
+      try {
+        // Start with an empty PDL object with the expected structure
+        const processedData = {
+          dealScore: 0,
+          reasoning: "",
+          currentStage: "",
+          dealValue: "$0",
+          stageData: {
+            currentStage: "",
+            timeInStage: "",
+            averageTimeToNext: "",
+            nextStage: "",
+            completedStages: [],
+            upcomingStages: [],
+            nextStageLikelihood: 0
+          },
+          factors: {
+            positive: [],
+            negative: []
+          },
+          requirements: [],
+          nextStage: {
+            timeframe: "",
+            value: "",
+            blockers: []
+          },
+          marketData: [],
+          recommendations: []
+        };
+
+        // Process existing PDL data first if available
+        if (data.data?.pdl) {
+          const pdlData = data.data.pdl;
+          Object.assign(processedData, pdlData);
+          
+          // Ensure company data is preserved
+          processedData.companyData = pdlData.companyData || null;
+          processedData.personData = pdlData.personData || null;
+          processedData.company = pdlData.company || pdlData.companyData?.name || data.companyName;
+        }
+
+        // Extract deal health information if available
+        if (data.dealHealth) {
+          processedData.dealScore = data.dealHealth.score || processedData.dealScore;
+          processedData.reasoning = data.dealHealth.summary || processedData.reasoning;
+          
+          // Extract positive factors (strengths)
+          if (data.dealHealth.strengths && data.dealHealth.strengths.length > 0) {
+            processedData.factors.positive = data.dealHealth.strengths.map(strength => ({
+              description: strength,
+              impact: Math.floor(Math.random() * 30) + 70 // Visualization value
+            }));
+          }
+          
+          // Extract negative factors (risk factors)
+          if (data.dealHealth.riskFactors && data.dealHealth.riskFactors.length > 0) {
+            processedData.factors.negative = data.dealHealth.riskFactors.map(risk => ({
+              description: risk,
+              impact: Math.floor(Math.random() * 30) + 40 // Visualization value
+            }));
+          }
+
+          // Deal stage information
+          if (data.dealHealth.stage) {
+            processedData.currentStage = data.dealHealth.stage;
+            processedData.stageData.currentStage = data.dealHealth.stage;
+            
+            // Map the pipeline stages
+            const pipelineStages = ['prospecting', 'qualified', 'proposal', 'negotiation', 'closed_won'];
+            const currentStageIndex = pipelineStages.indexOf(data.dealHealth.stage);
+            
+            if (currentStageIndex >= 0) {
+              processedData.stageData.completedStages = pipelineStages.slice(0, currentStageIndex);
+              processedData.stageData.upcomingStages = pipelineStages.slice(currentStageIndex + 1);
+              processedData.stageData.nextStage = processedData.stageData.upcomingStages[0] || 'closed_won';
+              
+              // Calculate likelihood based on probability
+              processedData.stageData.nextStageLikelihood = 
+                data.dealHealth.probability === 'High' ? 80 : 
+                data.dealHealth.probability === 'Medium' ? 60 :
+                data.dealHealth.probability === 'Moderate' ? 40 : 20;
+            }
+            
+            // Add time estimates
+            processedData.stageData.timeInStage = data.dealHealth.timeInStage || "2 weeks";
+            processedData.stageData.averageTimeToNext = data.dealHealth.averageTimeToNext || "3 weeks";
+          }
+
+          // Deal momentum for next stage info
+          if (data.dealHealth.momentum) {
+            processedData.nextStage.timeframe = 
+              data.dealHealth.momentum === "Accelerating" ? "Soon (1-2 weeks)" : 
+              data.dealHealth.momentum === "Steady" ? "Normal (2-4 weeks)" : "Delayed (4+ weeks)";
+          }
+
+          // Handle deal value
+          if (data.dealValue) {
+            processedData.dealValue = `$${data.dealValue.toLocaleString()}`;
+            processedData.nextStage.value = `$${data.dealValue.toLocaleString()}`;
+          }
+          
+          // Extract blockers
+          if (data.dealHealth.blockers && Array.isArray(data.dealHealth.blockers)) {
+            processedData.nextStage.blockers = data.dealHealth.blockers;
+          }
+        }
+
+        // Extract requirements from client questions
+        if (data.clientQuestions && data.clientQuestions.questions) {
+          processedData.requirements = data.clientQuestions.questions.map(question => ({
+            title: question.substring(0, Math.min(50, question.length)),
+            description: question
+          })).slice(0, 3);
+        }
+
+        // Extract market intelligence
+        if (data.marketData && data.marketData.length > 0) {
+          processedData.marketData = data.marketData.map(item => ({
+            title: item.title || "Market Update",
+            source: item.source || "Market Analysis",
+            date: item.date || new Date().toLocaleDateString(),
+            snippet: item.snippet || item.description || "No details available",
+            url: item.url || null
+          }));
+        } else if (data.data && data.data.google && data.data.google.length > 0) {
+          // Alternative: use Google data if available
+          processedData.marketData = data.data.google.map(item => ({
+            title: item.title || "News Update",
+            source: item.source || "News Feed",
+            date: item.publishedDate || new Date().toLocaleDateString(),
+            snippet: item.snippet || "No details available",
+            url: item.url || null
+          })).slice(0, 3);
+        }
+
+        // Extract recommendations
+        if (data.recommendations && Array.isArray(data.recommendations)) {
+          processedData.recommendations = data.recommendations;
+        } else if (data.salesStrategies) {
+          // Alternative: use sales strategies as recommendations
+          processedData.recommendations = Array.isArray(data.salesStrategies) 
+            ? data.salesStrategies 
+            : [data.salesStrategies];
+        }
+
+        console.log("Processed PDL data:", processedData);
+        setPdlData(processedData);
+      } catch (err) {
+        console.error("Error processing intelligence data:", err);
+        // Don't set error state here - we still want to display whatever data we have
       }
     };
 
@@ -1276,7 +1489,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
   const isSummaryAvailable = researchData?.summary;
   const areGoogleResultsAvailable = googleData && Array.isArray(googleData) && googleData.length > 0;
   const isApolloDataAvailable = apolloData && Object.keys(apolloData).length > 0;
-  const isPdlDataAvailable = pdlData && Object.keys(pdlData).length > 0;
+  const isPdlDataAvailable = pdlData && Object.keys(pdlData).length > 0 && pdlData.dealScore > 0;
 
   let dynamicTitle = "Sales Intelligence";
   if (isPdlDataAvailable && (areGoogleResultsAvailable || isApolloDataAvailable)) {
@@ -1498,22 +1711,22 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                       
                       <div className="p-6 border-b grid grid-cols-2 gap-6">
                         <DealScoreIndicator 
-                          score={pdlData.dealScore || 50} 
-                          reasoning={pdlData.reasoning || ""} 
+                          score={pdlData.dealScore} 
+                          reasoning={pdlData.reasoning} 
                         />
-                        <DealStageTimeline stageData={pdlData.stageData || {}} />
+                        <DealStageTimeline stageData={pdlData.stageData} />
                       </div>
                       
-                      <DealFactorsAnalysis factorsData={pdlData.factors || null} />
+                      <DealFactorsAnalysis factorsData={pdlData.factors} />
                       
                       <CriticalRequirementsAndNextStage 
-                        requirements={pdlData.requirements || null} 
-                        nextStageData={pdlData.nextStage || null} 
+                        requirements={pdlData.requirements} 
+                        nextStageData={pdlData.nextStage} 
                       />
                       
-                      <MarketIntelligence marketData={pdlData.marketData || null} />
+                      <MarketIntelligence marketData={pdlData.marketData} />
                       
-                      <StrategicRecommendations recommendations={pdlData.recommendations || null} />
+                      <StrategicRecommendations recommendations={pdlData.recommendations} />
                     </div>
                   ) : (
                     <div className="text-center py-16 bg-white rounded-lg shadow-sm">
