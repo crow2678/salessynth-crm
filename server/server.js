@@ -820,7 +820,8 @@ app.post('/api/ai/generate', authMiddleware, async (req, res) => {
     console.log('Processing AI generation request via Azure OpenAI');
     
     const AZURE_OPENAI_API_URL = "https://88f.openai.azure.com/openai/deployments/88FGPT4o/chat/completions?api-version=2024-02-15-preview";
-    const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
+    //const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
+	const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY || "4f8768e63ff7402594c72809baf66ed4";
     
     if (!AZURE_OPENAI_API_KEY) {
       console.error('Azure OpenAI API key not found in environment variables');
