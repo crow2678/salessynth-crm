@@ -39,6 +39,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
   const [apolloData, setApolloData] = useState(null);
   const [pdlData, setPdlData] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [dealIntelligenceLoading, setDealIntelligenceLoading] = useState(false);
 
   useEffect(() => {
     if (!clientId || !userId || !isOpen) {
@@ -65,12 +66,15 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
         setLastUpdated(data.timestamp || null);
         
         // Generate deal intelligence using GPT
+        setDealIntelligenceLoading(true);
         try {
           const dealIntelligence = await generateDealIntelligence(clientId, userId, API_URL);
           setPdlData(dealIntelligence);
         } catch (err) {
           console.error("Error generating deal intelligence:", err);
           // Continue with other data even if deal intelligence fails
+        } finally {
+          setDealIntelligenceLoading(false);
         }
       } catch (err) {
         console.error("Error fetching research data:", err.response?.data || err.message);
@@ -180,6 +184,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                   pdlData={pdlData}
                   displayName={displayName}
                   lastUpdated={lastUpdated}
+                  dealIntelligenceLoading={dealIntelligenceLoading}
                   handleTabClick={handleTabClick}
                 />
               )}
@@ -189,6 +194,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
                   pdlData={pdlData}
                   displayName={displayName}
                   lastUpdated={lastUpdated}
+                  isLoading={dealIntelligenceLoading}
                 />
               )}
               

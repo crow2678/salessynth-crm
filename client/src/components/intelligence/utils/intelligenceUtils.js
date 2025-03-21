@@ -23,23 +23,38 @@ export const formatTimestamp = (timestamp) => {
 };
 
 // Create a deal intelligence prompt for GPT
-export const createDealIntelligencePrompt = (clientData, googleResults) => {
+export const createDealIntelligencePrompt = (researchData, googleResults) => {
+ // Extract available client information from research data
+ const clientName = researchData?.companyName || "Unknown";
+ const clientCompany = researchData?.company || "Unknown";
+ const clientNotes = researchData?.notes || "No notes available";
+ 
+ // Extract any deal information if available
+ const deals = researchData?.data?.deals || [];
+ const currentDeal = deals.length > 0 ? deals[0] : null;
+ const dealStatus = currentDeal?.status || "Unknown";
+ const dealValue = currentDeal?.value ? `$${currentDeal.value.toLocaleString()}` : "Unknown";
+ 
+ // Format Google results for the prompt
+ const formattedGoogleResults = googleResults && googleResults.length > 0 
+   ? googleResults.map(item => `- ${item.title || 'Untitled'} (${item.source || 'Unknown source'})`).join('\n')
+   : 'No recent news available';
+
  return `Analyze this sales opportunity and provide deal intelligence:
   
  CLIENT INFORMATION:
- Name: ${clientData.name || 'Unknown'}
- Company: ${clientData.company || 'Unknown'}
- Industry: ${clientData.company?.industry || 'Unknown'}
+ Name: ${clientName}
+ Company: ${clientCompany}
  
  DEAL STATUS:
- Current Stage: ${clientData.deals?.[0]?.status || 'Unknown'}
- Last Contact: ${clientData.lastContact ? new Date(clientData.lastContact).toLocaleDateString() : 'Unknown'}
+ Current Stage: ${dealStatus}
+ Deal Value: ${dealValue}
  
  CLIENT NOTES:
- ${clientData.notes || 'No notes available'}
+ ${clientNotes}
  
  RECENT NEWS:
- ${googleResults.map(item => `- ${item.title} (${item.source})`).join('\n')}
+ ${formattedGoogleResults}
  
  Based on this information, provide:
  1. A deal success probability score (0-100%)
@@ -92,23 +107,17 @@ export const createDealIntelligencePrompt = (clientData, googleResults) => {
 // Generate deal intelligence using GPT
 export const generateDealIntelligence = async (clientId, userId, API_URL) => {
  try {
-   // Get client data
-   const clientResponse = await fetch(`${API_URL}/clients/${clientId}`);
-   if (!clientResponse.ok) {
-     throw new Error('Failed to fetch client data');
-   }
-   const clientData = await clientResponse.json();
-   
-   // Get research data with Google results
+   // Get research data with Google results - only use this endpoint as it works
    const researchResponse = await fetch(`${API_URL}/summary/${clientId}/${userId}`);
    if (!researchResponse.ok) {
      throw new Error('Failed to fetch research data');
    }
+   
    const researchData = await researchResponse.json();
    const googleResults = researchData?.data?.google || [];
    
-   // Generate prompt
-   const prompt = createDealIntelligencePrompt(clientData, googleResults);
+   // Generate prompt using only the data we have
+   const prompt = createDealIntelligencePrompt(researchData, googleResults);
    
    // Call GPT API
    const gptResponse = await fetch(`${API_URL}/ai/generate`, {
