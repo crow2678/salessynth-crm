@@ -189,7 +189,7 @@ const DealFactorsAnalysis = ({ factorsData }) => {
                 <div className="w-1 h-6 bg-green-500 rounded-sm mr-2"></div>
                 <span className="text-gray-700 text-sm">{factor.description}</span>
                 <div className="ml-auto flex">
-                  {[...Array(typeof factor.impact === 'number' ? Math.min(Math.abs(factor.impact) / 20, 5) : 3)].map((_, i) => (
+                  {[...Array(Math.min(Math.ceil((factor.impact || 60) / 20), 5))].map((_, i) => (
                     <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-green-500" />
                   ))}
                 </div>
@@ -211,7 +211,7 @@ const DealFactorsAnalysis = ({ factorsData }) => {
                 <div className="w-1 h-6 bg-orange-500 rounded-sm mr-2"></div>
                 <span className="text-gray-700 text-sm">{factor.description}</span>
                 <div className="ml-auto flex">
-                  {[...Array(typeof factor.impact === 'number' ? Math.min(Math.abs(factor.impact) / 20, 5) : 2)].map((_, i) => (
+                  {[...Array(Math.min(Math.ceil((factor.impact || 40) / 20), 5))].map((_, i) => (
                     <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-orange-500" />
                   ))}
                 </div>

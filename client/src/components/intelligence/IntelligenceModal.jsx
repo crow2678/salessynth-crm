@@ -26,7 +26,7 @@ import WebResearchTab from './tabs/WebResearchTab';
 import { LoadingSkeleton, ErrorDisplay, NoReportDisplay } from './common/CommonComponents';
 
 // Import utilities
-import { formatTimestamp, processIntelligenceData } from './utils/intelligenceUtils';
+import { formatTimestamp, generateDealIntelligence } from './utils/intelligenceUtils';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
@@ -45,10 +45,11 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
       return;
     }
 
-    const fetchResearchData = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
+        // Fetch research data
         const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
         const data = response.data;
         
@@ -63,9 +64,14 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
         setApolloData(data.data?.apollo || null);
         setLastUpdated(data.timestamp || null);
         
-        // Process data into the PDL structure for deal intelligence
-        const processedData = processIntelligenceData(data);
-        setPdlData(processedData);
+        // Generate deal intelligence using GPT
+        try {
+          const dealIntelligence = await generateDealIntelligence(clientId, userId, API_URL);
+          setPdlData(dealIntelligence);
+        } catch (err) {
+          console.error("Error generating deal intelligence:", err);
+          // Continue with other data even if deal intelligence fails
+        }
       } catch (err) {
         console.error("Error fetching research data:", err.response?.data || err.message);
         setError(err.response?.status === 404 
@@ -76,7 +82,7 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
       }
     };
 
-    fetchResearchData();
+    fetchData();
   }, [clientId, userId, isOpen]);
 
   const handleTabClick = (tab) => {
