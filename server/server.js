@@ -808,6 +808,82 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
   }
 });
 
+// AI Generate Endpoint for Azure OpenAI for deal prediction
+app.post('/api/ai/generate', authMiddleware, async (req, res) => {
+  try {
+    const { prompt, responseFormat = 'json' } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ message: 'Prompt is required' });
+    }
+    
+    const AZURE_OPENAI_API_URL = "https://88f.openai.azure.com/openai/deployments/88FGPT4o/chat/completions?api-version=2024-02-15-preview";
+    const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
+    
+    if (!AZURE_OPENAI_API_KEY) {
+      console.error('Azure OpenAI API key not found in environment variables');
+      return res.status(500).json({ message: 'API configuration error' });
+    }
+    
+    console.log('Processing AI generation request via Azure OpenAI');
+    
+    const response = await fetch(AZURE_OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': AZURE_OPENAI_API_KEY
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: "You are a helpful AI assistant providing sales intelligence analysis." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+        response_format: responseFormat === 'json' ? { type: "json_object" } : undefined
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Azure OpenAI API error:', response.status, errorData);
+      return res.status(response.status).json({ 
+        message: 'Error from Azure OpenAI API', 
+        error: errorData
+      });
+    }
+    
+    const completion = await response.json();
+    const responseContent = completion.choices[0].message.content;
+    
+    // If response format is JSON, validate it
+    if (responseFormat === 'json') {
+      try {
+        // Try to parse the response to ensure it's valid JSON
+        const jsonResponse = JSON.parse(responseContent);
+        res.json(jsonResponse);
+      } catch (parseError) {
+        console.error('Error parsing AI response as JSON:', parseError);
+        res.status(500).json({ 
+          message: 'Invalid JSON response from AI',
+          rawResponse: responseContent
+        });
+      }
+    } else {
+      // For text responses, just return the content
+      res.json({ content: responseContent });
+    }
+    
+  } catch (error) {
+    console.error('Error generating AI content:', error);
+    res.status(500).json({ 
+      message: 'Error generating AI content', 
+      error: error.message 
+    });
+  }
+});
+
+
 // Task Routes optimized for Cosmos DB
 app.get('/api/tasks', authMiddleware, async (req, res) => {
   try {
