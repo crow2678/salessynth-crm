@@ -120,16 +120,17 @@ export const generateDealIntelligence = async (clientId, userId, API_URL) => {
    const prompt = createDealIntelligencePrompt(researchData, googleResults);
    
    // Call GPT API
-   const gptResponse = await fetch(`${API_URL}/ai/generate`, {
-     method: 'POST',
-     headers: {
-       'Content-Type': 'application/json'
-     },
-     body: JSON.stringify({
-       prompt,
-       responseFormat: 'json'
-     })
-   });
+	const gptResponse = await fetch(`${API_URL}/ai/generate`, {
+	  method: 'POST',
+	  headers: {
+		'Content-Type': 'application/json',
+		'Authorization': `Bearer ${localStorage.getItem('token')}` // Add this line
+	  },
+	  body: JSON.stringify({
+		prompt,
+		responseFormat: 'json'
+	  })
+	});
    
    if (!gptResponse.ok) {
      throw new Error('Failed to generate deal intelligence');

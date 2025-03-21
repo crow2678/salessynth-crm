@@ -809,12 +809,18 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
 });
 
 // AI Generate Endpoint for Azure OpenAI for deal prediction
+// AI Generate Endpoint for Azure OpenAI
 app.post('/api/ai/generate', authMiddleware, async (req, res) => {
   try {
     const { prompt, responseFormat = 'json' } = req.body;
     
     if (!prompt) {
       return res.status(400).json({ message: 'Prompt is required' });
+    }
+    
+    // Check if user is authenticated (authMiddleware should have already verified this)
+    if (!req.userId) {
+      return res.status(401).json({ message: 'User authentication required' });
     }
     
     const AZURE_OPENAI_API_URL = "https://88f.openai.azure.com/openai/deployments/88FGPT4o/chat/completions?api-version=2024-02-15-preview";
@@ -825,7 +831,7 @@ app.post('/api/ai/generate', authMiddleware, async (req, res) => {
       return res.status(500).json({ message: 'API configuration error' });
     }
     
-    console.log('Processing AI generation request via Azure OpenAI');
+    console.log('Processing AI generation request via Azure OpenAI for user:', req.userId);
     
     const response = await fetch(AZURE_OPENAI_API_URL, {
       method: 'POST',
