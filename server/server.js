@@ -808,8 +808,7 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
   }
 });
 
-// AI Generate Endpoint for Azure OpenAI for deal prediction
-// AI Generate Endpoint for Azure OpenAI
+// AI Generate Endpoint for Azure OpenAI with improved error handling
 app.post('/api/ai/generate', authMiddleware, async (req, res) => {
   try {
     const { prompt, responseFormat = 'json' } = req.body;
@@ -818,10 +817,7 @@ app.post('/api/ai/generate', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Prompt is required' });
     }
     
-    // Check if user is authenticated (authMiddleware should have already verified this)
-    if (!req.userId) {
-      return res.status(401).json({ message: 'User authentication required' });
-    }
+    console.log('Processing AI generation request via Azure OpenAI');
     
     const AZURE_OPENAI_API_URL = "https://88f.openai.azure.com/openai/deployments/88FGPT4o/chat/completions?api-version=2024-02-15-preview";
     const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
@@ -831,59 +827,82 @@ app.post('/api/ai/generate', authMiddleware, async (req, res) => {
       return res.status(500).json({ message: 'API configuration error' });
     }
     
-    console.log('Processing AI generation request via Azure OpenAI for user:', req.userId);
+    // Simplified request body without response_format for compatibility
+    const requestBody = {
+      messages: [
+        { role: "system", content: "You are a helpful AI assistant providing sales intelligence analysis. Always respond with valid JSON." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000
+      // Removed response_format for broader compatibility
+    };
     
-    const response = await fetch(AZURE_OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': AZURE_OPENAI_API_KEY
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: "You are a helpful AI assistant providing sales intelligence analysis." },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-        response_format: responseFormat === 'json' ? { type: "json_object" } : undefined
-      })
-    });
+    console.log('Sending request to Azure OpenAI API');
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Azure OpenAI API error:', response.status, errorData);
-      return res.status(response.status).json({ 
-        message: 'Error from Azure OpenAI API', 
-        error: errorData
+    try {
+      const response = await fetch(AZURE_OPENAI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_API_KEY
+        },
+        body: JSON.stringify(requestBody)
       });
-    }
-    
-    const completion = await response.json();
-    const responseContent = completion.choices[0].message.content;
-    
-    // If response format is JSON, validate it
-    if (responseFormat === 'json') {
-      try {
-        // Try to parse the response to ensure it's valid JSON
-        const jsonResponse = JSON.parse(responseContent);
-        res.json(jsonResponse);
-      } catch (parseError) {
-        console.error('Error parsing AI response as JSON:', parseError);
-        res.status(500).json({ 
-          message: 'Invalid JSON response from AI',
-          rawResponse: responseContent
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Azure OpenAI API error:', response.status, errorText);
+        return res.status(response.status).json({ 
+          message: 'Error from Azure OpenAI API', 
+          status: response.status,
+          error: errorText
         });
       }
-    } else {
-      // For text responses, just return the content
-      res.json({ content: responseContent });
+      
+      const completion = await response.json();
+      console.log('Received response from Azure OpenAI API');
+      
+      if (!completion.choices || !completion.choices[0] || !completion.choices[0].message) {
+        console.error('Unexpected response format from Azure OpenAI:', completion);
+        return res.status(500).json({ 
+          message: 'Unexpected response format from AI service',
+          response: completion
+        });
+      }
+      
+      const responseContent = completion.choices[0].message.content;
+      
+      // If response format is JSON, validate it
+      if (responseFormat === 'json') {
+        try {
+          // Try to parse the response as JSON
+          const jsonResponse = JSON.parse(responseContent);
+          return res.json(jsonResponse);
+        } catch (parseError) {
+          console.error('Error parsing AI response as JSON:', parseError);
+          console.error('Raw response:', responseContent);
+          // Since we can't parse it as JSON, return it as text
+          return res.json({ 
+            message: 'Received text response instead of JSON',
+            content: responseContent
+          });
+        }
+      } else {
+        // For text responses, just return the content
+        return res.json({ content: responseContent });
+      }
+    } catch (apiError) {
+      console.error('Error calling Azure OpenAI API:', apiError);
+      return res.status(500).json({ 
+        message: 'Error calling Azure OpenAI API', 
+        error: apiError.message 
+      });
     }
-    
   } catch (error) {
-    console.error('Error generating AI content:', error);
-    res.status(500).json({ 
-      message: 'Error generating AI content', 
+    console.error('Unhandled error in AI generation endpoint:', error);
+    return res.status(500).json({ 
+      message: 'Internal server error', 
       error: error.message 
     });
   }
