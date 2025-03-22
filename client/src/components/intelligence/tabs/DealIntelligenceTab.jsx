@@ -97,16 +97,21 @@ const DealIntelligenceTab = ({ clientId, userId }) => {
         </h3>
         <p className="text-blue-600">{intelligence.message}</p>
         
-        {intelligence.recommendations && intelligence.recommendations.length > 0 && (
-          <div className="mt-6 text-left">
-            <h4 className="font-medium text-blue-800 mb-2">Recommendations:</h4>
-            <ul className="space-y-2">
-              {intelligence.recommendations.map((rec, index) => (
-                <li key={index} className="flex items-start">
-                  <CheckCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
-                  <span>{rec}</span>
-                </li>
-              ))}
+		{intelligence.recommendations.map((rec, index) => (
+		  <li key={index} className="flex items-start">
+			<CheckCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
+			<span>
+			  {typeof rec === 'string' ? rec : 
+				(rec.title ? 
+				  <>
+					<strong>{rec.title}</strong>: {rec.description}
+				  </> : 
+				  JSON.stringify(rec)
+				)
+			  }
+			</span>
+		  </li>
+		))}
             </ul>
           </div>
         )}
@@ -357,11 +362,20 @@ const DealIntelligenceTab = ({ clientId, userId }) => {
             <div className="px-6 pb-6">
               <ul className="space-y-2">
                 {intelligence.recommendations.map((rec, index) => (
-                  <li key={index} className="flex items-start">
-                    <Zap className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">{rec}</span>
-                  </li>
-                ))}
+				  <li key={index} className="flex items-start">
+					<Zap className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
+					<span className="text-gray-700">
+					  {typeof rec === 'string' ? rec : 
+						(rec.title ? 
+						  <>
+							<strong>{rec.title}</strong>: {rec.description}
+						  </> : 
+						  JSON.stringify(rec)
+						)
+					  }
+					</span>
+				  </li>
+				))}
               </ul>
             </div>
           )}

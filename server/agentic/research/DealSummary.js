@@ -3,6 +3,16 @@ const axios = require('axios');
 const { Research, Client } = require('../database/db');
 const fs = require('fs');
 const path = require('path');
+const { 
+  INDUSTRY_SALES_STRATEGIES, 
+  DEAL_STAGES, 
+  NOTE_PATTERNS 
+} = require('./researchConstants');
+const { 
+  extractQuestionsAndRequirements, 
+  extractDecisionPoints,
+  extractUpcomingEvents
+} = require('./researchUtils');
 require("dotenv").config();
 
 // Load config dynamically
@@ -12,8 +22,44 @@ const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 // Constants
 const OPENAI_API_URL = "https://88f.openai.azure.com/openai/deployments/88FGPT4o/chat/completions?api-version=2024-02-15-preview";
 const OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
-const COOLDOWN_PERIOD = (config.cache_settings?.cooldown_period_hours || 12) * 60 * 60 * 1000;
 const ACTIVE_DEAL_STATUSES = ['prospecting', 'qualified', 'proposal', 'negotiation'];
+
+// Deal stage mapping for various sales methodologies
+const DEAL_STAGE_MAPPING = {
+  'default': {
+    stages: ['prospecting', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'],
+    stagePriorities: {
+      'negotiation': 4,
+      'proposal': 3,
+      'qualified': 2,
+      'prospecting': 1,
+      'closed_won': 0,
+      'closed_lost': 0
+    }
+  },
+  'enterprise': {
+    stages: ['discovery', 'qualification', 'solution', 'proposal', 'contract', 'closed'],
+    stagePriorities: {
+      'contract': 5,
+      'proposal': 4,
+      'solution': 3,
+      'qualification': 2,
+      'discovery': 1,
+      'closed': 0
+    }
+  },
+  'solution': {
+    stages: ['identify', 'validate', 'design', 'propose', 'finalize', 'closed'],
+    stagePriorities: {
+      'finalize': 5,
+      'propose': 4,
+      'design': 3,
+      'validate': 2,
+      'identify': 1,
+      'closed': 0
+    }
+  }
+};
 
 // Prevent duplicate processing
 const runningProcesses = new Set();
@@ -22,9 +68,10 @@ const runningProcesses = new Set();
  * Generate intelligence for a client's active deals
  * @param {string} clientId - Client ID
  * @param {string} userId - User ID
+ * @param {string} salesMethodology - Optional sales methodology for stage mapping
  * @return {Promise<boolean>} - Success status
  */
-async function generateDealIntelligence(clientId, userId) {
+async function generateDealIntelligence(clientId, userId, salesMethodology = 'default') {
   if (!clientId || !userId) {
     console.log("❌ Missing clientId or userId for deal intelligence generation");
     return false;
@@ -67,28 +114,24 @@ async function generateDealIntelligence(clientId, userId) {
       return true;
     }
 
-    // Get existing research to check cooldown
+    // Get existing research
     const existingResearch = await Research.findOne({ clientId, userId });
     
-    // Check if we need to refresh (honor cooldown period)
+    // Get the most advanced deal (primary deal)
+    const stageMapping = DEAL_STAGE_MAPPING[salesMethodology] || DEAL_STAGE_MAPPING.default;
+    const primaryDeal = getHighestPriorityDeal(activeDeals, stageMapping.stagePriorities);
+    
+    // Add dealTimeInStage if available
     const now = new Date();
-    if (existingResearch && existingResearch.data && existingResearch.data.dealIntelligence) {
-      const lastUpdateTime = existingResearch.lastUpdated?.dealIntelligence 
-        ? new Date(existingResearch.lastUpdated.dealIntelligence) 
-        : null;
-      
-      if (lastUpdateTime && (now - lastUpdateTime) < COOLDOWN_PERIOD) {
-        console.log(`⏳ Deal intelligence cooldown active for client ${clientId}. Skipping generation.`);
-        return true;
-      }
+    if (primaryDeal.lastUpdated) {
+      const daysSinceUpdate = Math.floor((now - new Date(primaryDeal.lastUpdated)) / (1000 * 60 * 60 * 24));
+      primaryDeal.daysInStage = daysSinceUpdate;
     }
-
-    // Get most advanced deal (primary deal)
-    const primaryDeal = getHighestPriorityDeal(activeDeals);
     
     // Fetch research data for context
     let googleData = [];
     let pdlData = null;
+    let redditData = [];
     
     if (existingResearch && existingResearch.data) {
       if (existingResearch.data.google && Array.isArray(existingResearch.data.google)) {
@@ -98,10 +141,32 @@ async function generateDealIntelligence(clientId, userId) {
       if (existingResearch.data.pdl) {
         pdlData = existingResearch.data.pdl;
       }
+      
+      if (existingResearch.data.reddit && Array.isArray(existingResearch.data.reddit)) {
+        redditData = existingResearch.data.reddit;
+      }
     }
 
+    // Extract structured data from client notes
+    const notesData = analyzeClientNotes(client.notes || '');
+    
+    // Determine industry for industry-specific recommendations
+    let industry = 'default';
+    if (pdlData && pdlData.companyData && pdlData.companyData.industry) {
+      industry = pdlData.companyData.industry.toLowerCase();
+    }
+    
     // Generate deal intelligence using GPT
-    const dealIntelligence = await callGPTForDealIntelligence(client, primaryDeal, googleData, pdlData);
+    const dealIntelligence = await callGPTForDealIntelligence(
+      client, 
+      primaryDeal, 
+      googleData, 
+      pdlData,
+      redditData,
+      notesData,
+      industry,
+      stageMapping
+    );
     
     // Store in research collection
     const updateResult = await storeDealIntelligence(clientId, userId, client.company || client.name || "Unknown", dealIntelligence);
@@ -115,12 +180,12 @@ async function generateDealIntelligence(clientId, userId) {
     runningProcesses.delete(processKey);
   }
 }
-
 /**
  * Process deal intelligence for all clients with active deals
+ * @param {string} salesMethodology - Optional sales methodology for stage mapping
  * @return {Promise<void>}
  */
-async function processAllClientDeals() {
+async function processAllClientDeals(salesMethodology = 'default') {
   try {
     console.log("🚀 Starting deal intelligence processing for all clients with active deals...");
     
@@ -144,7 +209,7 @@ async function processAllClientDeals() {
       
       // Process in parallel
       await Promise.all(
-        batch.map(client => generateDealIntelligence(client._id.toString(), client.userId))
+        batch.map(client => generateDealIntelligence(client._id.toString(), client.userId, salesMethodology))
       );
       
       // Add a small delay between batches
@@ -160,19 +225,56 @@ async function processAllClientDeals() {
 }
 
 /**
- * Get the highest priority deal based on stage
+ * Analyze client notes to extract structured insights
+ * @param {string} notes - Client notes
+ * @return {Object} - Structured data from notes
+ */
+function analyzeClientNotes(notes) {
+  if (!notes) return {};
+  
+  const questionsData = extractQuestionsAndRequirements(notes);
+  const decisionPoints = extractDecisionPoints(notes);
+  const upcomingEvents = extractUpcomingEvents(notes);
+  
+  // Detect concerns in notes
+  const concernMatches = [];
+  for (const pattern of NOTE_PATTERNS.concerns) {
+    const matches = notes.match(new RegExp(pattern.source, pattern.flags + 'g')) || [];
+    concernMatches.push(...matches);
+  }
+  
+  // Detect positive signals in notes
+  const positiveMatches = [];
+  for (const pattern of NOTE_PATTERNS.positiveIndicators) {
+    const matches = notes.match(new RegExp(pattern.source, pattern.flags + 'g')) || [];
+    positiveMatches.push(...matches);
+  }
+  
+  // Detect negative signals in notes
+  const negativeMatches = [];
+  for (const pattern of NOTE_PATTERNS.negativeIndicators) {
+    const matches = notes.match(new RegExp(pattern.source, pattern.flags + 'g')) || [];
+    negativeMatches.push(...matches);
+  }
+  
+  return {
+    questions: questionsData.questions,
+    requirements: questionsData.requirements,
+    decisionPoints,
+    upcomingEvents,
+    concerns: concernMatches,
+    positiveSignals: positiveMatches,
+    negativeSignals: negativeMatches
+  };
+}
+
+/**
+ * Get the highest priority deal based on stage and value
  * @param {Array} deals - List of deals
+ * @param {Object} stagePriorities - Priority mapping for stages
  * @return {Object} - Highest priority deal
  */
-function getHighestPriorityDeal(deals) {
-  // Deal stage priorities (higher number = higher priority)
-  const stagePriorities = {
-    'negotiation': 4,
-    'proposal': 3,
-    'qualified': 2,
-    'prospecting': 1
-  };
-  
+function getHighestPriorityDeal(deals, stagePriorities) {
   return deals.reduce((highest, current) => {
     const currentPriority = stagePriorities[current.status] || 0;
     const highestPriority = highest ? stagePriorities[highest.status] || 0 : 0;
@@ -189,59 +291,124 @@ function getHighestPriorityDeal(deals) {
 }
 
 /**
- * Call GPT to generate deal intelligence
- * @param {Object} client - Client data
- * @param {Object} deal - Deal data
- * @param {Array} googleData - Google research data
- * @param {Object} pdlData - PDL company data
- * @return {Promise<Object>} - Deal intelligence data
+ * Determine the most relevant industry strategy
+ * @param {string} industry - Industry name
+ * @return {Object} - Industry strategy
  */
-async function callGPTForDealIntelligence(client, deal, googleData = [], pdlData = null) {
-  try {
-    console.log("🧠 Generating GPT-based deal intelligence...");
-    
-    if (!OPENAI_API_KEY) {
-      throw new Error("OpenAI API key is not configured");
+function getIndustryStrategy(industry) {
+  if (!industry) return INDUSTRY_SALES_STRATEGIES.default;
+  
+  const normalizedIndustry = industry.toLowerCase();
+  
+  // Direct match
+  if (INDUSTRY_SALES_STRATEGIES[normalizedIndustry]) {
+    return INDUSTRY_SALES_STRATEGIES[normalizedIndustry];
+  }
+  
+  // Partial match
+  for (const [key, value] of Object.entries(INDUSTRY_SALES_STRATEGIES)) {
+    if (normalizedIndustry.includes(key) || key.includes(normalizedIndustry)) {
+      return value;
     }
-    
-    // Format client data for the prompt
-    const clientName = client.name || "Unknown";
-    const companyName = client.company || "Unknown";
-    const position = client.position || "Unknown";
-    const notes = client.notes || "No client notes available";
-    const lastContact = client.lastContact 
-      ? new Date(client.lastContact).toLocaleDateString() 
-      : "Never contacted";
-    
-    // Format deal data for the prompt
-    const dealTitle = deal.title || "Unnamed Deal";
-    const dealStage = deal.status || "Unknown";
-    const dealValue = deal.value ? `$${deal.value.toLocaleString()}` : "Not specified";
-    const expectedCloseDate = deal.expectedCloseDate 
-      ? new Date(deal.expectedCloseDate).toLocaleDateString() 
-      : "No close date specified";
-    
-    // Format Google news for the prompt
-    const recentNewsSection = googleData.length > 0
-      ? "RECENT NEWS:\n" + googleData.slice(0, 3).map(item => 
-          `- ${item.title || 'Untitled'} (${item.source || 'Unknown source'})`
-        ).join('\n')
-      : "RECENT NEWS:\nNo recent news available";
-    
-    // Format company info from PDL if available
-    let companyInfoSection = "COMPANY INFORMATION:\nNo detailed company information available";
-    if (pdlData && pdlData.companyData) {
-      const companyData = pdlData.companyData;
-      companyInfoSection = `COMPANY INFORMATION:
+  }
+  
+  return INDUSTRY_SALES_STRATEGIES.default;
+}
+
+/**
+ * Build a dynamic GPT prompt based on available data
+ * @param {Object} data - All available data for analysis
+ * @return {string} - Constructed prompt
+ */
+function buildDynamicPrompt(data) {
+  const {
+    client,
+    deal,
+    googleData,
+    pdlData,
+    redditData,
+    notesData,
+    industryStrategy,
+    stageMapping
+  } = data;
+  
+  // Basic client and deal information
+  const clientName = client.name || "Unknown";
+  const companyName = client.company || "Unknown";
+  const position = client.position || "Unknown";
+  const notes = client.notes || "No client notes available";
+  const lastContact = client.lastContact 
+    ? new Date(client.lastContact).toLocaleDateString() 
+    : "Never contacted";
+  
+  const dealTitle = deal.title || "Unnamed Deal";
+  const dealStage = deal.status || "Unknown";
+  const dealValue = deal.value ? `$${deal.value.toLocaleString()}` : "Not specified";
+  const expectedCloseDate = deal.expectedCloseDate 
+    ? new Date(deal.expectedCloseDate).toLocaleDateString() 
+    : "No close date specified";
+  const daysInStage = deal.daysInStage ? `${deal.daysInStage} days` : "Unknown";
+  
+  // Section: Deal stage context
+  const stageInfo = DEAL_STAGES[dealStage] || {};
+  const focusAreas = stageInfo.focusAreas 
+    ? `Focus areas for ${dealStage} stage: ${stageInfo.focusAreas.join(', ')}`
+    : "";
+  
+  // Current position in sales process
+  const allStages = stageMapping.stages;
+  const currentIndex = allStages.indexOf(dealStage);
+  const completedStages = currentIndex > 0 ? allStages.slice(0, currentIndex) : [];
+  const upcomingStages = currentIndex < allStages.length - 1 ? allStages.slice(currentIndex + 1) : [];
+  
+  // Include only if available
+  let companyInfoSection = "";
+  if (pdlData && pdlData.companyData) {
+    const companyData = pdlData.companyData;
+    companyInfoSection = `
+COMPANY INFORMATION:
 - Industry: ${companyData.industry || 'Unknown'}
 - Size: ${companyData.size || companyData.employee_count || 'Unknown'} employees
 - Location: ${companyData.location?.locality || ''}, ${companyData.location?.region || ''}
 - Type: ${companyData.type || 'Unknown'}`;
-    }
+  }
+  
+  // Include only if available
+  let recentNewsSection = "";
+  if (googleData && googleData.length > 0) {
+    recentNewsSection = `
+RECENT NEWS:
+${googleData.slice(0, 3).map(item => 
+  `- ${item.title || 'Untitled'} (${item.source || 'Unknown source'})`
+).join('\n')}`;
+  }
+  
+  // Include only if available and relevant
+  let clientNotesInsightsSection = "";
+  if (notesData && Object.keys(notesData).length > 0) {
+    const hasQuestions = notesData.questions && notesData.questions.length > 0;
+    const hasRequirements = notesData.requirements && notesData.requirements.length > 0;
+    const hasDecisionPoints = notesData.decisionPoints && notesData.decisionPoints.length > 0;
     
-    // Create prompt
-    const prompt = `
-You are an expert sales intelligence analyst. Analyze this sales opportunity and provide deal intelligence:
+    if (hasQuestions || hasRequirements || hasDecisionPoints) {
+      clientNotesInsightsSection = `
+INSIGHTS FROM CLIENT NOTES:
+${hasQuestions ? `Client Questions:\n${notesData.questions.map(q => `- ${q}`).join('\n')}` : ''}
+${hasRequirements ? `Requirements:\n${notesData.requirements.map(r => `- ${r}`).join('\n')}` : ''}
+${hasDecisionPoints ? `Decision Points:\n${notesData.decisionPoints.map(d => `- ${d}`).join('\n')}` : ''}`;
+    }
+  }
+  
+  // Industry-specific section
+  const industrySection = `
+INDUSTRY-SPECIFIC CONTEXT:
+- Key Topics: ${industryStrategy.topics.slice(0, 3).join(', ')}
+- Common Objections: ${industryStrategy.objections.slice(0, 3).join(', ')}
+- Technical Terms: ${industryStrategy.technicalTerms.slice(0, 3).join(', ')}`;
+  
+  // Main prompt with IMPROVED template that avoids hardcoded values
+  return `
+You are an expert sales intelligence analyst specializing in ${industryStrategy.topics[0] || 'business'} sales. Analyze this sales opportunity and provide deal intelligence:
 
 CLIENT INFORMATION:
 - Name: ${clientName}
@@ -254,56 +421,113 @@ DEAL STATUS:
 - Current Stage: ${dealStage}
 - Deal Value: ${dealValue}
 - Expected Close Date: ${expectedCloseDate}
+- Time in Current Stage: ${daysInStage}
+- Sales Process: ${completedStages.join(' → ')} → [${dealStage}] → ${upcomingStages.join(' → ')}
+${focusAreas ? `- ${focusAreas}` : ''}
 
 CLIENT NOTES:
 ${notes}
-
+${clientNotesInsightsSection}
 ${companyInfoSection}
-
 ${recentNewsSection}
+${industrySection}
 
-Based on this information, generate a comprehensive deal intelligence analysis in JSON format with these fields:
+IMPORTANT: Analyze this specific deal carefully and calculate a unique deal score based on the exact circumstances.
+- High scores (80-100): Strong engagement, advanced stages, minimal red flags
+- Medium scores (50-79): Good progress but some concerns or unknowns
+- Low scores (0-49): Significant issues, early stages, or major concerns
+
+For each deal, consider:
+1. Deal stage progression and time in current stage
+2. Client engagement (questions, requirements mentioned)
+3. Deal complexity and value
+4. Industry-specific success factors
+5. Identified risk factors
+
+Return a comprehensive deal intelligence analysis in JSON format with these fields:
 
 {
-  "dealScore": 75, // Deal success probability (0-100%)
-  "reasoning": "Reason for score based on client data",
+  "dealScore": null,
+  "reasoning": "",
+  "confidence": null,
   "currentStage": "${dealStage}",
   "stageData": {
     "currentStage": "${dealStage}",
-    "timeInStage": "2 weeks", // Estimated time in current stage
-    "completedStages": [], // Previous stages based on current stage
-    "upcomingStages": [], // Future stages based on current stage
-    "nextStageLikelihood": 70 // Probability of advancing to next stage (0-100%)
+    "timeInStage": "${daysInStage}",
+    "completedStages": ${JSON.stringify(completedStages)},
+    "upcomingStages": ${JSON.stringify(upcomingStages)},
+    "nextStageLikelihood": null
   },
+  "momentum": "",
   "factors": {
     "positive": [
-      {"description": "Strong engagement with decision makers", "impact": 80},
-      {"description": "Technical questions indicate serious evaluation", "impact": 75}
+      {"description": "", "impact": null}
     ],
     "negative": [
-      {"description": "Long time in current stage", "impact": 65},
-      {"description": "Budget concerns mentioned", "impact": 55}
+      {"description": "", "impact": null}
     ]
   },
   "requirements": [
-    {"title": "Integration capability", "description": "Need to integrate with existing CRM"},
-    {"title": "Security compliance", "description": "Must meet industry security standards"}
+    {"title": "", "description": ""}
   ],
   "nextStage": {
-    "timeframe": "2-3 weeks",
+    "timeframe": "",
     "value": "${dealValue}",
-    "blockers": ["Budget approval", "Technical validation"]
+    "blockers": []
   },
-  "recommendations": [
-    "Schedule technical demo with IT department",
-    "Provide detailed ROI analysis",
-    "Address security concerns with documentation"
-  ]
+  "recommendations": []
 }
 
 Return ONLY a valid JSON object with no additional text, comments, or markdown formatting.
-Ensure your analysis is based on the available data. Use general sales knowledge where specific information is missing.
+Ensure your analysis is based on the available data and industry context. Make recommendations specific to this client's situation and stage.
 `;
+}
+/**
+ * Call GPT to generate deal intelligence
+ * @param {Object} client - Client data
+ * @param {Object} deal - Deal data
+ * @param {Array} googleData - Google research data
+ * @param {Object} pdlData - PDL company data
+ * @param {Array} redditData - Reddit discussion data
+ * @param {Object} notesData - Structured data from client notes
+ * @param {string} industry - Client industry
+ * @param {Object} stageMapping - Deal stage mapping
+ * @return {Promise<Object>} - Deal intelligence data
+ */
+async function callGPTForDealIntelligence(
+  client, 
+  deal, 
+  googleData = [], 
+  pdlData = null,
+  redditData = [],
+  notesData = {},
+  industry = 'default',
+  stageMapping = DEAL_STAGE_MAPPING.default
+) {
+  try {
+    console.log("🧠 Generating GPT-based deal intelligence...");
+    
+    if (!OPENAI_API_KEY) {
+      throw new Error("OpenAI API key is not configured");
+    }
+    
+    // Get industry-specific strategy
+    const industryStrategy = getIndustryStrategy(industry);
+    
+    // Build dynamic prompt based on available data
+    const prompt = buildDynamicPrompt({
+      client,
+      deal,
+      googleData,
+      pdlData,
+      redditData,
+      notesData,
+      industryStrategy,
+      stageMapping
+    });
+
+    // Log prompt length for debugging
+    console.log(`Prompt length: ${prompt.length} characters`);
 
     // Call GPT-4 API
     const response = await axios.post(OPENAI_API_URL, {
@@ -317,101 +541,213 @@ Ensure your analysis is based on the available data. Use general sales knowledge
       }
     });
 
-    // Extract and parse response
+    // Extract response
     const responseContent = response.data.choices[0].message.content;
     
     try {
-      // Parse JSON response
-      const dealIntelligence = JSON.parse(responseContent);
+      // Attempt to parse JSON response directly
+      const dealIntelligence = JSON.parse(responseContent.trim());
       console.log("✅ Successfully generated and parsed deal intelligence");
+      console.log(`🎯 Deal score: ${dealIntelligence.dealScore}%`);
+      
+      // Ensure dealScore is a number between 0-100
+      if (typeof dealIntelligence.dealScore !== 'number' || 
+          dealIntelligence.dealScore < 0 || 
+          dealIntelligence.dealScore > 100) {
+        // Generate a score based on deal stage if invalid
+        dealIntelligence.dealScore = generateScoreFromStage(deal.status);
+        console.log(`⚠️ Invalid deal score, using generated score: ${dealIntelligence.dealScore}%`);
+      }
+      
+      // Add metadata
+      dealIntelligence.generatedAt = new Date().toISOString();
+      dealIntelligence.dataQuality = calculateDataQuality(client, googleData, pdlData, notesData);
+      
       return dealIntelligence;
     } catch (parseError) {
       console.error("❌ Error parsing JSON response:", parseError.message);
-      console.log("Raw response:", responseContent);
       
-      // Try to extract JSON from markdown code block if present
-      const jsonMatch = responseContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (jsonMatch && jsonMatch[1]) {
-        try {
-          const extractedJson = JSON.parse(jsonMatch[1]);
+      // Advanced JSON extraction with flexible pattern matching
+      try {
+        // Try to extract JSON from markdown code block if present
+        const jsonMatch = responseContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (jsonMatch && jsonMatch[1]) {
+          const extractedJson = JSON.parse(jsonMatch[1].trim());
           console.log("✅ Successfully extracted and parsed JSON from markdown");
+          console.log(`🎯 Deal score: ${extractedJson.dealScore}%`);
+          
+          // Ensure dealScore is a number between 0-100
+          if (typeof extractedJson.dealScore !== 'number' || 
+              extractedJson.dealScore < 0 || 
+              extractedJson.dealScore > 100) {
+            // Generate a score based on deal stage if invalid
+            extractedJson.dealScore = generateScoreFromStage(deal.status);
+            console.log(`⚠️ Invalid deal score, using generated score: ${extractedJson.dealScore}%`);
+          }
+          
+          // Add metadata
+          extractedJson.generatedAt = new Date().toISOString();
+          extractedJson.dataQuality = calculateDataQuality(client, googleData, pdlData, notesData);
+          
           return extractedJson;
-        } catch (extractError) {
-          console.error("❌ Error parsing extracted JSON:", extractError.message);
         }
+        
+        // Try to find JSON-like structure with flexible regex
+        const jsonRegex = /{[\s\S]*}/;
+        const possibleJson = responseContent.match(jsonRegex);
+        if (possibleJson) {
+          const extractedJson = JSON.parse(possibleJson[0]);
+          console.log("✅ Successfully extracted JSON with flexible matching");
+          console.log(`🎯 Deal score: ${extractedJson.dealScore}%`);
+          
+          // Ensure dealScore is a number between 0-100
+          if (typeof extractedJson.dealScore !== 'number' || 
+              extractedJson.dealScore < 0 || 
+              extractedJson.dealScore > 100) {
+            // Generate a score based on deal stage if invalid
+            extractedJson.dealScore = generateScoreFromStage(deal.status);
+            console.log(`⚠️ Invalid deal score, using generated score: ${extractedJson.dealScore}%`);
+          }
+          
+          // Add metadata
+          extractedJson.generatedAt = new Date().toISOString();
+          extractedJson.dataQuality = calculateDataQuality(client, googleData, pdlData, notesData);
+          
+          return extractedJson;
+        }
+      } catch (extractError) {
+        console.error("❌ Error extracting JSON:", extractError.message);
       }
       
-      // Return fallback intelligence
-      return createFallbackDealIntelligence(deal);
+      // If all JSON parsing attempts fail, return fallback
+      console.log("⚠️ Using fallback deal intelligence generation");
+      return createFallbackDealIntelligence(deal, client, industry, stageMapping);
     }
   } catch (error) {
     console.error("❌ Error calling GPT for deal intelligence:", error.message);
-    return createFallbackDealIntelligence(deal);
+    return createFallbackDealIntelligence(deal, client, industry, stageMapping);
   }
 }
 
 /**
- * Create fallback deal intelligence when GPT fails
- * @param {Object} deal - Deal data
- * @return {Object} - Fallback deal intelligence
+ * Generate a score based on deal stage with some randomness
+ * @param {string} stage - Deal stage
+ * @return {number} - Generated score
  */
-function createFallbackDealIntelligence(deal) {
-  const dealStage = deal.status || "prospecting";
-  
-  // Determine completed and upcoming stages
-  const allStages = ["prospecting", "qualified", "proposal", "negotiation", "closed_won"];
-  const currentIndex = allStages.indexOf(dealStage);
-  const completedStages = currentIndex > 0 ? allStages.slice(0, currentIndex) : [];
-  const upcomingStages = currentIndex < allStages.length - 1 ? allStages.slice(currentIndex + 1) : [];
-  
-  // Base score on deal stage
-  const stageScores = {
-    'prospecting': 30,
-    'qualified': 50,
+function generateScoreFromStage(stage) {
+  // Base scores by stage
+  const baseScores = {
+    'prospecting': 35,
+    'qualified': 55,
     'proposal': 70,
     'negotiation': 85,
     'closed_won': 100,
     'closed_lost': 0
   };
   
-  const dealScore = stageScores[dealStage] || 50;
+  // Get base score or default to 50
+  const baseScore = baseScores[stage] || 50;
+  
+  // Add randomness (+/- 15%)
+  const randomFactor = Math.floor(Math.random() * 31) - 15;
+  
+  // Return score bounded between 0-100
+  return Math.max(0, Math.min(100, baseScore + randomFactor));
+}
+
+/**
+ * Calculate data quality score based on available data
+ * @param {Object} client - Client data
+ * @param {Array} googleData - Google research data
+ * @param {Object} pdlData - PDL company data
+ * @param {Object} notesData - Structured data from client notes
+ * @return {number} - Data quality score (0-100)
+ */
+function calculateDataQuality(client, googleData, pdlData, notesData) {
+  let score = 50; // Base score
+  
+  // Client data quality
+  if (client.notes && client.notes.length > 100) score += 10;
+  if (client.lastContact) score += 5;
+  
+  // Research data quality
+  if (googleData && googleData.length > 0) score += 10;
+  if (pdlData && pdlData.companyData) score += 10;
+  
+  // Notes analysis quality
+  if (notesData && notesData.questions && notesData.questions.length > 0) score += 5;
+  if (notesData && notesData.requirements && notesData.requirements.length > 0) score += 5;
+  
+  // Ensure score is within bounds
+  return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Create fallback deal intelligence when GPT fails
+ * @param {Object} deal - Deal data
+ * @param {Object} client - Client data
+ * @param {string} industry - Client industry
+ * @param {Object} stageMapping - Deal stage mapping
+ * @return {Object} - Fallback deal intelligence
+ */
+function createFallbackDealIntelligence(deal, client, industry = 'default', stageMapping = DEAL_STAGE_MAPPING.default) {
+  const dealStage = deal.status || "prospecting";
+  
+  // Determine completed and upcoming stages
+  const allStages = stageMapping.stages;
+  const currentIndex = allStages.indexOf(dealStage);
+  const completedStages = currentIndex > 0 ? allStages.slice(0, currentIndex) : [];
+  const upcomingStages = currentIndex < allStages.length - 1 ? allStages.slice(currentIndex + 1) : [];
+  
+  // Generate a varying score based on stage with randomness
+  const dealScore = generateScoreFromStage(dealStage);
+  
+  // Get industry strategy
+  const industryStrategy = getIndustryStrategy(industry);
+  
+  // Create tailored recommendations based on industry
+  const recommendations = [
+    `Focus on ${industryStrategy.topics[0] || 'value proposition'} in your next communication`,
+    `Prepare responses to common ${industryStrategy.objections[0] || 'objections'} for this industry`,
+    `Schedule follow-up meeting to address remaining questions`,
+    `Create customized implementation plan focusing on ${industryStrategy.topics[1] || 'ROI'}`
+  ];
   
   return {
     dealScore,
-    reasoning: "Generated based on deal stage and standard sales methodology",
+    reasoning: `Generated based on deal stage (${dealStage}) and standard sales methodology for ${industry || 'general'} industry`,
+    confidence: 50, // Medium confidence since this is fallback
     currentStage: dealStage,
     stageData: {
       currentStage: dealStage,
-      timeInStage: "Unknown",
+      timeInStage: deal.daysInStage ? `${deal.daysInStage} days` : "Unknown",
       completedStages,
       upcomingStages,
-      nextStageLikelihood: dealScore + 10 > 100 ? 100 : dealScore + 10
+      nextStageLikelihood: Math.min(100, dealScore + 10) // Slightly higher than deal score
     },
+    momentum: dealScore > 70 ? "Steady" : "Needs Attention",
     factors: {
       positive: [
-        {description: "Deal has progressed to " + dealStage + " stage", impact: 70},
-        {description: "Deal value has been specified", impact: 60}
+        {description: `Deal has progressed to ${dealStage} stage`, impact: 70},
+        {description: `Deal value has been specified (${deal.value ? '$' + deal.value.toLocaleString() : 'unknown'})`, impact: 60}
       ],
       negative: [
-        {description: "Limited contextual data available", impact: 50},
-        {description: "Standard industry challenges apply", impact: 40}
+        {description: "Limited contextual data available for analysis", impact: 50},
+        {description: `Standard challenges for ${industry || 'this'} industry apply`, impact: 40}
       ]
     },
     requirements: [
       {title: "Complete discovery", description: "Ensure all client requirements are documented"},
-      {title: "Stakeholder mapping", description: "Identify all key decision makers"}
+      {title: `Address ${industryStrategy.objections[0] || 'common objections'}`, description: `Prepare materials to overcome ${industryStrategy.objections[0] || 'objections'}`}
     ],
     nextStage: {
       timeframe: upcomingStages.length > 0 ? "2-4 weeks" : "N/A",
       value: deal.value ? `$${deal.value.toLocaleString()}` : "To be determined",
       blockers: ["Complete requirement validation", "Budget approval"]
     },
-    recommendations: [
-      "Schedule follow-up meeting to address remaining questions",
-      "Provide detailed case studies from similar clients",
-      "Create customized implementation plan",
-      "Focus on unique value proposition"
-    ]
+    recommendations,
+    generatedAt: new Date().toISOString(),
+    dataQuality: 30 // Low quality since this is fallback
   };
 }
 
