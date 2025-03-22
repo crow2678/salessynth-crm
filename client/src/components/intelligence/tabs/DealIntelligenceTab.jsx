@@ -88,36 +88,40 @@ const DealIntelligenceTab = ({ clientId, userId }) => {
   }
 
   // Handle message-only cases (no deals or closed deals)
-  if (intelligence.message) {
-    return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-        <Zap className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-blue-800 mb-2">
-          {intelligence.hasDeals === false ? 'No Deals Found' : 'Deals Already Closed'}
-        </h3>
-        <p className="text-blue-600">{intelligence.message}</p>
-        
-		{intelligence.recommendations.map((rec, index) => (
-		  <li key={index} className="flex items-start">
-			<CheckCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
-			<span>
-			  {typeof rec === 'string' ? rec : 
-				(rec.title ? 
-				  <>
-					<strong>{rec.title}</strong>: {rec.description}
-				  </> : 
-				  JSON.stringify(rec)
-				)
-			  }
-			</span>
-		  </li>
-		))}
-            </ul>
-          </div>
-        )}
-      </div>
-    );
-  }
+if (intelligence.message) {
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+      <Zap className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+      <h3 className="text-lg font-medium text-blue-800 mb-2">
+        {intelligence.hasDeals === false ? 'No Deals Found' : 'Deals Already Closed'}
+      </h3>
+      <p className="text-blue-600">{intelligence.message}</p>
+      
+      {intelligence.recommendations && intelligence.recommendations.length > 0 && (
+        <div className="mt-6 text-left">
+          <h4 className="font-medium text-blue-800 mb-2">Recommendations:</h4>
+          <ul className="space-y-2">
+            {intelligence.recommendations.map((rec, index) => (
+              <li key={index} className="flex items-start">
+                <CheckCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
+                <span>
+                  {typeof rec === 'string' ? rec : 
+                    (rec.title ? 
+                      <>
+                        <strong>{rec.title}</strong>: {rec.description}
+                      </> : 
+                      JSON.stringify(rec)
+                    )
+                  }
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
   // Calculate score color
   const getScoreColor = (score) => {
