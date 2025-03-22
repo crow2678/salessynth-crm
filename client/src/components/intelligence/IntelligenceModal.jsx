@@ -1,23 +1,45 @@
 import React, { useState } from 'react';
-import { X, Rocket, MessageSquare, PieChart, Briefcase, Info } from 'lucide-react';
-import DealIntelligenceTab from './tabs/DealIntelligenceTab';
+import { X, Rocket, Briefcase, Building, Search, Users, LayoutDashboard } from 'lucide-react';
+import DealIntelligenceTab from './DealIntelligenceTab';
+import CompanyTab from './tabs/CompanyTab';
+import ProfileTab from './tabs/ProfileTab';
+import WebResearchTab from './tabs/WebResearchTab';
+import DashboardTab from './tabs/DashboardTab';
 
-const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) => {
-  const [activeTab, setActiveTab] = useState('deal');
+const IntelligenceModal = ({ 
+  isOpen, 
+  onClose, 
+  clientId, 
+  userId, 
+  clientName,
+  apolloData,
+  pdlData,
+  googleData,
+  researchData
+}) => {
+  const [activeTab, setActiveTab] = useState('dashboard');
 
+  // Include all available tabs including the Dashboard
   const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
     { id: 'deal', label: 'Deal Intelligence', icon: <Briefcase className="h-5 w-5" /> },
-    { id: 'company', label: 'Company Research', icon: <Info className="h-5 w-5" />, disabled: true },
-    { id: 'social', label: 'Social Intelligence', icon: <MessageSquare className="h-5 w-5" />, disabled: true },
-    { id: 'market', label: 'Market Analysis', icon: <PieChart className="h-5 w-5" />, disabled: true }
+    { id: 'company', label: 'Company Research', icon: <Building className="h-5 w-5" /> },
+    { id: 'profile', label: 'Contact Profile', icon: <Users className="h-5 w-5" /> },
+    { id: 'web', label: 'Web Research', icon: <Search className="h-5 w-5" /> }
   ];
 
   // If modal is not open, don't render
   if (!isOpen) return null;
 
+  const handleTabClick = (tabId) => {
+    setActiveTab(tabId);
+  };
+
+  const lastUpdated = researchData?.timestamp || null;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
           <div className="flex items-center space-x-3">
@@ -37,33 +59,37 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 overflow-x-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => !tab.disabled && setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium transition-colors relative
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium transition-colors
                 ${activeTab === tab.id
                   ? 'text-blue-600 border-b-2 border-blue-600'
-                  : tab.disabled
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-gray-600 hover:text-blue-600'
+                  : 'text-gray-600 hover:text-blue-600'
                 }`}
-              disabled={tab.disabled}
             >
               {tab.icon}
               <span>{tab.label}</span>
-              {tab.disabled && (
-                <span className="absolute top-2 right-2 text-xs py-0.5 px-1.5 bg-gray-100 text-gray-500 rounded-full">
-                  Soon
-                </span>
-              )}
             </button>
           ))}
         </div>
 
         {/* Content Area */}
-        <div className="p-6 overflow-auto" style={{ maxHeight: 'calc(90vh - 130px)' }}>
+        <div className="overflow-auto" style={{ maxHeight: 'calc(90vh - 130px)' }}>
+          {activeTab === 'dashboard' && (
+            <DashboardTab 
+              researchData={researchData}
+              googleData={googleData}
+              apolloData={apolloData}
+              pdlData={pdlData}
+              displayName={clientName}
+              lastUpdated={lastUpdated}
+              handleTabClick={handleTabClick}
+            />
+          )}
+          
           {activeTab === 'deal' && (
             <DealIntelligenceTab 
               clientId={clientId} 
@@ -72,33 +98,24 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
           )}
           
           {activeTab === 'company' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-              <Info className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-blue-800 mb-2">Company Research</h3>
-              <p className="text-blue-600">
-                Advanced company research capabilities are coming soon.
-              </p>
-            </div>
+            <CompanyTab 
+              apolloData={apolloData}
+              pdlData={pdlData}
+              displayName={clientName}
+            />
           )}
           
-          {activeTab === 'social' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-              <MessageSquare className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-blue-800 mb-2">Social Intelligence</h3>
-              <p className="text-blue-600">
-                Social media intelligence capabilities are coming soon.
-              </p>
-            </div>
+          {activeTab === 'profile' && (
+            <ProfileTab 
+              pdlData={pdlData}
+            />
           )}
           
-          {activeTab === 'market' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-              <PieChart className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-blue-800 mb-2">Market Analysis</h3>
-              <p className="text-blue-600">
-                Market analysis capabilities are coming soon.
-              </p>
-            </div>
+          {activeTab === 'web' && (
+            <WebResearchTab 
+              googleData={googleData}
+              displayName={clientName}
+            />
           )}
         </div>
       </div>
@@ -106,4 +123,4 @@ const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) =>
   );
 };
 
-export default IntelligenceModal;
+export default IntelligenceModal; 

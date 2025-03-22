@@ -1,6 +1,22 @@
 // src/utils/intelligenceUtils.js
 
 /**
+ * Format markdown for displaying summary content
+ * @param {string} markdown - Markdown text to format for HTML display
+ * @returns {string} - HTML formatted content
+ */
+export const formatMarkdown = (markdown) => {
+  if (!markdown) return '';
+  
+  // Simple markdown formatting for display
+  return markdown
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+    .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+    .replace(/\n\n/g, '<br/><br/>') // Paragraphs
+    .replace(/\n/g, '<br/>'); // Line breaks
+};
+
+/**
  * Format deal score for display
  * @param {number} score - Deal success probability score (0-100)
  * @returns {Object} - Formatted score with color and label
@@ -325,6 +341,7 @@ export const needsRefresh = (intelligence, cooldownPeriodHours = 12) => {
 };
 
 export default {
+  formatMarkdown,
   formatDealScore,
   formatTimeInStage,
   formatMomentum,
