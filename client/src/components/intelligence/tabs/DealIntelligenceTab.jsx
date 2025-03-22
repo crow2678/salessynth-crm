@@ -1,484 +1,374 @@
-// tabs/DealIntelligenceTab.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
- Rocket, 
- CheckCircle, 
- Clock, 
- AlertCircle,
- Check, 
- Shield, 
- BarChart, 
- Info, 
- TrendingUp, 
- FileText, 
- Calendar, 
- ExternalLink, 
- Globe, 
- GitBranch 
+  ChevronRight, 
+  ChevronDown, 
+  CheckCircle, 
+  XCircle, 
+  AlertTriangle, 
+  TrendingUp, 
+  TrendingDown, 
+  Zap, 
+  Clock, 
+  Calendar
 } from 'lucide-react';
-import { formatTimestamp } from '../utils/intelligenceUtils';
 
-// Deal Intelligence Components
-const DealScoreIndicator = ({ score, reasoning }) => {
- // Early return if no score data to prevent rendering with placeholders
- if (score === undefined || score === null) {
-   return (
-     <div className="flex items-center justify-center py-4">
-       <div className="text-center">
-         <div className="mx-auto w-20 h-20 border-4 border-dashed border-gray-200 rounded-full flex items-center justify-center mb-3">
-           <Rocket className="w-8 h-8 text-gray-300" />
-         </div>
-         <p className="text-gray-500 text-sm">No deal score available</p>
-       </div>
-     </div>
-   );
- }
+const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
 
- const getScoreColor = (score) => {
-   if (score >= 80) return "text-green-600";
-   if (score >= 70) return "text-green-500";
-   if (score >= 50) return "text-blue-500";
-   if (score >= 30) return "text-yellow-500";
-   return "text-orange-500";
- };
+const DealIntelligenceTab = ({ clientId, userId }) => {
+  const [intelligence, setIntelligence] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [expandedSection, setExpandedSection] = useState('overview');
 
- const getScoreLabel = (score) => {
-   if (score >= 80) return "Highly Likely";
-   if (score >= 70) return "Promising";
-   if (score >= 50) return "Moderately Positive";
-   if (score >= 30) return "Uncertain";
-   return "Challenging";
- };
+  // Function to fetch deal intelligence data
+  const fetchDealIntelligence = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
- const scoreColor = getScoreColor(score);
- const scoreLabel = getScoreLabel(score);
- const strokeColor = score >= 70 ? "#10b981" : score >= 50 ? "#3b82f6" : score >= 30 ? "#f59e0b" : "#f97316";
+      const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+      
+      // Extract deal intelligence from research data
+      if (response.data && response.data.data && response.data.data.dealIntelligence) {
+        setIntelligence(response.data.data.dealIntelligence);
+      } else {
+        setError('No deal intelligence available');
+      }
+    } catch (err) {
+      console.error('Error fetching deal intelligence:', err);
+      setError(err.response?.data?.message || 'Failed to load deal intelligence');
+    } finally {
+      setLoading(false);
+    }
+  };
 
- return (
-   <div className="flex items-center">
-     <div className="relative w-28 h-28 mr-6 flex-shrink-0">
-       <svg className="w-full h-full" viewBox="0 0 100 100">
-         <circle 
-           cx="50" cy="50" r="45" 
-           fill="none" 
-           stroke="#e5e7eb" 
-           strokeWidth="10"
-         />
-         <circle 
-           cx="50" cy="50" r="45" 
-           fill="none" 
-           stroke={strokeColor}
-           strokeWidth="10"
-           strokeDasharray={`${score * 2.83} 283`}
-           strokeLinecap="round"
-           transform="rotate(-90 50 50)"
-         />
-         <text 
-           x="50" y="50" 
-           dominantBaseline="middle" 
-           textAnchor="middle"
-           className="text-2xl font-bold"
-           fill="#1f2937"
-         >
-           {score}%
-         </text>
-       </svg>
-     </div>
-     
-     <div>
-       <div className="mb-2">
-         <span className={`text-2xl font-bold ${scoreColor}`}>
-           {scoreLabel}
-         </span>
-       </div>
-       <p className="text-gray-700 text-sm">{reasoning || "Analysis based on engagement patterns, client questions, and deal progression."}</p>
-     </div>
-   </div>
- );
-};
+  // Load data on component mount
+  useEffect(() => {
+    if (clientId && userId) {
+      fetchDealIntelligence();
+    }
+  }, [clientId, userId]);
 
-const DealStageTimeline = ({ stageData = {} }) => {
- // Early return if no substantial stage data is available
- if (!stageData || Object.keys(stageData).length === 0 || 
-     (!stageData.currentStage && !stageData.completedStages?.length && !stageData.upcomingStages?.length)) {
-   return (
-     <div className="border-l pl-6">
-       <h4 className="font-medium text-gray-800 mb-2">Deal Stage Analysis</h4>
-       <div className="relative">
-         <div className="flex items-center justify-center py-4 text-center">
-           <div className="text-gray-500 text-sm">
-             <Clock className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-             <p>No deal stage data available</p>
-           </div>
-         </div>
-       </div>
-     </div>
-   );
- }
- 
- // Use provided data or empty arrays to prevent errors
- const completedStages = stageData.completedStages || [];
- const currentStage = stageData.currentStage || "Unknown";
- const upcomingStages = stageData.upcomingStages || [];
+  // Toggle section expansion
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
 
- return (
-   <div className="border-l pl-6">
-     <h4 className="font-medium text-gray-800 mb-2">Deal Stage Analysis</h4>
-     <div className="relative">
-       <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-       <div className="space-y-4 relative">
-         {completedStages.map((stage, index) => (
-           <div key={index} className="flex items-center">
-             <div className="w-4 h-4 rounded-full bg-green-500 z-10 mr-3"></div>
-             <span className="text-gray-600 text-sm">{stage}</span>
-             <Check size={14} className="text-green-500 ml-2" />
-           </div>
-         ))}
-         <div className="flex items-center">
-           <div className="w-4 h-4 rounded-full bg-blue-500 z-10 mr-3"></div>
-           <span className="text-gray-800 font-medium text-sm">{currentStage}</span>
-           <Clock size={14} className="text-blue-500 ml-2" />
-           <span className="text-xs text-gray-500 ml-2">{stageData.timeInStage || "Unknown"}</span>
-         </div>
-         {upcomingStages.map((stage, index) => (
-           <div key={index} className="flex items-center">
-             <div className="w-4 h-4 rounded-full bg-gray-300 z-10 mr-3"></div>
-             <span className="text-gray-500 text-sm">{stage}</span>
-             {index === 0 && stageData.nextStageLikelihood > 0 && (
-               <span className="text-xs text-blue-600 ml-2">{stageData.nextStageLikelihood}% likelihood</span>
-             )}
-           </div>
-         ))}
-       </div>
-     </div>
-   </div>
- );
-};
+  // Render loading state
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+        <p className="text-gray-600">Loading deal intelligence...</p>
+      </div>
+    );
+  }
 
-const DealFactorsAnalysis = ({ factorsData }) => {
- // Early return if no factors data is available
- if (!factorsData || 
-     (!factorsData.positive?.length && !factorsData.negative?.length)) {
-   return (
-     <div className="p-6 border-b text-center">
-       <h3 className="text-lg font-semibold text-gray-800 mb-4">Key Success Factors</h3>
-       <div className="py-4">
-         <AlertCircle className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-         <p className="text-gray-500 text-sm">No deal factors available</p>
-       </div>
-     </div>
-   );
- }
+  // Render error state
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+        <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-red-800 mb-2">Unable to load deal intelligence</h3>
+        <p className="text-red-600">{error}</p>
+      </div>
+    );
+  }
 
- // Ensure we have arrays to work with even if data is partially empty
- const positiveFactors = factorsData.positive || [];
- const negativeFactors = factorsData.negative || [];
+  // Render not available state
+  if (!intelligence) {
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+        <Zap className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-blue-800 mb-2">Deal Intelligence Coming Soon</h3>
+        <p className="text-blue-600">We're analyzing your deal data to provide insights.</p>
+      </div>
+    );
+  }
 
- return (
-   <div className="p-6 border-b">
-     <h3 className="text-lg font-semibold text-gray-800 mb-4">Key Success Factors</h3>
-     <div className="grid grid-cols-2 gap-4">
-       <div className="space-y-3">
-         <h4 className="font-medium text-green-600 flex items-center">
-           <Check size={16} className="mr-1" />
-           Positive Signals
-         </h4>
-         {positiveFactors.length > 0 ? (
-           positiveFactors.map((factor, i) => (
-             <div key={i} className="flex items-center">
-               <div className="w-1 h-6 bg-green-500 rounded-sm mr-2"></div>
-               <span className="text-gray-700 text-sm">{factor.description}</span>
-               <div className="ml-auto flex">
-                 {[...Array(Math.min(Math.ceil((factor.impact || 60) / 20), 5))].map((_, i) => (
-                   <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-green-500" />
-                 ))}
-               </div>
-             </div>
-           ))
-         ) : (
-           <div className="text-gray-500 text-sm italic">No positive factors identified</div>
-         )}
-       </div>
-       
-       <div className="space-y-3">
-         <h4 className="font-medium text-orange-600 flex items-center">
-           <AlertCircle size={16} className="mr-1" />
-           Potential Concerns
-         </h4>
-         {negativeFactors.length > 0 ? (
-           negativeFactors.map((factor, i) => (
-             <div key={i} className="flex items-center">
-               <div className="w-1 h-6 bg-orange-500 rounded-sm mr-2"></div>
-               <span className="text-gray-700 text-sm">{factor.description}</span>
-               <div className="ml-auto flex">
-                 {[...Array(Math.min(Math.ceil((factor.impact || 40) / 20), 5))].map((_, i) => (
-                   <div key={i} className="w-1.5 h-1.5 mx-0.5 rounded-full bg-orange-500" />
-                 ))}
-               </div>
-             </div>
-           ))
-         ) : (
-           <div className="text-gray-500 text-sm italic">No concerns identified</div>
-         )}
-       </div>
-     </div>
-   </div>
- );
-};
+  // Handle message-only cases (no deals or closed deals)
+  if (intelligence.message) {
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+        <Zap className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-blue-800 mb-2">
+          {intelligence.hasDeals === false ? 'No Deals Found' : 'Deals Already Closed'}
+        </h3>
+        <p className="text-blue-600">{intelligence.message}</p>
+        
+        {intelligence.recommendations && intelligence.recommendations.length > 0 && (
+          <div className="mt-6 text-left">
+            <h4 className="font-medium text-blue-800 mb-2">Recommendations:</h4>
+            <ul className="space-y-2">
+              {intelligence.recommendations.map((rec, index) => (
+                <li key={index} className="flex items-start">
+                  <CheckCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
+                  <span>{rec}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
 
-const CriticalRequirementsAndNextStage = ({ requirements, nextStageData }) => {
- const hasRequirements = requirements && Array.isArray(requirements) && requirements.length > 0;
- const hasNextStageData = nextStageData && Object.keys(nextStageData).length > 0;
- 
- // Early return if no data is available for both sections
- if (!hasRequirements && !hasNextStageData) {
-   return (
-     <div className="p-6 border-b text-center">
-       <h3 className="text-lg font-semibold text-gray-800 mb-4">Client Requirements & Next Stage</h3>
-       <div className="py-4">
-         <FileText className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-         <p className="text-gray-500 text-sm">No requirements or next stage data available</p>
-       </div>
-     </div>
-   );
- }
+  // Calculate score color
+  const getScoreColor = (score) => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-blue-600';
+    if (score >= 40) return 'text-yellow-600';
+    return 'text-red-600';
+  };
 
- return (
-   <div className="p-6 border-b grid grid-cols-2 gap-6">
-     <div>
-       <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-         <Info size={18} className="mr-2 text-blue-500" />
-         Critical Client Requirements
-       </h3>
-       {hasRequirements ? (
-         <div className="space-y-2">
-           {requirements.map((req, idx) => (
-             <div key={idx} className="rounded-md border border-blue-100 bg-blue-50 p-3">
-               <h4 className="font-medium text-blue-800">{req.title}</h4>
-               <p className="text-sm text-blue-700 mt-1">{req.description}</p>
-             </div>
-           ))}
-         </div>
-       ) : (
-         <div className="text-center py-4">
-           <p className="text-gray-500 text-sm">No client requirements identified</p>
-         </div>
-       )}
-     </div>
-     
-     <div>
-       <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-         <TrendingUp size={18} className="mr-2 text-green-500" />
-         Next Stage Analysis
-       </h3>
-       {hasNextStageData ? (
-         <div className="space-y-4">
-           <div className="flex items-center justify-between">
-             <span className="text-gray-700">Timeframe:</span>
-             <span className="font-medium">{nextStageData.timeframe || "Unknown"}</span>
-           </div>
-           <div className="flex items-center justify-between">
-             <span className="text-gray-700">Potential Value:</span>
-             <span className="font-medium text-green-700">{nextStageData.value || "Unknown"}</span>
-           </div>
-           {nextStageData.blockers && nextStageData.blockers.length > 0 && (
-             <div>
-               <div className="text-gray-700 mb-2">Key Blockers:</div>
-               <ul className="space-y-1">
-                 {nextStageData.blockers.map((blocker, i) => (
-                   <li key={i} className="flex items-start">
-                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 mr-2"></span>
-                     <span className="text-sm text-gray-700">{blocker}</span>
-                   </li>
-                 ))}
-               </ul>
-             </div>
-           )}
-         </div>
-       ) : (
-         <div className="text-center py-4">
-           <p className="text-gray-500 text-sm">No next stage analysis available</p>
-         </div>
-       )}
-     </div>
-   </div>
- );
-};
+  // Calculate impact color
+  const getImpactColor = (impact) => {
+    if (impact >= 80) return 'bg-green-100 text-green-800';
+    if (impact >= 60) return 'bg-blue-100 text-blue-800';
+    if (impact >= 40) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
+  };
 
-const MarketIntelligence = ({ marketData }) => {
- const hasMarketData = marketData && Array.isArray(marketData) && marketData.length > 0;
- 
- // Early return if no market data is available
- if (!hasMarketData) {
-   return (
-     <div className="p-6 border-b text-center">
-       <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-         <BarChart size={18} className="mr-2 text-indigo-500" />
-         Market Intelligence
-       </h3>
-       <div className="py-4">
-         <Globe className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-         <p className="text-gray-500 text-sm">No market intelligence data available</p>
-       </div>
-     </div>
-   );
- }
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Deal Score Overview */}
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-800">Deal Intelligence</h2>
+          <div className="flex items-center">
+            <div className={`text-2xl font-bold ${getScoreColor(intelligence.dealScore)}`}>
+              {intelligence.dealScore}%
+            </div>
+            <div className="ml-2 text-sm text-gray-500">success probability</div>
+          </div>
+        </div>
+        
+        <p className="text-gray-600">{intelligence.reasoning}</p>
+        
+        {/* Deal Stage Progress */}
+        {intelligence.stageData && (
+          <div className="mt-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Deal Stage Progress</h3>
+            <div className="flex items-center space-x-1">
+              {['prospecting', 'qualified', 'proposal', 'negotiation', 'closed_won'].map((stage, index) => {
+                const isCompleted = intelligence.stageData.completedStages.includes(stage);
+                const isCurrent = intelligence.stageData.currentStage === stage;
+                
+                return (
+                  <div key={stage} className="flex items-center">
+                    <div 
+                      className={`h-3 w-16 rounded-full ${
+                        isCompleted ? 'bg-blue-500' : 
+                        isCurrent ? 'bg-blue-300' : 'bg-gray-200'
+                      }`}
+                    />
+                    {index < 4 && (
+                      <div className="w-2 h-2 mx-1">•</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between mt-1 text-xs text-gray-500">
+              <span>Prospecting</span>
+              <span>Qualified</span>
+              <span>Proposal</span>
+              <span>Negotiation</span>
+              <span>Closed</span>
+            </div>
+          </div>
+        )}
+      </div>
 
- return (
-   <div className="p-6 border-b">
-     <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-       <BarChart size={18} className="mr-2 text-indigo-500" />
-       Market Intelligence
-     </h3>
-     <div className="space-y-4">
-       {marketData.map((item, idx) => (
-         <div key={idx} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
-           <h4 className="font-medium text-indigo-700 flex items-center">
-             {item.title}
-             {item.url && (
-               <a 
-                 href={item.url} 
-                 target="_blank" 
-                 rel="noopener noreferrer"
-                 className="ml-2 text-gray-400 hover:text-gray-600"
-               >
-                 <ExternalLink size={14} />
-               </a>
-             )}
-           </h4>
-           <p className="text-sm text-gray-500 mt-1">{item.source} • {item.date}</p>
-           <p className="text-sm text-gray-700 mt-2">{item.snippet}</p>
-         </div>
-       ))}
-     </div>
-   </div>
- );
-};
+      {/* Collapsible Sections */}
+      {/* Factors Section */}
+      <div className="border-b border-gray-200">
+        <button
+          onClick={() => toggleSection('factors')}
+          className="flex items-center justify-between w-full px-6 py-4 text-left"
+        >
+          <div className="flex items-center">
+            {expandedSection === 'factors' ? (
+              <ChevronDown className="h-5 w-5 text-gray-500 mr-2" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-gray-500 mr-2" />
+            )}
+            <h3 className="font-medium text-gray-800">Success Factors</h3>
+          </div>
+          <div className="flex items-center text-sm">
+            <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
+            <span className="text-green-600 mr-3">{intelligence.factors?.positive?.length || 0} positive</span>
+            <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
+            <span className="text-red-600">{intelligence.factors?.negative?.length || 0} negative</span>
+          </div>
+        </button>
+        
+        {expandedSection === 'factors' && (
+          <div className="px-6 pb-6">
+            {intelligence.factors?.positive?.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Positive Factors</h4>
+                <div className="space-y-2">
+                  {intelligence.factors.positive.map((factor, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <div className="flex items-start">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                        <span className="text-gray-700">{factor.description}</span>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs ${getImpactColor(factor.impact)}`}>
+                        {factor.impact}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {intelligence.factors?.negative?.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Risk Factors</h4>
+                <div className="space-y-2">
+                  {intelligence.factors.negative.map((factor, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <div className="flex items-start">
+                        <XCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
+                        <span className="text-gray-700">{factor.description}</span>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs ${getImpactColor(factor.impact)}`}>
+                        {factor.impact}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
-const StrategicRecommendations = ({ recommendations }) => {
- const hasRecommendations = recommendations && Array.isArray(recommendations) && recommendations.length > 0;
- 
- // Early return if no recommendations are available
- if (!hasRecommendations) {
-   return (
-     <div className="p-6 bg-gray-50 text-center">
-       <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-center">
-         <Shield size={18} className="mr-2 text-green-600" />
-         Strategic Recommendations
-       </h3>
-       <div className="py-4">
-         <FileText className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-         <p className="text-gray-500 text-sm">No strategic recommendations available</p>
-       </div>
-     </div>
-   );
- }
+      {/* Requirements Section */}
+      {intelligence.requirements?.length > 0 && (
+        <div className="border-b border-gray-200">
+          <button
+            onClick={() => toggleSection('requirements')}
+            className="flex items-center justify-between w-full px-6 py-4 text-left"
+          >
+            <div className="flex items-center">
+              {expandedSection === 'requirements' ? (
+                <ChevronDown className="h-5 w-5 text-gray-500 mr-2" />
+              ) : (
+                <ChevronRight className="h-5 w-5 text-gray-500 mr-2" />
+              )}
+              <h3 className="font-medium text-gray-800">Customer Requirements</h3>
+            </div>
+            <span className="text-sm text-gray-500">{intelligence.requirements.length} identified</span>
+          </button>
+          
+          {expandedSection === 'requirements' && (
+            <div className="px-6 pb-6">
+              <div className="space-y-4">
+                {intelligence.requirements.map((req, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-4">
+                    <div className="font-medium text-gray-800 mb-1">{req.title}</div>
+                    <div className="text-gray-600 text-sm">{req.description}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
- return (
-   <div className="p-6 bg-gray-50">
-     <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-       <Shield size={18} className="mr-2 text-green-600" />
-       Strategic Recommendations
-     </h3>
-     <div className="space-y-3">
-       {recommendations.map((step, i) => (
-         <div key={i} className="flex items-start">
-           <div className="bg-green-100 text-green-800 rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
-             {i + 1}
-           </div>
-           <span className="text-gray-700">{step}</span>
-         </div>
-       ))}
-     </div>
-     
-     <div className="mt-8 grid grid-cols-2 gap-4">
-       <div>
-         <h4 className="font-medium text-gray-800 mb-3 flex items-center">
-           <GitBranch size={16} className="mr-2" />
-           Response Planning
-         </h4>
-         <button className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm">
-           Generate Response Plan
-         </button>
-       </div>
-       
-       <div>
-         <h4 className="font-medium text-gray-800 mb-3">Quick Actions</h4>
-         <div className="flex space-x-3">
-           <button className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center justify-center">
-             <Calendar size={14} className="mr-2" />
-             Schedule Meeting
-           </button>
-           <button className="flex-1 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center justify-center">
-             Update Notes
-           </button>
-         </div>
-       </div>
-     </div>
-   </div>
- );
-};
+      {/* Next Stage Section */}
+      {intelligence.nextStage && Object.keys(intelligence.nextStage).length > 0 && (
+        <div className="border-b border-gray-200">
+          <button
+            onClick={() => toggleSection('nextStage')}
+            className="flex items-center justify-between w-full px-6 py-4 text-left"
+          >
+            <div className="flex items-center">
+              {expandedSection === 'nextStage' ? (
+                <ChevronDown className="h-5 w-5 text-gray-500 mr-2" />
+              ) : (
+                <ChevronRight className="h-5 w-5 text-gray-500 mr-2" />
+              )}
+              <h3 className="font-medium text-gray-800">Path to Next Stage</h3>
+            </div>
+            <div className="flex items-center">
+              <Clock className="h-4 w-4 text-blue-500 mr-1" />
+              <span className="text-sm text-blue-600">{intelligence.nextStage.timeframe}</span>
+            </div>
+          </button>
+          
+          {expandedSection === 'nextStage' && (
+            <div className="px-6 pb-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Potential Value</div>
+                  <div className="text-xl font-semibold text-blue-700">{intelligence.nextStage.value}</div>
+                </div>
+                
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Next Stage Probability</div>
+                  <div className="text-xl font-semibold text-blue-700">
+                    {intelligence.stageData?.nextStageLikelihood || 'Unknown'}%
+                  </div>
+                </div>
+              </div>
+              
+              {intelligence.nextStage.blockers && intelligence.nextStage.blockers.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Potential Blockers</h4>
+                  <ul className="space-y-2">
+                    {intelligence.nextStage.blockers.map((blocker, index) => (
+                      <li key={index} className="flex items-start">
+                        <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2 flex-shrink-0 mt-0.5" />
+                        <span className="text-gray-700">{blocker}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
-// Main Deal Intelligence Tab Component
-const DealIntelligenceTab = ({ pdlData, displayName, lastUpdated, isLoading }) => {
- const isPdlDataAvailable = pdlData && Object.keys(pdlData).length > 0 && pdlData.dealScore > 0;
- 
- return (
-   <div className="p-6">
-     {isLoading ? (
-       <div className="text-center py-16 bg-white rounded-lg shadow-sm">
-         <Rocket className="w-16 h-16 text-gray-300 mx-auto mb-4 animate-pulse" />
-         <h3 className="text-xl font-semibold text-gray-700 mb-2">Deal intelligence is being generated...</h3>
-         <p className="text-gray-500 max-w-md mx-auto">
-           We're analyzing your interaction data to generate tailored intelligence.
-           This might take a few moments.
-         </p>
-       </div>
-     ) : isPdlDataAvailable ? (
-       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-         <div className="bg-gradient-to-r from-green-600 to-green-800 px-6 py-4">
-           <div className="flex justify-between items-center">
-             <h2 className="text-white text-xl font-bold flex items-center">
-               <Rocket className="mr-2" size={20} />
-               Deal Intelligence Report: {displayName}
-             </h2>
-             <div className="bg-white bg-opacity-20 rounded-lg px-3 py-1">
-               <span className="text-white font-medium">Updated: {formatTimestamp(lastUpdated)}</span>
-             </div>
-           </div>
-         </div>
-         
-         <div className="p-6 border-b grid grid-cols-2 gap-6">
-           <DealScoreIndicator 
-             score={pdlData.dealScore} 
-             reasoning={pdlData.reasoning} 
-           />
-           <DealStageTimeline stageData={pdlData.stageData} />
-         </div>
-         
-         <DealFactorsAnalysis factorsData={pdlData.factors} />
-         
-         <CriticalRequirementsAndNextStage 
-           requirements={pdlData.requirements} 
-           nextStageData={pdlData.nextStage} 
-         />
-         
-         <MarketIntelligence marketData={pdlData.marketData} />
-         
-         <StrategicRecommendations recommendations={pdlData.recommendations} />
-       </div>
-     ) : (
-       <div className="text-center py-16 bg-white rounded-lg shadow-sm">
-         <Rocket className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-         <h3 className="text-xl font-semibold text-gray-700 mb-2">Deal Intelligence Coming Soon</h3>
-         <p className="text-gray-500 max-w-md mx-auto">
-           We're analyzing your interaction data to generate tailored deal intelligence. 
-           This information will help predict deal success and provide strategic recommendations.
-         </p>
-       </div>
-     )}
-   </div>
- );
+      {/* Recommendations Section */}
+      {intelligence.recommendations?.length > 0 && (
+        <div>
+          <button
+            onClick={() => toggleSection('recommendations')}
+            className="flex items-center justify-between w-full px-6 py-4 text-left"
+          >
+            <div className="flex items-center">
+              {expandedSection === 'recommendations' ? (
+                <ChevronDown className="h-5 w-5 text-gray-500 mr-2" />
+              ) : (
+                <ChevronRight className="h-5 w-5 text-gray-500 mr-2" />
+              )}
+              <h3 className="font-medium text-gray-800">Recommendations</h3>
+            </div>
+            <span className="text-sm text-gray-500">{intelligence.recommendations.length} actions</span>
+          </button>
+          
+          {expandedSection === 'recommendations' && (
+            <div className="px-6 pb-6">
+              <ul className="space-y-2">
+                {intelligence.recommendations.map((rec, index) => (
+                  <li key={index} className="flex items-start">
+                    <Zap className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
+                    <span className="text-gray-700">{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default DealIntelligenceTab;
