@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Rocket, MessageSquare, PieChart, Briefcase, Info } from 'lucide-react';
-import DealIntelligenceTab from './DealIntelligenceTab';
+import DealIntelligenceTab from './tabs/DealIntelligenceTab';
 
 const IntelligenceModal = ({ isOpen, onClose, clientId, userId, clientName }) => {
   const [activeTab, setActiveTab] = useState('deal');
