@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Rocket, Briefcase, Building, Search, Users, LayoutDashboard } from 'lucide-react';
-import DealIntelligenceTab from './tabs/DealIntelligenceTab';
+import DealIntelligenceTab from './DealIntelligenceTab';
 import CompanyTab from './tabs/CompanyTab';
 import ProfileTab from './tabs/ProfileTab';
 import WebResearchTab from './tabs/WebResearchTab';
@@ -12,14 +12,11 @@ const IntelligenceModal = ({
   clientId, 
   userId, 
   clientName,
-  apolloData,
-  pdlData,
-  googleData,
   researchData
 }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // Include all available tabs including the Dashboard
+  // Include all available tabs
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
     { id: 'deal', label: 'Deal Intelligence', icon: <Briefcase className="h-5 w-5" /> },
@@ -31,11 +28,17 @@ const IntelligenceModal = ({
   // If modal is not open, don't render
   if (!isOpen) return null;
 
+  // Extract data from the nested structure
+  const apolloData = researchData?.data?.apollo || null;
+  const googleData = researchData?.data?.google || [];
+  const pdlData = researchData?.data?.pdl || null;
+  const dealIntelligence = researchData?.data?.dealIntelligence || null;
+  const lastUpdated = researchData?.timestamp || null;
+  const summary = researchData?.summary || null;
+
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
   };
-
-  const lastUpdated = researchData?.timestamp || null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -80,7 +83,7 @@ const IntelligenceModal = ({
         <div className="overflow-auto" style={{ maxHeight: 'calc(90vh - 130px)' }}>
           {activeTab === 'dashboard' && (
             <DashboardTab 
-              researchData={researchData}
+              researchData={{ summary }}
               googleData={googleData}
               apolloData={apolloData}
               pdlData={pdlData}
@@ -123,4 +126,4 @@ const IntelligenceModal = ({
   );
 };
 
-export default IntelligenceModal; 
+export default IntelligenceModal;
