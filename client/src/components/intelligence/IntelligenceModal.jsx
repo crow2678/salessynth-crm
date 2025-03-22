@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Rocket, Briefcase, Building, Search, Users, LayoutDashboard } from 'lucide-react';
-import DealIntelligenceTab from './DealIntelligenceTab';
+import DealIntelligenceTab from './tabs/DealIntelligenceTab';
 import CompanyTab from './tabs/CompanyTab';
 import ProfileTab from './tabs/ProfileTab';
 import WebResearchTab from './tabs/WebResearchTab';
