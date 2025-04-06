@@ -65,13 +65,16 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
     }
 
     // Check for won deals (NEW CODE)
-    const hasWonDeals = client.deals.some(deal => deal.status === 'closed_won');
-    if (hasWonDeals) {
-      return { 
-        icon: <CheckCircle className="h-5 w-5 text-green-500" />, 
-        tooltip: 'Closed Won' 
-      };
-    }
+
+	const hasWonDeals = client.deals.some(deal => 
+	  deal.status === 'closed_won' || deal.status === 'Closed Won'
+	);
+	if (hasWonDeals) {
+	  return { 
+		icon: <CheckCircle className="h-5 w-5 text-green-500" />, 
+		tooltip: 'Closed Won' 
+	  };
+	}
 
     // Check for lost deals
     const hasLostDeals = client.deals.some(deal => deal.status === 'closed_lost');
@@ -152,7 +155,11 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
 
 
   const { icon: statusIcon, tooltip: statusTooltip } = getDealStatusIcon();
-  // Part 3: Component Render
+  console.log("Deal statuses:", client.deals.map(deal => ({
+	  status: deal.status,
+	  title: deal.title,
+	  lastUpdated: deal.lastUpdated
+	})));
   return (
     <div className={`relative p-4 rounded-lg shadow-md border-l-4 
       ${client.isRecent ? 'border-t-2 border-t-blue-500' : ''} 
