@@ -1,0 +1,146 @@
+[
+  {
+    "userId": "67af9588198431f4d58e57cd",
+    "email": "paresh26@gmail.com",
+    "name": "Admin User",
+    "researchCount": 12,
+    "uniqueCompanies": [
+      "Caliber Holdings",
+      "CHASE",
+      "American Financial Resources",
+      "Goodleap",
+      "AWS",
+      "Cross Country Mortgage",
+      "PRMI",
+      "Movement Mortgage",
+      "SWBC BANK",
+      "REALTOR",
+      "ANCHOR LOANS",
+      "Supreme Lending"
+    ],
+    "lastResearchDate": "2025-03-24T18:32:52.551Z",
+    "recentResearch": [
+      {
+        "clientId": "67b19dec4de71d925f122689",
+        "company": "ANCHOR LOANS",
+        "timestamp": "2025-03-24T18:32:52.551Z"
+      },
+      {
+        "clientId": "67c93ad6569259fd9c076540",
+        "company": "Supreme Lending",
+        "timestamp": "2025-03-24T18:32:39.557Z"
+      },
+      {
+        "clientId": "67a877242ec83557fa63f530",
+        "company": "PRMI",
+        "timestamp": "2025-03-24T18:32:36.393Z"
+      },
+      {
+        "clientId": "67a1415a006a33f601e01780",
+        "company": "Cross Country Mortgage",
+        "timestamp": "2025-03-24T18:32:35.929Z"
+      },
+      {
+        "clientId": "67afac5934a9521a190a9f75",
+        "company": "SWBC BANK",
+        "timestamp": "2025-03-24T18:32:35.595Z"
+      }
+    ]
+  },
+  {
+    "userId": "67bc0219975f13143dceb528",
+    "email": "msrkrishnan6477@gmail.com",
+    "name": "Ram S",
+    "researchCount": 2,
+    "uniqueCompanies": [
+      "GUILD MORTGAGE",
+      "ARC Home LLC"
+    ],
+    "lastResearchDate": "2025-03-24T18:32:49.832Z",
+    "recentResearch": [
+      {
+        "clientId": "67bc02c3442e52cdebc7cbe9",
+        "company": "GUILD MORTGAGE",
+        "timestamp": "2025-03-24T18:32:49.832Z"
+      },
+      {
+        "clientId": "67c496b7d9c0c70d8672f9d0",
+        "company": "ARC Home LLC",
+        "timestamp": "2025-03-24T18:32:49.241Z"
+      }
+    ]
+  },
+  {
+    "userId": "67c4a98be552dbd9925d0ec6",
+    "email": "debi.roy@tavant.com",
+    "name": "Debi Roy",
+    "researchCount": 2,
+    "uniqueCompanies": [
+      "Freedom Mortgage"
+    ],
+    "lastResearchDate": "2025-03-24T18:33:07.510Z",
+    "recentResearch": [
+      {
+        "clientId": "67e1a3e877b9e8311f27e452",
+        "company": "Freedom Mortgage",
+        "timestamp": "2025-03-24T18:33:07.510Z"
+      },
+      {
+        "clientId": "67c4a9dfd9c0c70d8672fa61",
+        "company": "Freedom Mortgage",
+        "timestamp": "2025-03-24T18:32:50.059Z"
+      }
+    ]
+  },
+  {
+    "userId": "67b0d03f5fd90bc71e983dd5",
+    "email": "packer2008@gmail.com",
+    "name": "John doe",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "The Math Pal"
+    ],
+    "lastResearchDate": "2025-03-24T18:32:35.622Z",
+    "recentResearch": [
+      {
+        "clientId": "67b0d1e4df87316b3efcd355",
+        "company": "The Math Pal",
+        "timestamp": "2025-03-24T18:32:35.622Z"
+      }
+    ]
+  },
+  {
+    "userId": "67b13128df9cdb666370da0e",
+    "email": "packer2009@gmail.com",
+    "name": "John doe",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "Tavant"
+    ],
+    "lastResearchDate": "2025-03-24T18:29:52.539Z",
+    "recentResearch": [
+      {
+        "clientId": "67b13ea7da149d5df17562be",
+        "company": "Tavant",
+        "timestamp": "2025-03-24T18:29:52.539Z"
+      }
+    ]
+  },
+  {
+    "userId": "67c4a8911325e6882eaa8cda",
+    "email": "abhay.dubey@tavant.com",
+    "name": "Abhay Dubey",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "Update the record"
+    ],
+    "lastResearchDate": "2025-03-24T18:30:18.526Z",
+    "recentResearch": [
+      {
+        "clientId": "67c4a8f7d9c0c70d8672fa3f",
+        "company": "Update the record",
+        "timestamp": "2025-03-24T18:30:18.526Z"
+      }
+    ]
+  }
+]

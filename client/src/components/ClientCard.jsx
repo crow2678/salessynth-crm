@@ -15,11 +15,11 @@ import {
   Snowflake,
   TrendingDown,
   Star,
-  Rocket  // Added for intelligence feature
+  Rocket,
+  CheckCircle  // Added for closed won deals
 } from 'lucide-react';
 import { STATUS_CONFIG, getClientStatus, getDealStatus } from '../utils/statusUtils';
 
-//const ClientCard = ({ client, onEdit, onToggleBookmark, 	 }) => {  // Added onShowIntelligence
 const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) => {
   const status = getClientStatus(client);
   const statusConfig = STATUS_CONFIG[status];
@@ -49,7 +49,6 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
       return false;
     }
   };
-
   // Status and Event Handlers
   const getDealStatusIcon = () => {
     // If no deals, return null
@@ -62,6 +61,15 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
       return {
         icon: <Star className="h-5 w-5 text-blue-500" />,
         tooltip: 'Recent Client'
+      };
+    }
+
+    // Check for won deals (NEW CODE)
+    const hasWonDeals = client.deals.some(deal => deal.status === 'closed_won');
+    if (hasWonDeals) {
+      return { 
+        icon: <CheckCircle className="h-5 w-5 text-green-500" />, 
+        tooltip: 'Closed Won' 
       };
     }
 
@@ -127,24 +135,24 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
     onEdit(client);
   };
 
-	const handleIntelligenceClick = (e) => {  
-		e.stopPropagation();
+  const handleIntelligenceClick = (e) => {  
+    e.stopPropagation();
 
-		console.log("🚀 Handling Intelligence Click:");
-		console.log("Client ID:", client?._id);
-		console.log("User ID:", client?.userId);  // ✅ Debugging userId before passing it
+    console.log("🚀 Handling Intelligence Click:");
+    console.log("Client ID:", client?._id);
+    console.log("User ID:", client?.userId);  // ✅ Debugging userId before passing it
 
-		if (!client._id || !client.userId) {
-			console.error("🚨 Missing clientId or userId. Cannot open IntelligenceModal.");
-			return;
-		}
+    if (!client._id || !client.userId) {
+      console.error("🚨 Missing clientId or userId. Cannot open IntelligenceModal.");
+      return;
+    }
 
-		onShowIntelligence(client._id, client.userId, client.name);
-	};
+    onShowIntelligence(client._id, client.userId, client.name);
+  };
 
 
   const { icon: statusIcon, tooltip: statusTooltip } = getDealStatusIcon();
-  // Part 2: Component Render
+  // Part 3: Component Render
   return (
     <div className={`relative p-4 rounded-lg shadow-md border-l-4 
       ${client.isRecent ? 'border-t-2 border-t-blue-500' : ''} 
@@ -170,29 +178,29 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
           <p className="text-sm text-gray-600 truncate">{client.company || 'No Company'}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-		<button
-		  onClick={handleIntelligenceClick}
-		  className="w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 transition-all group"
-		  title="View Intelligence Report"
-		>
-		  <div className="relative">
-			<Rocket className="icon w-5 h-5 text-red-500 drop-shadow-lg transition-transform duration-300" />
-		  </div>
-		  <style jsx>{`
-			/* When the button (with class 'group') is hovered, animate the .icon */
-			.group:hover .icon {
-			  animation: pulse-scale 1.5s ease-in-out infinite;
-			}
-			@keyframes pulse-scale {
-			  0%, 100% {
-				transform: scale(1);
-			  }
-			  50% {
-				transform: scale(1.2);
-			  }
-			}
-		  `}</style>
-		</button>
+          <button
+            onClick={handleIntelligenceClick}
+            className="w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 transition-all group"
+            title="View Intelligence Report"
+          >
+            <div className="relative">
+              <Rocket className="icon w-5 h-5 text-red-500 drop-shadow-lg transition-transform duration-300" />
+            </div>
+            <style jsx>{`
+              /* When the button (with class 'group') is hovered, animate the .icon */
+              .group:hover .icon {
+                animation: pulse-scale 1.5s ease-in-out infinite;
+              }
+              @keyframes pulse-scale {
+                0%, 100% {
+                  transform: scale(1);
+                }
+                50% {
+                  transform: scale(1.2);
+                }
+              }
+            `}</style>
+          </button>
           <button
             onClick={handleBookmarkClick}
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
