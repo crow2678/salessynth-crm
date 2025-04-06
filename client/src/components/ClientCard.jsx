@@ -51,6 +51,11 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
   };
   // Status and Event Handlers
   const getDealStatusIcon = () => {
+	  console.log("Deal statuses:", client.deals.map(deal => ({
+		  status: deal.status,
+		  title: deal.title,
+		  lastUpdated: deal.lastUpdated
+		})));
     // If no deals, return null
     if (!client.deals || client.deals.length === 0) {
       return { icon: null, tooltip: 'No Deals' };
@@ -155,11 +160,7 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
 
 
   const { icon: statusIcon, tooltip: statusTooltip } = getDealStatusIcon();
-  console.log("Deal statuses:", client.deals.map(deal => ({
-	  status: deal.status,
-	  title: deal.title,
-	  lastUpdated: deal.lastUpdated
-	})));
+
   return (
     <div className={`relative p-4 rounded-lg shadow-md border-l-4 
       ${client.isRecent ? 'border-t-2 border-t-blue-500' : ''} 
