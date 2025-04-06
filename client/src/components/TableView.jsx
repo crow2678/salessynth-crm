@@ -17,7 +17,8 @@ import {
   Star,
   Rocket,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  CheckCircle  
 } from 'lucide-react';
 import { STATUS_CONFIG, getClientStatus, getDealStatus } from '../utils/statusUtils';
 
@@ -106,6 +107,19 @@ const TableView = ({
         tooltip: 'Active Deals' 
       };
     }
+
+  // Check for won deals - handle any case format variations
+  const hasWonDeals = client.deals.some(deal => {
+    const status = String(deal.status || '').toLowerCase();
+    return status.includes('closed') && status.includes('won');
+  });
+  
+  if (hasWonDeals) {
+    return { 
+      icon: <CheckCircle className="h-5 w-5 text-green-500" />, 
+      tooltip: 'Closed Won' 
+    };
+  }
 
     // Check for stalled deals
     const now = new Date();
