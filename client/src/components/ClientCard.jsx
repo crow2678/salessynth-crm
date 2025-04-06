@@ -49,13 +49,12 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
       return false;
     }
   };
+
   // Status and Event Handlers
   const getDealStatusIcon = () => {
-	  console.log("Deal statuses:", client.deals.map(deal => ({
-		  status: deal.status,
-		  title: deal.title,
-		  lastUpdated: deal.lastUpdated
-		})));
+    // Force log to ensure visibility
+    console.warn("DEBUGGING ClientCard - Client:", client.name, "Deals:", client.deals);
+    
     // If no deals, return null
     if (!client.deals || client.deals.length === 0) {
       return { icon: null, tooltip: 'No Deals' };
@@ -69,21 +68,29 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
       };
     }
 
-    // Check for won deals (NEW CODE)
-
-	const hasWonDeals = client.deals.some(deal => 
-	  deal.status === 'closed_won' || deal.status === 'Closed Won'
-	);
-	if (hasWonDeals) {
-	  return { 
-		icon: <CheckCircle className="h-5 w-5 text-green-500" />, 
-		tooltip: 'Closed Won' 
-	  };
-	}
+    // Check for won deals - handle any case format variations
+    const hasWonDeals = client.deals.some(deal => {
+      const status = String(deal.status || '').toLowerCase();
+      return status.includes('closed') && status.includes('won');
+    });
+    
+    if (hasWonDeals) {
+      return { 
+        icon: <CheckCircle className="h-5 w-5 text-green-500" />, 
+        tooltip: 'Closed Won' 
+      };
+    }
 
     // Check for lost deals
-    const hasLostDeals = client.deals.some(deal => deal.status === 'closed_lost');
-    if (hasLostDeals && client.deals.every(deal => deal.status === 'closed_lost')) {
+    const hasLostDeals = client.deals.some(deal => {
+      const status = String(deal.status || '').toLowerCase();
+      return status.includes('closed') && status.includes('lost');
+    });
+    
+    if (hasLostDeals && client.deals.every(deal => {
+      const status = String(deal.status || '').toLowerCase();
+      return status.includes('closed') && status.includes('lost');
+    })) {
       return { 
         icon: <TrendingDown className="h-5 w-5 text-red-500" />, 
         tooltip: 'Lost Deals' 
@@ -91,9 +98,11 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
     }
 
     // Check for active negotiations
-    const hasHotDeals = client.deals.some(deal => 
-      deal.status === 'negotiation' || deal.status === 'proposal'
-    );
+    const hasHotDeals = client.deals.some(deal => {
+      const status = String(deal.status || '').toLowerCase();
+      return status.includes('negotiation') || status.includes('proposal');
+    });
+    
     if (hasHotDeals) {
       return { 
         icon: <Flame className="h-5 w-5 text-orange-500" />, 
@@ -102,9 +111,11 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
     }
 
     // Check for active deals
-    const hasActiveDeals = client.deals.some(deal => 
-      ['prospecting', 'qualified'].includes(deal.status)
-    );
+    const hasActiveDeals = client.deals.some(deal => {
+      const status = String(deal.status || '').toLowerCase();
+      return status.includes('prospecting') || status.includes('qualified');
+    });
+    
     if (hasActiveDeals) {
       return { 
         icon: <CircleDollarSign className="h-5 w-5 text-green-500" />, 
@@ -112,12 +123,18 @@ const ClientCard = ({ client, onEdit, onToggleBookmark, onShowIntelligence }) =>
       };
     }
 
-    // Check for stalled deals
+    // Check for stalled deals - safe check for lastUpdated
     const now = new Date();
     const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-    const hasInactiveDeal = client.deals.some(deal => 
-      new Date(deal.lastUpdated) < thirtyDaysAgo
-    );
+    const hasInactiveDeal = client.deals.some(deal => {
+      if (!deal.lastUpdated) return false; // Skip if lastUpdated is missing
+      try {
+        return new Date(deal.lastUpdated) < thirtyDaysAgo;
+      } catch (e) {
+        console.error('Error parsing lastUpdated date:', e);
+        return false;
+      }
+    });
     
     if (hasInactiveDeal) {
       return { 
