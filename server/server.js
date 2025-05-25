@@ -53,6 +53,7 @@ const Flight = require('./models/Flight');
 const Deal = require('./models/Deal');
 const Feedback = require('./models/Feedback');
 const Interaction = require('./models/Interaction');
+const Research = require('./models/Research');
 // Add with other model imports
 //const Research = require('./agentic/database/models/Research');
 const researchRoutes = require('./agentic/routes/researchRoutes');
@@ -677,8 +678,11 @@ function calculateTimeToClose(deal) {
   return totalDays;
 }
 
+// Intelligence Summary Endpoint
 app.get('/api/summary/:clientId/:userId', authMiddleware, async (req, res) => {
   try {
+    console.log(`🔍 Fetching research for clientId: ${req.params.clientId}, userId: ${req.params.userId}`);
+    
     // Fetch research summary for the client
     const research = await Research.findOne({
       clientId: req.params.clientId,
@@ -686,14 +690,18 @@ app.get('/api/summary/:clientId/:userId', authMiddleware, async (req, res) => {
     }).lean();
 
     if (!research) {
+      console.log(`❌ No research found for clientId: ${req.params.clientId}`);
       return res.status(404).json({ 
         message: 'No research found for this client.' 
       });
     }
 
+    console.log(`✅ Research found for clientId: ${req.params.clientId}`);
+    console.log(`📊 Has dealIntelligence: ${!!research.dealIntelligence}`);
+
     res.json(research);
   } catch (error) {
-    console.error('Error fetching research summary:', error);
+    console.error('❌ Error fetching research summary:', error);
     res.status(500).json({ 
       message: 'Error fetching research summary',
       error: error.message 
