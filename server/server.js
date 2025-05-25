@@ -611,7 +611,7 @@ app.post('/api/generate-intelligence/:clientId/:userId', authMiddleware, async (
 // (This would be inserted into the generate-intelligence endpoint from Part 2)
 
 // Here's the complete logic for active deals:
-const completeIntelligenceGeneration = async (client, activeDeals, clientId, userId) => {
+/*const completeIntelligenceGeneration = async (client, activeDeals, clientId, userId) => {
   // Get the most advanced deal
   const primaryDeal = activeDeals.reduce((highest, current) => {
     const stageOrder = { 'prospecting': 1, 'qualified': 2, 'proposal': 3, 'negotiation': 4 };
@@ -730,7 +730,7 @@ const completeIntelligenceGeneration = async (client, activeDeals, clientId, use
   );
 
   return intelligence;
-};
+}; */
 
 // Deal Routes (keeping all existing functionality)
 app.get('/api/deals', authMiddleware, async (req, res) => {
