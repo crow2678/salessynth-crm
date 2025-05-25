@@ -59,7 +59,7 @@ const CompactDealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => 
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">
-            {toTitleCase(displayName)} - {dealValue || '$TBD'} Opportunity
+            {toTitleCase(displayName)}{dealValue && ` - ${dealValue}`}
           </h1>
           <p className="text-sm text-gray-600 mt-1">
             <span className={`font-medium ${getRiskColor(dealRisk)}`}>
@@ -143,12 +143,11 @@ const EngagementStrategy = ({ researchData }) => {
     );
   }
 
-  // Extract key strategy points from summary
+  // Extract ALL strategy points from summary - don't limit them
   const summaryText = researchData.summary;
   const strategyPoints = summaryText
     .split(/[•\*\-]/)
-    .filter(point => point.trim().length > 30)
-    .slice(0, 6)
+    .filter(point => point.trim().length > 20)
     .map(point => point.trim().replace(/^\d+\.?\s*/, ''));
 
   return (
@@ -158,10 +157,10 @@ const EngagementStrategy = ({ researchData }) => {
         Engagement Strategy
       </h3>
       
-      <div className="space-y-2">
+      <div className="space-y-3">
         {strategyPoints.map((point, idx) => (
           <div key={idx} className="flex items-start text-sm">
-            <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
+            <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
               <span className="text-purple-600 text-xs font-bold">{idx + 1}</span>
             </div>
             <span className="text-gray-700 leading-relaxed">{point}</span>
@@ -186,19 +185,26 @@ const CompanyIntel = ({ apolloData, googleData }) => {
       </h3>
       
       <div className="space-y-3">
-        {/* Company basics */}
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <span className="text-gray-500">Industry:</span>
-            <span className="ml-1 font-medium">{toTitleCase(companyInfo.industry) || 'Unknown'}</span>
+        {/* Company basics - only show if we have valid data */}
+        {(companyInfo.industry && companyInfo.industry !== 'Unknown' && companyInfo.industry !== 'unknown') || 
+         (companyInfo.size && companyInfo.size !== 'Unknown' && companyInfo.size !== 'unknown') ? (
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {companyInfo.industry && companyInfo.industry !== 'Unknown' && companyInfo.industry !== 'unknown' && (
+              <div>
+                <span className="text-gray-500">Industry:</span>
+                <span className="ml-1 font-medium">{toTitleCase(companyInfo.industry)}</span>
+              </div>
+            )}
+            {companyInfo.size && companyInfo.size !== 'Unknown' && companyInfo.size !== 'unknown' && (
+              <div>
+                <span className="text-gray-500">Size:</span>
+                <span className="ml-1 font-medium">
+                  {companyInfo.size ? `${companyInfo.size} employees` : 'Unknown'}
+                </span>
+              </div>
+            )}
           </div>
-          <div>
-            <span className="text-gray-500">Size:</span>
-            <span className="ml-1 font-medium">
-              {companyInfo.size ? `${companyInfo.size} employees` : 'Unknown'}
-            </span>
-          </div>
-        </div>
+        ) : null}
         
         {/* Key signals */}
         {insights.buyingSignals?.length > 0 && (
@@ -236,6 +242,13 @@ const CompanyIntel = ({ apolloData, googleData }) => {
                 <div className="text-sm text-amber-700">{insights.growthIndicators[0]}</div>
               </div>
             </div>
+          </div>
+        )}
+        
+        {/* Show message if no company data */}
+        {!companyInfo.industry && !companyInfo.size && !insights.buyingSignals?.length && !hasNews && !insights.growthIndicators?.length && (
+          <div className="text-center py-3">
+            <p className="text-sm text-gray-500">Company intelligence being gathered...</p>
           </div>
         )}
       </div>
@@ -466,8 +479,8 @@ const DashboardTab = ({
         nextAction={nextAction}
       />
       
-      {/* Compact Metrics - Single Row */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      {/* Compact Metrics - Remove WIN PROB card */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
         <CompactMetricCard
           title="THIS WEEK"
           value={thisWeekTasks}
@@ -482,13 +495,6 @@ const DashboardTab = ({
           icon={AlertTriangle}
           color="red"
           urgency={overdueCount > 0 ? 'urgent' : 'normal'}
-        />
-        <CompactMetricCard
-          title="WIN PROB"
-          value={`${winProbability}%`}
-          subtitle="Developing"
-          icon={Target}
-          color="amber"
         />
         <CompactMetricCard
           title="TIMELINE"
