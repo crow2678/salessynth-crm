@@ -27,7 +27,10 @@ import {
   Bell,
   ChevronRight,
   PlayCircle,
-  Briefcase
+  Briefcase,
+  Eye,
+  ThumbsUp,
+  MapPin
 } from 'lucide-react';
 import { GoogleNewsCard } from '../common/CommonComponents';
 import { formatMarkdown } from '../utils/intelligenceUtils';
@@ -40,349 +43,208 @@ const toTitleCase = (str) => {
   );
 };
 
-// Deal Status Header
-const DealStatusHeader = ({ displayName, dealValue, dealStage, dealRisk, nextAction }) => {
+// Compact Deal Header
+const CompactDealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => {
   const getRiskColor = (risk) => {
     switch (risk?.toLowerCase()) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium': return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getRiskIcon = (risk) => {
-    switch (risk?.toLowerCase()) {
-      case 'high': return <AlertTriangle className="h-4 w-4" />;
-      case 'medium': return <AlertCircle className="h-4 w-4" />;
-      case 'low': return <CheckCircle className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
+      case 'high': return 'text-red-600';
+      case 'medium': return 'text-amber-600';
+      case 'low': return 'text-green-600';
+      default: return 'text-gray-600';
     }
   };
 
   return (
-    <div className="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
-          <div className="p-3 bg-blue-100 rounded-lg mr-4">
-            <Target className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {toTitleCase(displayName)} - {dealValue || '$TBD'} Opportunity
-            </h1>
-            <p className="text-gray-600">Deal Command Center</p>
-          </div>
-        </div>
-        
-        <div className={`flex items-center px-4 py-2 rounded-lg border-2 ${getRiskColor(dealRisk)}`}>
-          {getRiskIcon(dealRisk)}
-          <span className="ml-2 font-semibold">
-            {dealRisk ? `${dealRisk.toUpperCase()} RISK` : 'ANALYZING'}
-          </span>
+    <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">
+            {toTitleCase(displayName)} - {dealValue || '$TBD'} Opportunity
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">
+            <span className={`font-medium ${getRiskColor(dealRisk)}`}>
+              {dealRisk ? `${dealRisk.toUpperCase()} RISK` : 'ANALYZING'}
+            </span>
+            {nextAction && <span className="ml-3">• Next: {nextAction}</span>}
+          </p>
         </div>
       </div>
-      
-      {nextAction && (
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-          <div className="flex items-start">
-            <Bell className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
-            <div>
-              <p className="font-semibold text-blue-900">Next Critical Action:</p>
-              <p className="text-blue-800 mt-1">{nextAction}</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-// Action Card Component
-const ActionCard = ({ title, value, subtitle, icon: IconComponent, color = 'blue', urgency = 'normal', onClick }) => {
-  const getColorClasses = (color, urgency) => {
-    if (urgency === 'urgent') {
-      return 'border-red-300 bg-red-50 hover:bg-red-100';
-    }
-    if (urgency === 'warning') {
-      return 'border-amber-300 bg-amber-50 hover:bg-amber-100';
-    }
-    
+// Compact Metric Card
+const CompactMetricCard = ({ title, value, subtitle, icon: IconComponent, color = 'blue', urgency = 'normal' }) => {
+  const getBgColor = (color, urgency) => {
+    if (urgency === 'urgent') return 'bg-red-50 border-red-200';
     const colors = {
-      blue: 'border-blue-200 bg-blue-50 hover:bg-blue-100',
-      green: 'border-green-200 bg-green-50 hover:bg-green-100',
-      amber: 'border-amber-200 bg-amber-50 hover:bg-amber-100',
-      red: 'border-red-200 bg-red-50 hover:bg-red-100',
-      purple: 'border-purple-200 bg-purple-50 hover:bg-purple-100'
+      blue: 'bg-blue-50 border-blue-200',
+      green: 'bg-green-50 border-green-200', 
+      amber: 'bg-amber-50 border-amber-200',
+      red: 'bg-red-50 border-red-200'
     };
     return colors[color] || colors.blue;
   };
 
   const getTextColor = (color, urgency) => {
     if (urgency === 'urgent') return 'text-red-700';
-    if (urgency === 'warning') return 'text-amber-700';
-    
     const colors = {
       blue: 'text-blue-700',
       green: 'text-green-700',
-      amber: 'text-amber-700',
-      red: 'text-red-700',
-      purple: 'text-purple-700'
-    };
-    return colors[color] || colors.blue;
-  };
-
-  const getIconColor = (color, urgency) => {
-    if (urgency === 'urgent') return 'text-red-600';
-    if (urgency === 'warning') return 'text-amber-600';
-    
-    const colors = {
-      blue: 'text-blue-600',
-      green: 'text-green-600',
-      amber: 'text-amber-600',
-      red: 'text-red-600',
-      purple: 'text-purple-600'
+      amber: 'text-amber-700', 
+      red: 'text-red-700'
     };
     return colors[color] || colors.blue;
   };
 
   return (
-    <div 
-      className={`border-2 rounded-xl p-6 text-center cursor-pointer transition-all duration-200 ${getColorClasses(color, urgency)}`}
-      onClick={onClick}
-    >
+    <div className={`border rounded-lg p-3 ${getBgColor(color, urgency)}`}>
       {urgency === 'urgent' && (
-        <div className="flex justify-center mb-2">
-          <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
-            URGENT
-          </span>
-        </div>
+        <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full mb-2 inline-block">
+          URGENT
+        </span>
       )}
-      
-      <div className="flex justify-center mb-3">
-        <div className={`p-3 bg-white rounded-full shadow-sm`}>
-          <IconComponent className={`h-6 w-6 ${getIconColor(color, urgency)}`} />
+      <div className="flex items-center justify-between">
+        <div>
+          <div className={`text-xl font-bold ${getTextColor(color, urgency)}`}>
+            {value}
+          </div>
+          <div className="text-xs font-medium text-gray-700 uppercase">
+            {title}
+          </div>
+          {subtitle && (
+            <div className="text-xs text-gray-600 mt-0.5">
+              {subtitle}
+            </div>
+          )}
         </div>
+        <IconComponent className={`h-5 w-5 ${getTextColor(color, urgency).replace('text-', 'text-').replace('-700', '-600')}`} />
       </div>
-      
-      <div className={`text-2xl font-bold ${getTextColor(color, urgency)} mb-1`}>
-        {value}
-      </div>
-      <div className="text-sm font-semibold text-gray-700 mb-1">
-        {title}
-      </div>
-      {subtitle && (
-        <div className="text-xs text-gray-600">
-          {subtitle}
-        </div>
-      )}
     </div>
   );
 };
 
-// Deal Playbook Component
-const DealPlaybook = ({ researchData, apolloData, pdlData, handleTabClick }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+// Engagement Strategy Component
+const EngagementStrategy = ({ researchData }) => {
+  const hasSummary = researchData?.summary;
   
-  // Generate playbook items based on available data
-  const generatePlaybookItems = () => {
-    const items = [];
-    
-    // Check for recent activity
-    if (apolloData?.deals?.[0]) {
-      const deal = apolloData.deals[0];
-      items.push({
-        status: 'completed',
-        text: `Deal created: ${toTitleCase(deal.title || 'Sales Opportunity')}`,
-        action: null
-      });
-    }
-    
-    // Check for company signals
-    if (apolloData?.insights?.buyingSignals?.length > 0) {
-      items.push({
-        status: 'opportunity',
-        text: `Buying signal detected: ${apolloData.insights.buyingSignals[0]}`,
-        action: 'Schedule discovery call to explore needs'
-      });
-    }
-    
-    // Check for contact information
-    if (apolloData?.keyPeople?.length > 0) {
-      items.push({
-        status: 'pending',
-        text: `Key contact identified: ${apolloData.keyPeople[0].name}`,
-        action: 'Reach out to establish relationship'
-      });
-    }
-    
-    // AI insights
-    if (researchData?.summary) {
-      items.push({
-        status: 'analysis',
-        text: 'AI analysis completed with strategic recommendations',
-        action: 'Review full analysis for talking points'
-      });
-    }
-    
-    // Default next steps if no specific data
-    if (items.length === 0) {
-      items.push(
-        {
-          status: 'pending',
-          text: 'Initial contact needed',
-          action: 'Research key stakeholders and schedule intro call'
-        },
-        {
-          status: 'opportunity',
-          text: 'Qualification required',
-          action: 'Determine budget, authority, need, and timeline'
-        }
-      );
-    }
-    
-    return items;
-  };
+  if (!hasSummary) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <Star className="h-4 w-4 text-purple-600 mr-2" />
+          Engagement Strategy
+        </h3>
+        <div className="text-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-500">Generating strategy...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const playbookItems = generatePlaybookItems();
-  const visibleItems = isExpanded ? playbookItems : playbookItems.slice(0, 3);
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'pending': return <Clock className="h-4 w-4 text-amber-600" />;
-      case 'opportunity': return <Zap className="h-4 w-4 text-blue-600" />;
-      case 'analysis': return <Activity className="h-4 w-4 text-purple-600" />;
-      default: return <AlertCircle className="h-4 w-4 text-gray-600" />;
-    }
-  };
+  // Extract key strategy points from summary
+  const summaryText = researchData.summary;
+  const strategyPoints = summaryText
+    .split(/[•\*\-]/)
+    .filter(point => point.trim().length > 30)
+    .slice(0, 6)
+    .map(point => point.trim().replace(/^\d+\.?\s*/, ''));
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-xl text-gray-900 flex items-center">
-          <PlayCircle className="h-6 w-6 text-green-600 mr-3" />
-          Deal Playbook
-        </h3>
-        <button 
-          onClick={() => handleTabClick('deal')}
-          className="text-sm text-blue-600 hover:text-blue-700 flex items-center font-medium"
-        >
-          Full Strategy
-          <ArrowRight className="h-4 w-4 ml-1" />
-        </button>
-      </div>
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <Star className="h-4 w-4 text-purple-600 mr-2" />
+        Engagement Strategy
+      </h3>
       
-      <div className="space-y-3">
-        {visibleItems.map((item, idx) => (
-          <div key={idx} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-            {getStatusIcon(item.status)}
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">{item.text}</p>
-              {item.action && (
-                <p className="text-sm text-blue-600 mt-1">→ {item.action}</p>
-              )}
+      <div className="space-y-2">
+        {strategyPoints.map((point, idx) => (
+          <div key={idx} className="flex items-start text-sm">
+            <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
+              <span className="text-purple-600 text-xs font-bold">{idx + 1}</span>
             </div>
+            <span className="text-gray-700 leading-relaxed">{point}</span>
           </div>
         ))}
       </div>
-      
-      {playbookItems.length > 3 && (
-        <button 
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full text-sm text-gray-600 hover:text-gray-800 font-medium flex items-center justify-center py-2 mt-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          {isExpanded ? 'Show Less' : `Show ${playbookItems.length - 3} More Steps`}
-        </button>
-      )}
     </div>
   );
 };
 
-// Intelligence Alert Component
-const IntelligenceAlert = ({ googleData, apolloData }) => {
-  const alerts = [];
-  
-  // Check for recent news
-  if (googleData && googleData.length > 0) {
-    const recentNews = googleData[0];
-    if (recentNews.publishedDate) {
-      const newsDate = new Date(recentNews.publishedDate);
-      const daysSince = Math.floor((new Date() - newsDate) / (1000 * 60 * 60 * 24));
-      if (daysSince <= 7) {
-        alerts.push({
-          type: 'news',
-          urgency: 'medium',
-          title: 'Recent News Alert',
-          message: `New article published ${daysSince} days ago: "${recentNews.title.substring(0, 80)}..."`,
-          action: 'Review for conversation starters'
-        });
-      }
-    }
-  }
-  
-  // Check for funding/growth signals
-  if (apolloData?.funding?.lastFunding) {
-    alerts.push({
-      type: 'funding',
-      urgency: 'high',
-      title: 'Funding Signal',
-      message: `Company raised ${apolloData.funding.lastFunding.amount} in ${apolloData.funding.lastFunding.type} funding`,
-      action: 'Timing is ideal for expansion discussions'
-    });
-  }
-  
-  // Check for hiring signals
-  if (apolloData?.insights?.growthIndicators?.length > 0) {
-    const growthSignal = apolloData.insights.growthIndicators[0];
-    if (growthSignal.toLowerCase().includes('hiring') || growthSignal.toLowerCase().includes('team')) {
-      alerts.push({
-        type: 'growth',
-        urgency: 'medium',
-        title: 'Growth Signal',
-        message: growthSignal,
-        action: 'Position solution as growth enabler'
-      });
-    }
-  }
-  
-  if (alerts.length === 0) return null;
+// Company Intel Component
+const CompanyIntel = ({ apolloData, googleData }) => {
+  const companyInfo = apolloData?.company || {};
+  const insights = apolloData?.insights || {};
+  const hasNews = googleData && googleData.length > 0;
   
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="font-bold text-xl text-gray-900 mb-4 flex items-center">
-        <Bell className="h-6 w-6 text-red-600 mr-3" />
-        Intelligence Alerts
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <Building className="h-4 w-4 text-blue-600 mr-2" />
+        Company Intelligence
       </h3>
       
       <div className="space-y-3">
-        {alerts.map((alert, idx) => (
-          <div key={idx} className={`border-l-4 rounded-r-lg p-4 ${
-            alert.urgency === 'high' ? 'border-red-500 bg-red-50' :
-            alert.urgency === 'medium' ? 'border-amber-500 bg-amber-50' :
-            'border-blue-500 bg-blue-50'
-          }`}>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h4 className="font-semibold text-gray-900 mb-1">{alert.title}</h4>
-                <p className="text-sm text-gray-700 mb-2">{alert.message}</p>
-                <p className="text-sm font-medium text-blue-600">💡 {alert.action}</p>
+        {/* Company basics */}
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <span className="text-gray-500">Industry:</span>
+            <span className="ml-1 font-medium">{toTitleCase(companyInfo.industry) || 'Unknown'}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Size:</span>
+            <span className="ml-1 font-medium">
+              {companyInfo.size ? `${companyInfo.size} employees` : 'Unknown'}
+            </span>
+          </div>
+        </div>
+        
+        {/* Key signals */}
+        {insights.buyingSignals?.length > 0 && (
+          <div className="bg-green-50 border border-green-200 rounded p-2">
+            <div className="flex items-start">
+              <Zap className="h-4 w-4 text-green-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-green-800 uppercase">Buying Signal</div>
+                <div className="text-sm text-green-700">{insights.buyingSignals[0]}</div>
               </div>
-              {alert.urgency === 'high' && (
-                <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                  HOT
-                </span>
-              )}
             </div>
           </div>
-        ))}
+        )}
+        
+        {/* Recent news */}
+        {hasNews && (
+          <div className="bg-blue-50 border border-blue-200 rounded p-2">
+            <div className="flex items-start">
+              <MessageSquare className="h-4 w-4 text-blue-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-blue-800 uppercase">Recent News</div>
+                <div className="text-sm text-blue-700">{googleData[0].title.substring(0, 80)}...</div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Growth indicators */}
+        {insights.growthIndicators?.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded p-2">
+            <div className="flex items-start">
+              <TrendingUp className="h-4 w-4 text-amber-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-amber-800 uppercase">Growth Signal</div>
+                <div className="text-sm text-amber-700">{insights.growthIndicators[0]}</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 // Contact Strategy Component
-const ContactStrategy = ({ apolloData, pdlData, handleTabClick }) => {
+const ContactStrategy = ({ apolloData, pdlData }) => {
   const contacts = [];
   
   // Add PDL contact if available
@@ -391,12 +253,9 @@ const ContactStrategy = ({ apolloData, pdlData, handleTabClick }) => {
     contacts.push({
       name: person.full_name || `${person.first_name || ''} ${person.last_name || ''}`,
       title: person.job_title || 'Unknown Title',
-      relationship: 'Primary Contact',
-      lastContact: null,
-      nextAction: 'Initial outreach',
       priority: 'high',
-      email: person.emails?.[0]?.address,
-      linkedin: person.linkedin_url
+      action: 'Initial outreach',
+      email: person.emails?.[0]?.address
     });
   }
   
@@ -406,85 +265,161 @@ const ContactStrategy = ({ apolloData, pdlData, handleTabClick }) => {
       contacts.push({
         name: person.name,
         title: person.title,
-        relationship: person.seniority || 'Stakeholder',
-        lastContact: null,
-        nextAction: 'Research and connect',
         priority: 'medium',
-        email: person.email,
-        linkedin: person.linkedinUrl
+        action: 'Research & connect',
+        email: person.email
       });
     });
   }
   
   if (contacts.length === 0) {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl p-6 text-center">
-        <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="font-semibold text-gray-700 mb-2">No Contacts Identified</h3>
-        <p className="text-gray-500 text-sm">Contact research in progress</p>
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <Users className="h-4 w-4 text-green-600 mr-2" />
+          Contact Strategy
+        </h3>
+        <div className="text-center py-3">
+          <p className="text-sm text-gray-500">No contacts identified yet</p>
+        </div>
       </div>
     );
   }
   
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-xl text-gray-900 flex items-center">
-          <Users className="h-6 w-6 text-green-600 mr-3" />
-          Contact Strategy
-        </h3>
-        <button 
-          onClick={() => handleTabClick('profile')}
-          className="text-sm text-blue-600 hover:text-blue-700 flex items-center font-medium"
-        >
-          All Contacts
-          <ArrowRight className="h-4 w-4 ml-1" />
-        </button>
-      </div>
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <Users className="h-4 w-4 text-green-600 mr-2" />
+        Contact Strategy
+      </h3>
       
-      <div className="space-y-4">
+      <div className="space-y-2">
         {contacts.map((contact, idx) => {
           const initials = contact.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
           
           return (
-            <div key={idx} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              <div className={`w-12 h-12 ${
-                contact.priority === 'high' ? 'bg-red-500' : 
-                contact.priority === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
-              } text-white rounded-full flex items-center justify-center font-semibold`}>
+            <div key={idx} className="flex items-center space-x-3 p-2 bg-gray-50 rounded">
+              <div className={`w-8 h-8 ${
+                contact.priority === 'high' ? 'bg-red-500' : 'bg-blue-500'
+              } text-white rounded-full flex items-center justify-center text-xs font-semibold`}>
                 {initials}
               </div>
               
-              <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-1">
-                  <h4 className="font-semibold text-gray-900">{toTitleCase(contact.name)}</h4>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    contact.priority === 'high' ? 'bg-red-100 text-red-800' :
-                    contact.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
-                    'bg-blue-100 text-blue-800'
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium text-sm text-gray-900">{toTitleCase(contact.name)}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                    contact.priority === 'high' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
                   }`}>
                     {contact.priority.toUpperCase()}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 mb-1">{toTitleCase(contact.title)}</p>
-                <p className="text-sm font-medium text-blue-600">→ {contact.nextAction}</p>
+                <div className="text-xs text-gray-600">{toTitleCase(contact.title)}</div>
+                <div className="text-xs text-blue-600 font-medium">→ {contact.action}</div>
               </div>
               
-              <div className="flex flex-col space-y-2">
-                {contact.email && (
-                  <button className="p-2 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors">
-                    <Mail className="h-4 w-4 text-blue-600" />
-                  </button>
-                )}
-                {contact.linkedin && (
-                  <button className="p-2 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors">
-                    <User className="h-4 w-4 text-blue-600" />
-                  </button>
-                )}
-              </div>
+              {contact.email && (
+                <button className="p-1.5 bg-blue-100 hover:bg-blue-200 rounded transition-colors">
+                  <Mail className="h-3 w-3 text-blue-600" />
+                </button>
+              )}
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+};
+
+// Deal Playbook Component
+const DealPlaybook = ({ researchData, apolloData, pdlData }) => {
+  const generatePlaybookItems = () => {
+    const items = [];
+    
+    // Research completed
+    if (researchData?.summary) {
+      items.push({
+        status: 'completed',
+        text: 'AI analysis completed',
+        priority: 'normal'
+      });
+    }
+    
+    // Company research
+    if (apolloData?.company) {
+      items.push({
+        status: 'completed', 
+        text: 'Company profile researched',
+        priority: 'normal'
+      });
+    }
+    
+    // Contact identification
+    if (apolloData?.keyPeople?.length > 0 || pdlData?.personData) {
+      items.push({
+        status: 'completed',
+        text: 'Key contacts identified',
+        priority: 'normal'
+      });
+    }
+    
+    // Next steps
+    items.push(
+      {
+        status: 'pending',
+        text: 'Initial contact outreach',
+        priority: 'high'
+      },
+      {
+        status: 'pending',
+        text: 'Discovery call scheduled',
+        priority: 'high'
+      },
+      {
+        status: 'future',
+        text: 'Needs assessment',
+        priority: 'medium'
+      }
+    );
+    
+    return items;
+  };
+
+  const items = generatePlaybookItems();
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="h-3 w-3 text-green-600" />;
+      case 'pending': return <Clock className="h-3 w-3 text-amber-600" />;
+      case 'future': return <AlertCircle className="h-3 w-3 text-gray-400" />;
+      default: return <AlertCircle className="h-3 w-3 text-gray-400" />;
+    }
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <PlayCircle className="h-4 w-4 text-green-600 mr-2" />
+        Deal Playbook
+      </h3>
+      
+      <div className="space-y-2">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center space-x-2 text-sm">
+            {getStatusIcon(item.status)}
+            <span className={`flex-1 ${
+              item.status === 'completed' ? 'text-gray-600 line-through' : 
+              item.priority === 'high' ? 'text-gray-900 font-medium' : 'text-gray-700'
+            }`}>
+              {item.text}
+            </span>
+            {item.priority === 'high' && item.status === 'pending' && (
+              <span className="bg-red-100 text-red-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                NEXT
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -500,7 +435,7 @@ const DashboardTab = ({
   lastUpdated, 
   handleTabClick 
 }) => {
-  // Calculate deal metrics from available data
+  // Calculate deal metrics
   const dealValue = apolloData?.deals?.[0]?.value ? 
     `$${apolloData.deals[0].value.toLocaleString()}` : 
     pdlData?.dealValue || null;
@@ -514,110 +449,155 @@ const DashboardTab = ({
      pdlData.dealScore >= 40 ? 'Medium' : 'High') : 
     'Medium';
     
-  const winProbability = pdlData?.dealScore || 
-    (dealStage === 'negotiation' ? 75 :
-     dealStage === 'proposal' ? 60 :
-     dealStage === 'qualified' ? 40 : 25);
-     
-  // Calculate overdue items (mock data - in real app would come from CRM)
-  const overdueCount = 2; // Follow-ups, proposals, etc.
-  const thisWeekTasks = 3; // Scheduled activities
+  const winProbability = pdlData?.dealScore || 25;
+  const overdueCount = 2;
+  const thisWeekTasks = 3;
+  const weeksToClose = 12;
   
-  // Generate next action based on available data
-  const generateNextAction = () => {
-    if (apolloData?.insights?.buyingSignals?.length > 0) {
-      return "Follow up on buying signal detected in company research";
-    }
-    if (apolloData?.keyPeople?.length > 0) {
-      return `Reach out to ${apolloData.keyPeople[0].name} to establish relationship`;
-    }
-    if (dealStage === 'negotiation') {
-      return "Address outstanding objections and push for contract signature";
-    }
-    if (dealStage === 'proposal') {
-      return "Follow up on proposal sent - schedule review meeting";
-    }
-    return "Schedule discovery call to understand business needs";
-  };
-
-  const nextAction = generateNextAction();
-  
-  // Calculate timeline (weeks to close)
-  const weeksToClose = dealStage === 'negotiation' ? 2 :
-    dealStage === 'proposal' ? 4 :
-    dealStage === 'qualified' ? 8 : 12;
+  const nextAction = "Schedule discovery call to understand business needs";
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Deal Status Header */}
-      <DealStatusHeader 
+    <div className="p-4 bg-gray-50 min-h-screen">
+      {/* Compact Header */}
+      <CompactDealHeader 
         displayName={displayName}
         dealValue={dealValue}
-        dealStage={dealStage}
         dealRisk={dealRisk}
         nextAction={nextAction}
       />
       
-      {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <ActionCard
+      {/* Compact Metrics - Single Row */}
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        <CompactMetricCard
           title="THIS WEEK"
           value={thisWeekTasks}
-          subtitle="Scheduled Activities"
+          subtitle="Scheduled"
           icon={Calendar}
           color="blue"
-          onClick={() => handleTabClick('deal')}
         />
-        <ActionCard
-          title="OVERDUE"
+        <CompactMetricCard
+          title="OVERDUE" 
           value={overdueCount}
-          subtitle="Follow-ups & Tasks"
+          subtitle="Follow-ups"
           icon={AlertTriangle}
           color="red"
           urgency={overdueCount > 0 ? 'urgent' : 'normal'}
-          onClick={() => handleTabClick('deal')}
         />
-        <ActionCard
+        <CompactMetricCard
           title="WIN PROB"
           value={`${winProbability}%`}
-          subtitle={winProbability > 50 ? "↗️ Strong" : "→ Developing"}
+          subtitle="Developing"
           icon={Target}
-          color={winProbability > 70 ? 'green' : winProbability > 40 ? 'blue' : 'amber'}
-          onClick={() => handleTabClick('deal')}
+          color="amber"
         />
-        <ActionCard
+        <CompactMetricCard
           title="TIMELINE"
           value={`${weeksToClose}wks`}
-          subtitle={`Close Est: ${dealRisk} Risk`}
+          subtitle="Est. Close"
           icon={Timer}
-          color={weeksToClose <= 4 ? 'green' : 'blue'}
-          onClick={() => handleTabClick('deal')}
+          color="blue"
         />
       </div>
       
-      {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        {/* Deal Playbook */}
-        <DealPlaybook 
-          researchData={researchData}
-          apolloData={apolloData}
-          pdlData={pdlData}
-          handleTabClick={handleTabClick}
-        />
+      {/* Main Content Grid - 3 Columns */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        {/* Left Column */}
+        <div className="space-y-4">
+          <EngagementStrategy researchData={researchData} />
+          <DealPlaybook 
+            researchData={researchData}
+            apolloData={apolloData}
+            pdlData={pdlData}
+          />
+        </div>
         
-        {/* Intelligence Alerts */}
-        <IntelligenceAlert 
-          googleData={googleData}
-          apolloData={apolloData}
-        />
+        {/* Middle Column */}
+        <div className="space-y-4">
+          <CompanyIntel 
+            apolloData={apolloData}
+            googleData={googleData}
+          />
+          <ContactStrategy 
+            apolloData={apolloData}
+            pdlData={pdlData}
+          />
+        </div>
+        
+        {/* Right Column - Quick Actions */}
+        <div className="space-y-4">
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <Zap className="h-4 w-4 text-blue-600 mr-2" />
+              Quick Actions
+            </h3>
+            <div className="space-y-2">
+              <button 
+                onClick={() => handleTabClick('deal')}
+                className="w-full text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-blue-900 text-sm">Deal Analysis</div>
+                    <div className="text-xs text-blue-600">View success factors</div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-blue-600" />
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => handleTabClick('company')}
+                className="w-full text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-green-900 text-sm">Company Profile</div>
+                    <div className="text-xs text-green-600">Deep company research</div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-green-600" />
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => handleTabClick('profile')}
+                className="w-full text-left p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors border border-purple-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-purple-900 text-sm">Contact Profiles</div>
+                    <div className="text-xs text-purple-600">Decision maker details</div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-purple-600" />
+                </div>
+              </button>
+            </div>
+          </div>
+          
+          {/* Recent Activity */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <Activity className="h-4 w-4 text-gray-600 mr-2" />
+              Recent Activity
+            </h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center text-gray-600">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                <span>Intelligence gathered</span>
+                <span className="ml-auto text-xs">Today</span>
+              </div>
+              <div className="flex items-center text-gray-600">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                <span>Company research completed</span>
+                <span className="ml-auto text-xs">Today</span>
+              </div>
+              <div className="flex items-center text-gray-600">
+                <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
+                <span>AI analysis generated</span>
+                <span className="ml-auto text-xs">Today</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      
-      {/* Contact Strategy */}
-      <ContactStrategy 
-        apolloData={apolloData}
-        pdlData={pdlData}
-        handleTabClick={handleTabClick}
-      />
     </div>
   );
 };
