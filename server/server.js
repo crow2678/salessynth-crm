@@ -602,135 +602,7 @@ app.post('/api/generate-intelligence/:clientId/:userId', authMiddleware, async (
     });
   }
 });
-// Complete Server.js - Part 3: Deal Routes, Stats, and Complete Intelligence Generation
 
-// CONTINUATION: Complete the Intelligence Generation Logic (from Part 2)
-// This completes the /api/generate-intelligence endpoint that was started in Part 2
-
-// The active deals intelligence generation logic continues here...
-// (This would be inserted into the generate-intelligence endpoint from Part 2)
-
-// Here's the complete logic for active deals:
-/*const completeIntelligenceGeneration = async (client, activeDeals, clientId, userId) => {
-  // Get the most advanced deal
-  const primaryDeal = activeDeals.reduce((highest, current) => {
-    const stageOrder = { 'prospecting': 1, 'qualified': 2, 'proposal': 3, 'negotiation': 4 };
-    return (stageOrder[current.status] || 0) > (stageOrder[highest.status] || 0) ? current : highest;
-  });
-
-  console.log(`🎯 Primary deal: ${primaryDeal.title || 'Untitled'} in ${primaryDeal.status} stage`);
-
-  // Calculate basic deal score
-  const stageScores = {
-    'prospecting': 25,
-    'qualified': 45,
-    'proposal': 65,
-    'negotiation': 80
-  };
-
-  const baseScore = stageScores[primaryDeal.status] || 50;
-  const dealScore = Math.min(100, Math.max(0, baseScore + Math.floor(Math.random() * 20) - 10));
-  
-  // Generate comprehensive intelligence
-  const intelligence = {
-    dealScore: dealScore,
-    reasoning: `Deal is in ${primaryDeal.status} stage with ${primaryDeal.value ? '$' + primaryDeal.value.toLocaleString() : 'unspecified'} value. Score calculated based on stage progression, client engagement, and opportunity factors.`,
-    confidence: Math.min(100, Math.max(30, 70 + Math.floor(Math.random() * 20))),
-    momentum: dealScore >= 70 ? 'accelerating' : dealScore >= 40 ? 'steady' : 'stalling',
-    currentStage: primaryDeal.status,
-    stageData: {
-      currentStage: primaryDeal.status,
-      timeInStage: "Unknown",
-      isOverdue: false,
-      nextStageProbability: null,
-      estimatedDaysToNextStage: null
-    },
-    keyInsights: [
-      {
-        insight: `Deal is progressing in ${primaryDeal.status} stage`,
-        impact: dealScore >= 70 ? "high" : dealScore >= 40 ? "medium" : "low",
-        actionRequired: dealScore < 60
-      },
-      {
-        insight: client.notes ? "Client has documented interaction history" : "Limited interaction history available",
-        impact: client.notes ? "medium" : "low",
-        actionRequired: !client.notes
-      }
-    ],
-    riskFactors: dealScore < 60 ? [
-      {
-        risk: "Deal progression may be slower than typical",
-        severity: "medium",
-        mitigation: "Increase client engagement and address potential concerns",
-        timeline: "Within 1 week"
-      }
-    ] : [],
-    opportunities: [
-      {
-        opportunity: `Advance deal from ${primaryDeal.status} to next stage`,
-        potential: dealScore >= 70 ? "high" : "medium",
-        action: `Focus on ${primaryDeal.status === 'prospecting' ? 'qualification' : primaryDeal.status === 'qualified' ? 'proposal preparation' : 'negotiation tactics'}`,
-        timeline: "Next 2 weeks"
-      }
-    ],
-    nextActions: [
-      {
-        action: `Follow up on ${primaryDeal.status} stage requirements`,
-        priority: dealScore < 40 ? "high" : dealScore < 70 ? "medium" : "low",
-        deadline: "Within 3-5 days",
-        expectedOutcome: "Maintain deal momentum"
-      },
-      {
-        action: client.notes ? "Review and act on client notes" : "Document client interactions",
-        priority: "medium",
-        deadline: "Within 1 week",
-        expectedOutcome: "Improve client relationship tracking"
-      }
-    ],
-    conversationStarters: [
-      {
-        topic: "Deal Progress",
-        question: `How are you feeling about moving forward with ${primaryDeal.title || 'this opportunity'}?`,
-        purpose: "Gauge client commitment and identify potential obstacles"
-      },
-      {
-        topic: "Timeline",
-        question: "What does your timeline look like for making a decision?",
-        purpose: "Understand client's decision-making process and urgency"
-      }
-    ],
-    industryBenchmark: {
-      typicalStageLength: "30 days",
-      successProbability: `${stageScores[primaryDeal.status] || 50}%`,
-      comparison: "at average"
-    },
-    generatedAt: new Date().toISOString(),
-    processingVersion: '2.0-generated',
-    dataQuality: client.notes ? 75 : 45,
-    engagementLevel: client.notes && client.notes.length > 100 ? 'high' : client.notes ? 'medium' : 'low'
-  };
-
-  // Store intelligence in research collection
-  await Research.updateOne(
-    { clientId, userId },
-    {
-      $set: {
-        dealIntelligence: intelligence,
-        lastDealAnalysis: new Date(),
-        companyName: client.company || client.name || "Unknown",
-        company: client.company || client.name || "Unknown"
-      },
-      $setOnInsert: {
-        clientId,
-        userId,
-        timestamp: new Date()
-      }
-    },
-    { upsert: true }
-  );
-
-  return intelligence;
-}; */
 
 // Deal Routes (keeping all existing functionality)
 app.get('/api/deals', authMiddleware, async (req, res) => {
@@ -1489,7 +1361,15 @@ app.post('/api/generate-intelligence/:clientId/:userId', authMiddleware, async (
     }
 
     // Generate intelligence for active deals using the logic from Part 3
-    const intelligence = await completeIntelligenceGeneration(client, activeDeals, clientId, userId);
+    //const intelligence = await completeIntelligenceGeneration(client, activeDeals, clientId, userId);
+	const intelligence = {
+		  dealScore: 75,
+		  reasoning: "Intelligence generation in progress...",
+		  confidence: 80,
+		  momentum: 'steady',
+		  generatedAt: new Date().toISOString(),
+		  processingVersion: '2.0-placeholder'
+	};
 
     console.log(`✅ Intelligence generated and stored for ${client.name || client.company}`);
     console.log(`🎯 Deal Score: ${intelligence.dealScore}% | Confidence: ${intelligence.confidence}% | Momentum: ${intelligence.momentum}`);
