@@ -2051,7 +2051,7 @@ const enhancedGracefulShutdown = async (server) => {
 };
 
 // Override the graceful shutdown function with enhanced version
-const gracefulShutdown = enhancedGracefulShutdown;
+//const gracefulShutdown = enhancedGracefulShutdown;
 
 // FINAL STARTUP SEQUENCE
 console.log('');
