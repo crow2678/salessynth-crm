@@ -77,20 +77,43 @@ const calculateDuration = (startDate, endDate) => {
 
 // Enhanced Professional Experience Card
 const EnhancedExperienceCard = ({ experience }) => {
+  // Safety function to extract string from object or return string
+  const safeString = (value, fallback = 'Unknown') => {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object' && value !== null) {
+      return value.name || value.title || value.display_name || String(value);
+    }
+    return fallback;
+  };
+
+  // Safety function to extract location names
+  const safeLocationNames = (locationNames) => {
+    if (!locationNames) return [];
+    if (Array.isArray(locationNames)) {
+      return locationNames
+        .map(loc => safeString(loc))
+        .filter(loc => loc && loc !== 'Unknown');
+    }
+    return [safeString(locationNames)].filter(loc => loc && loc !== 'Unknown');
+  };
+
   const duration = calculateDuration(experience.start_date, experience.end_date);
   const isCurrent = !experience.end_date;
+  const title = safeString(experience.title, 'Unknown Position');
+  const companyName = safeString(experience.company?.name || experience.company, 'Unknown Company');
+  const locations = safeLocationNames(experience.location_names);
   
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all duration-200">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <h4 className="font-semibold text-lg text-gray-900">
-            {toTitleCase(experience.title || 'Unknown Position')}
+            {toTitleCase(title)}
           </h4>
           <div className="flex items-center mt-1">
             <Building className="h-4 w-4 text-blue-500 mr-2" />
             <p className="text-blue-600 font-medium">
-              {toTitleCase(experience.company?.name || 'Unknown Company')}
+              {toTitleCase(companyName)}
             </p>
           </div>
         </div>
@@ -115,14 +138,14 @@ const EnhancedExperienceCard = ({ experience }) => {
         )}
       </div>
       
-      {experience.location_names && experience.location_names.length > 0 && (
+      {locations.length > 0 && (
         <div className="flex items-center text-sm text-gray-600 mb-3">
           <MapPin className="h-4 w-4 mr-2" />
-          <span>{experience.location_names.map(loc => toTitleCase(loc)).join(', ')}</span>
+          <span>{locations.map(loc => toTitleCase(loc)).join(', ')}</span>
         </div>
       )}
       
-      {experience.summary && (
+      {experience.summary && typeof experience.summary === 'string' && (
         <p className="text-sm text-gray-700 leading-relaxed mt-3 p-3 bg-gray-50 rounded-lg">
           {experience.summary}
         </p>
@@ -309,9 +332,27 @@ const ProfileView = ({ pdlData }) => {
   }
 
   const personData = pdlData.personData.data;
-  const fullName = personData.full_name || `${personData.first_name || ''} ${personData.last_name || ''}`.trim();
-  const initials = personData.first_name && personData.last_name ? 
-    `${personData.first_name[0]}${personData.last_name[0]}`.toUpperCase() : 
+  
+  // Safety function to extract string values
+  const safeString = (value, fallback = '') => {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object' && value !== null) {
+      return value.name || value.title || value.display_name || String(value);
+    }
+    return fallback;
+  };
+
+  const firstName = safeString(personData.first_name);
+  const lastName = safeString(personData.last_name);
+  const fullName = safeString(personData.full_name) || `${firstName} ${lastName}`.trim();
+  const jobTitle = safeString(personData.job_title);
+  const jobCompanyName = safeString(personData.job_company_name);
+  const industry = safeString(personData.industry);
+  const jobCompanySize = safeString(personData.job_company_size);
+  const jobCompanyLocation = safeString(personData.job_company_location_name);
+  
+  const initials = firstName && lastName ? 
+    `${firstName[0]}${lastName[0]}`.toUpperCase() : 
     fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || "??";
   
   return (
@@ -328,18 +369,18 @@ const ProfileView = ({ pdlData }) => {
                 {toTitleCase(fullName) || 'Unknown Contact'}
               </h3>
               <p className="text-lg text-blue-600 font-semibold">
-                {toTitleCase(personData.job_title) || 'No Title Available'}
+                {toTitleCase(jobTitle) || 'No Title Available'}
               </p>
-              {personData.job_company_name && (
+              {jobCompanyName && (
                 <p className="text-gray-600 flex items-center mt-1">
                   <Building className="h-4 w-4 mr-1" />
-                  at {toTitleCase(personData.job_company_name)}
+                  at {toTitleCase(jobCompanyName)}
                 </p>
               )}
             </div>
           </div>
           <div className="flex space-x-2">
-            {personData.linkedin_url && (
+            {personData.linkedin_url && typeof personData.linkedin_url === 'string' && (
               <a 
                 href={`https://${personData.linkedin_url}`} 
                 target="_blank" 
@@ -350,7 +391,7 @@ const ProfileView = ({ pdlData }) => {
                 <Link className="h-5 w-5" />
               </a>
             )}
-            {personData.emails && personData.emails.length > 0 && (
+            {personData.emails && Array.isArray(personData.emails) && personData.emails.length > 0 && (
               <div className="p-3 bg-gray-50 hover:bg-gray-100 rounded-full text-gray-600 transition-colors duration-150" title="Email Available">
                 <Mail className="h-5 w-5" />
               </div>
@@ -365,7 +406,7 @@ const ProfileView = ({ pdlData }) => {
               <Briefcase className="h-5 w-5 text-gray-500 mr-2" />
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Industry</p>
             </div>
-            <p className="font-semibold text-gray-900">{toTitleCase(personData.industry) || 'Unknown'}</p>
+            <p className="font-semibold text-gray-900">{toTitleCase(industry) || 'Unknown'}</p>
           </div>
           
           <div className="bg-gray-50 rounded-lg p-4">
@@ -376,23 +417,23 @@ const ProfileView = ({ pdlData }) => {
             <p className="font-semibold text-gray-900">{formatDate(personData.job_start_date) || 'Unknown'}</p>
           </div>
           
-          {personData.job_company_size && (
+          {jobCompanySize && (
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex items-center mb-2">
                 <Users className="h-5 w-5 text-gray-500 mr-2" />
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Company Size</p>
               </div>
-              <p className="font-semibold text-gray-900">{toTitleCase(personData.job_company_size)}</p>
+              <p className="font-semibold text-gray-900">{toTitleCase(jobCompanySize)}</p>
             </div>
           )}
           
-          {personData.job_company_location_name && (
+          {jobCompanyLocation && (
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex items-center mb-2">
                 <MapPin className="h-5 w-5 text-gray-500 mr-2" />
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</p>
               </div>
-              <p className="font-semibold text-gray-900">{toTitleCase(personData.job_company_location_name)}</p>
+              <p className="font-semibold text-gray-900">{toTitleCase(jobCompanyLocation)}</p>
             </div>
           )}
         </div>
@@ -402,21 +443,21 @@ const ProfileView = ({ pdlData }) => {
           <div className="mt-6 border-t border-gray-200 pt-6">
             <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Contact Information</h4>
             <div className="grid md:grid-cols-2 gap-4">
-              {personData.emails && personData.emails.length > 0 && (
+              {personData.emails && Array.isArray(personData.emails) && personData.emails.length > 0 && (
                 <div className="flex items-center text-sm">
                   <Mail className="h-4 w-4 text-gray-500 mr-2" />
-                  <span className="text-gray-700">{personData.emails[0].address}</span>
+                  <span className="text-gray-700">{safeString(personData.emails[0].address)}</span>
                   {personData.emails[0].type && (
                     <span className="ml-2 bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
-                      {toTitleCase(personData.emails[0].type)}
+                      {toTitleCase(safeString(personData.emails[0].type))}
                     </span>
                   )}
                 </div>
               )}
-              {personData.phone_numbers && personData.phone_numbers.length > 0 && (
+              {personData.phone_numbers && Array.isArray(personData.phone_numbers) && personData.phone_numbers.length > 0 && (
                 <div className="flex items-center text-sm">
                   <Phone className="h-4 w-4 text-gray-500 mr-2" />
-                  <span className="text-gray-700">{personData.phone_numbers[0].number}</span>
+                  <span className="text-gray-700">{safeString(personData.phone_numbers[0].number)}</span>
                 </div>
               )}
             </div>
@@ -428,7 +469,7 @@ const ProfileView = ({ pdlData }) => {
       <SkillsSection skills={personData.skills} />
 
       {/* Professional Experience */}
-      {personData.experience && personData.experience.length > 0 && (
+      {personData.experience && Array.isArray(personData.experience) && personData.experience.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
@@ -471,7 +512,7 @@ const ProfileView = ({ pdlData }) => {
       )}
 
       {/* Education */}
-      {personData.education && personData.education.length > 0 && (
+      {personData.education && Array.isArray(personData.education) && personData.education.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
