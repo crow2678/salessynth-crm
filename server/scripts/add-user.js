@@ -23,10 +23,10 @@ const User = require('../models/User');
 
 // Enhanced User Configuration
 const NEW_USER = {
-  email: 'corban.wells@gmail.com',
-  password: 'Iphone@1122',
-  firstName: 'Corban',
-  lastName: 'Wells',
+  email: 'olav@laudy.net',
+  password: 'Password123',
+  firstName: 'Olav',
+  lastName: 'Laudy',
   role: 'user',
   isActive: true,
   flightTrackingEnabled: true,

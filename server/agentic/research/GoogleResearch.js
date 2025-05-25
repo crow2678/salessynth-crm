@@ -3,10 +3,16 @@ const { MongoClient } = require("mongodb");
 require("dotenv").config();
 
 // Constants
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+//const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+//const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || process.env.SERPAPI_KEY;
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY === 'SERPAPI_KEY' 
+    ? process.env.SERPAPI_KEY 
+    : (process.env.GOOGLE_API_KEY || process.env.SERPAPI_KEY);
+console.log("GOOGLE_API_KEY (full):", GOOGLE_API_KEY);
 const GOOGLE_SEARCH_URL = "https://serpapi.com/search.json";
 const MONGO_URI = process.env.MONGODB_URI;
-const COOLDOWN_PERIOD = 12 * 60 * 60 * 1000; // 12 hours
+//const COOLDOWN_PERIOD = 12 * 60 * 60 * 1000; // 12 hours
+const COOLDOWN_PERIOD = 1 * 60 * 1000;
 const DB_NAME = "test";
 const COLLECTION_NAME = "research";
 

@@ -1,0 +1,195 @@
+[
+  {
+    "userId": "67af9588198431f4d58e57cd",
+    "email": "paresh26@gmail.com",
+    "name": "Admin User",
+    "researchCount": 12,
+    "uniqueCompanies": [
+      "Caliber Holdings",
+      "CHASE",
+      "American Financial Resources",
+      "Goodleap",
+      "AWS",
+      "Cross Country Mortgage",
+      "PRMI",
+      "Movement Mortgage",
+      "SWBC BANK",
+      "REALTOR",
+      "ANCHOR LOANS",
+      "Supreme Lending"
+    ],
+    "lastResearchDate": "2025-05-25T02:07:42.172Z",
+    "recentResearch": [
+      {
+        "clientId": "67b19dec4de71d925f122689",
+        "company": "ANCHOR LOANS",
+        "timestamp": "2025-05-25T02:07:42.172Z"
+      },
+      {
+        "clientId": "67afac5934a9521a190a9f75",
+        "company": "SWBC BANK",
+        "timestamp": "2025-05-25T02:07:24.994Z"
+      },
+      {
+        "clientId": "67a87ddd19a4168957a17adf",
+        "company": "Movement Mortgage",
+        "timestamp": "2025-05-25T02:07:17.456Z"
+      },
+      {
+        "clientId": "67a877242ec83557fa63f530",
+        "company": "PRMI",
+        "timestamp": "2025-05-25T02:07:08.676Z"
+      },
+      {
+        "clientId": "67a1415a006a33f601e01780",
+        "company": "Cross Country Mortgage",
+        "timestamp": "2025-05-25T02:07:04.592Z"
+      }
+    ]
+  },
+  {
+    "userId": "67bc0219975f13143dceb528",
+    "email": "msrkrishnan6477@gmail.com",
+    "name": "Ram S",
+    "researchCount": 2,
+    "uniqueCompanies": [
+      "GUILD MORTGAGE",
+      "ARC Home LLC"
+    ],
+    "lastResearchDate": "2025-05-25T02:07:50.200Z",
+    "recentResearch": [
+      {
+        "clientId": "67c496b7d9c0c70d8672f9d0",
+        "company": "ARC Home LLC",
+        "timestamp": "2025-05-25T02:07:50.200Z"
+      },
+      {
+        "clientId": "67bc02c3442e52cdebc7cbe9",
+        "company": "GUILD MORTGAGE",
+        "timestamp": "2025-05-25T02:07:46.795Z"
+      }
+    ]
+  },
+  {
+    "userId": "67c4a98be552dbd9925d0ec6",
+    "email": "debi.roy@tavant.com",
+    "name": "Debi Roy",
+    "researchCount": 2,
+    "uniqueCompanies": [
+      "Freedom Mortgage"
+    ],
+    "lastResearchDate": "2025-05-25T02:07:58.887Z",
+    "recentResearch": [
+      {
+        "clientId": "67e1a3e877b9e8311f27e452",
+        "company": "Freedom Mortgage",
+        "timestamp": "2025-05-25T02:07:58.887Z"
+      },
+      {
+        "clientId": "67c4a9dfd9c0c70d8672fa61",
+        "company": "Freedom Mortgage",
+        "timestamp": "2025-05-25T02:07:56.529Z"
+      }
+    ]
+  },
+  {
+    "userId": "67b0d03f5fd90bc71e983dd5",
+    "email": "packer2008@gmail.com",
+    "name": "John doe",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "The Math Pal"
+    ],
+    "lastResearchDate": "2025-05-25T02:07:32.821Z",
+    "recentResearch": [
+      {
+        "clientId": "67b0d1e4df87316b3efcd355",
+        "company": "The Math Pal",
+        "timestamp": "2025-05-25T02:07:32.821Z"
+      }
+    ]
+  },
+  {
+    "userId": "67b13128df9cdb666370da0e",
+    "email": "packer2009@gmail.com",
+    "name": "John doe",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "Tavant"
+    ],
+    "lastResearchDate": "2025-05-25T02:07:37.541Z",
+    "recentResearch": [
+      {
+        "clientId": "67b13ea7da149d5df17562be",
+        "company": "Tavant",
+        "timestamp": "2025-05-25T02:07:37.541Z"
+      }
+    ]
+  },
+  {
+    "userId": "67c4a8911325e6882eaa8cda",
+    "email": "abhay.dubey@tavant.com",
+    "name": "Abhay Dubey",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "Update the record"
+    ],
+    "lastResearchDate": "2025-05-25T02:07:52.765Z",
+    "recentResearch": [
+      {
+        "clientId": "67c4a8f7d9c0c70d8672fa3f",
+        "company": "Update the record",
+        "timestamp": "2025-05-25T02:07:52.765Z"
+      }
+    ]
+  },
+  {
+    "userId": "680836bc3cc143c9e9d22ac1",
+    "email": "samir.mathur@tavant.com",
+    "name": "Samir Mathur",
+    "researchCount": 1,
+    "uniqueCompanies": [],
+    "lastResearchDate": "2025-05-25T02:08:04.440Z",
+    "recentResearch": [
+      {
+        "clientId": "68262eeaf2fff257fc88a36a",
+        "company": "Unknown",
+        "timestamp": "2025-05-25T02:08:04.440Z"
+      }
+    ]
+  },
+  {
+    "userId": "681f7745055604999d40a391",
+    "email": "matthewcarterwood@gmail.com",
+    "name": "Matt Wood",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "Fifth Third Bank"
+    ],
+    "lastResearchDate": "2025-05-25T02:08:09.378Z",
+    "recentResearch": [
+      {
+        "clientId": "682e18d02b87928a0436ab6a",
+        "company": "Fifth Third Bank",
+        "timestamp": "2025-05-25T02:08:09.378Z"
+      }
+    ]
+  },
+  {
+    "userId": "6831165ce8a06577a7038ff4",
+    "email": "olav@laudy.net",
+    "name": "Olav Laudy",
+    "researchCount": 1,
+    "uniqueCompanies": [
+      "UPDATE"
+    ],
+    "lastResearchDate": "2025-05-25T02:08:13.961Z",
+    "recentResearch": [
+      {
+        "clientId": "683116a32b87928a0436ac77",
+        "company": "UPDATE",
+        "timestamp": "2025-05-25T02:08:13.961Z"
+      }
+    ]
+  }
+]

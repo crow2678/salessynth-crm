@@ -7,6 +7,7 @@ const { Client, Research } = require('../database/db');
 
 // PDL API configuration
 const PDL_API_KEY = process.env.PDL_API_KEY;
+console.log("PDL_API_KEY (full):", PDL_API_KEY);
 const PDL_BASE_URL = 'https://api.peopledatalabs.com/v5';
 
 // Track running operations to prevent duplicates
