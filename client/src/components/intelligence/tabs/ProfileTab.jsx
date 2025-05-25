@@ -133,6 +133,15 @@ const EnhancedExperienceCard = ({ experience }) => {
 
 // Enhanced Education Card
 const EnhancedEducationCard = ({ education }) => {
+  // Helper function to safely join arrays of strings
+  const safeJoinArray = (arr) => {
+    if (!Array.isArray(arr)) return '';
+    return arr
+      .filter(item => item && typeof item === 'string')
+      .map(item => toTitleCase(item))
+      .join(', ');
+  };
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-sm transition-all duration-200">
       <div className="flex items-start justify-between">
@@ -142,21 +151,21 @@ const EnhancedEducationCard = ({ education }) => {
           </div>
           <div className="flex-1">
             <h4 className="font-semibold text-lg text-gray-900">
-              {toTitleCase(education.school?.name || 'Unknown Institution')}
+              {toTitleCase(education.school?.name) || 'Unknown Institution'}
             </h4>
             
-            {education.degrees && education.degrees.length > 0 && (
+            {education.degrees && Array.isArray(education.degrees) && education.degrees.length > 0 && (
               <div className="mt-1">
                 <p className="text-blue-600 font-medium">
-                  {education.degrees.map(degree => toTitleCase(degree)).join(', ')}
+                  {safeJoinArray(education.degrees)}
                 </p>
               </div>
             )}
             
-            {education.majors && education.majors.length > 0 && (
+            {education.majors && Array.isArray(education.majors) && education.majors.length > 0 && (
               <div className="mt-1">
                 <p className="text-gray-600">
-                  Major: {education.majors.map(major => toTitleCase(major)).join(', ')}
+                  Major: {safeJoinArray(education.majors)}
                 </p>
               </div>
             )}
@@ -176,34 +185,45 @@ const EnhancedEducationCard = ({ education }) => {
   );
 };
 
+// Helper function to extract skill name from skill object or string
+const getSkillName = (skill) => {
+  if (typeof skill === 'string') return skill;
+  if (typeof skill === 'object' && skill !== null) {
+    return skill.name || skill.skill || skill.title || String(skill);
+  }
+  return String(skill);
+};
+
 // Skills Section with categories
 const SkillsSection = ({ skills }) => {
   if (!skills || !Array.isArray(skills) || skills.length === 0) return null;
   
+  // Convert all skills to strings and filter out invalid ones
+  const validSkills = skills
+    .map(skill => getSkillName(skill))
+    .filter(skillName => skillName && typeof skillName === 'string' && skillName.trim().length > 0);
+  
+  if (validSkills.length === 0) return null;
+  
   // Group skills by type/category (basic categorization)
-  const technicalSkills = skills.filter(skill => 
-    typeof skill === 'string' && (
-      skill.toLowerCase().includes('software') || 
-      skill.toLowerCase().includes('technology') ||
-      skill.toLowerCase().includes('programming') ||
-      skill.toLowerCase().includes('data') ||
-      skill.toLowerCase().includes('analytics')
-    )
+  const technicalSkills = validSkills.filter(skill => 
+    skill.toLowerCase().includes('software') || 
+    skill.toLowerCase().includes('technology') ||
+    skill.toLowerCase().includes('programming') ||
+    skill.toLowerCase().includes('data') ||
+    skill.toLowerCase().includes('analytics')
   );
   
-  const businessSkills = skills.filter(skill => 
-    typeof skill === 'string' && (
-      skill.toLowerCase().includes('management') ||
-      skill.toLowerCase().includes('leadership') ||
-      skill.toLowerCase().includes('strategy') ||
-      skill.toLowerCase().includes('business') ||
-      skill.toLowerCase().includes('sales') ||
-      skill.toLowerCase().includes('marketing')
-    )
+  const businessSkills = validSkills.filter(skill => 
+    skill.toLowerCase().includes('management') ||
+    skill.toLowerCase().includes('leadership') ||
+    skill.toLowerCase().includes('strategy') ||
+    skill.toLowerCase().includes('business') ||
+    skill.toLowerCase().includes('sales') ||
+    skill.toLowerCase().includes('marketing')
   );
   
-  const otherSkills = skills.filter(skill => 
-    typeof skill === 'string' && 
+  const otherSkills = validSkills.filter(skill => 
     !technicalSkills.includes(skill) && 
     !businessSkills.includes(skill)
   );
@@ -214,7 +234,7 @@ const SkillsSection = ({ skills }) => {
         <Star className="h-5 w-5 text-yellow-500 mr-2" />
         <h3 className="text-lg font-semibold text-gray-800">Skills & Expertise</h3>
         <span className="ml-auto bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-          {skills.length} Skills
+          {validSkills.length} Skills
         </span>
       </div>
       
