@@ -53,9 +53,8 @@ const Flight = require('./models/Flight');
 const Deal = require('./models/Deal');
 const Feedback = require('./models/Feedback');
 const Interaction = require('./models/Interaction');
-const Research = require('./models/Research');
 // Add with other model imports
-//const Research = require('./agentic/database/models/Research');
+const Research = require('./agentic/database/models/Research');
 const researchRoutes = require('./agentic/routes/researchRoutes');
 
 // Add this line after other imports
