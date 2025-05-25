@@ -24,7 +24,7 @@ import { NoCompanyDisplay, ProfessionalExperienceCard } from '../common/CommonCo
 
 // Utility function to convert text to title case
 const toTitleCase = (str) => {
-  if (!str) return '';
+  if (!str || typeof str !== 'string') return str || '';
   return str.replace(/\w\S*/g, (txt) => 
     txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
   );
@@ -32,9 +32,10 @@ const toTitleCase = (str) => {
 
 // Utility function to format dates
 const formatDate = (dateStr) => {
-  if (!dateStr) return '';
+  if (!dateStr || typeof dateStr !== 'string') return dateStr || '';
   try {
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'short' 
@@ -46,24 +47,31 @@ const formatDate = (dateStr) => {
 
 // Utility function to calculate experience duration
 const calculateDuration = (startDate, endDate) => {
-  if (!startDate) return '';
+  if (!startDate || typeof startDate !== 'string') return '';
   
-  const start = new Date(startDate);
-  const end = endDate ? new Date(endDate) : new Date();
-  
-  const months = (end.getFullYear() - start.getFullYear()) * 12 + 
-                 (end.getMonth() - start.getMonth());
-  
-  if (months < 12) {
-    return `${months} ${months === 1 ? 'month' : 'months'}`;
-  } else {
-    const years = Math.floor(months / 12);
-    const remainingMonths = months % 12;
-    if (remainingMonths === 0) {
-      return `${years} ${years === 1 ? 'year' : 'years'}`;
+  try {
+    const start = new Date(startDate);
+    const end = endDate && typeof endDate === 'string' ? new Date(endDate) : new Date();
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return '';
+    
+    const months = (end.getFullYear() - start.getFullYear()) * 12 + 
+                   (end.getMonth() - start.getMonth());
+    
+    if (months < 1) return '1 month';
+    if (months < 12) {
+      return `${months} ${months === 1 ? 'month' : 'months'}`;
     } else {
-      return `${years} ${years === 1 ? 'year' : 'years'}, ${remainingMonths} ${remainingMonths === 1 ? 'month' : 'months'}`;
+      const years = Math.floor(months / 12);
+      const remainingMonths = months % 12;
+      if (remainingMonths === 0) {
+        return `${years} ${years === 1 ? 'year' : 'years'}`;
+      } else {
+        return `${years} ${years === 1 ? 'year' : 'years'}, ${remainingMonths} ${remainingMonths === 1 ? 'month' : 'months'}`;
+      }
     }
+  } catch {
+    return '';
   }
 };
 
@@ -170,28 +178,34 @@ const EnhancedEducationCard = ({ education }) => {
 
 // Skills Section with categories
 const SkillsSection = ({ skills }) => {
-  if (!skills || skills.length === 0) return null;
+  if (!skills || !Array.isArray(skills) || skills.length === 0) return null;
   
   // Group skills by type/category (basic categorization)
   const technicalSkills = skills.filter(skill => 
-    skill.toLowerCase().includes('software') || 
-    skill.toLowerCase().includes('technology') ||
-    skill.toLowerCase().includes('programming') ||
-    skill.toLowerCase().includes('data') ||
-    skill.toLowerCase().includes('analytics')
+    typeof skill === 'string' && (
+      skill.toLowerCase().includes('software') || 
+      skill.toLowerCase().includes('technology') ||
+      skill.toLowerCase().includes('programming') ||
+      skill.toLowerCase().includes('data') ||
+      skill.toLowerCase().includes('analytics')
+    )
   );
   
   const businessSkills = skills.filter(skill => 
-    skill.toLowerCase().includes('management') ||
-    skill.toLowerCase().includes('leadership') ||
-    skill.toLowerCase().includes('strategy') ||
-    skill.toLowerCase().includes('business') ||
-    skill.toLowerCase().includes('sales') ||
-    skill.toLowerCase().includes('marketing')
+    typeof skill === 'string' && (
+      skill.toLowerCase().includes('management') ||
+      skill.toLowerCase().includes('leadership') ||
+      skill.toLowerCase().includes('strategy') ||
+      skill.toLowerCase().includes('business') ||
+      skill.toLowerCase().includes('sales') ||
+      skill.toLowerCase().includes('marketing')
+    )
   );
   
   const otherSkills = skills.filter(skill => 
-    !technicalSkills.includes(skill) && !businessSkills.includes(skill)
+    typeof skill === 'string' && 
+    !technicalSkills.includes(skill) && 
+    !businessSkills.includes(skill)
   );
   
   return (
