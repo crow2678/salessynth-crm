@@ -61,7 +61,8 @@ const IntelligenceModal = ({
   const apolloData = researchData?.data?.apollo || null;
   const googleData = researchData?.data?.google || [];
   const pdlData = researchData?.data?.pdl || null;
-  const dealIntelligence = researchData?.data?.dealIntelligence || null;
+  //const dealIntelligence = researchData?.data?.dealIntelligence || null;
+  const dealIntelligence = researchData?.dealIntelligence || null;
   const summary = researchData?.summary || null;
   const lastUpdated = researchData?.timestamp || null;
 

@@ -1559,9 +1559,113 @@ async function batchGenerateDealIntelligence(clientIds, userId, salesMethodology
   return results;
 }
 
+/**
+ * Process deal intelligence for all active clients
+ * @param {number} batchSize - Number of clients to process in parallel (default: 5)
+ * @param {string} salesMethodology - Sales methodology to use (default: 'default')
+ * @return {Promise<Object>} - Processing results summary
+ */
+async function processAllClientDeals(batchSize = 5, salesMethodology = 'default') {
+  try {
+    console.log('🚀 Starting batch deal intelligence generation for all clients...');
+    
+    // Fetch all active clients with deals or notes
+    const clients = await Client.find({ 
+      isActive: true,
+      $or: [
+        { 'deals.0': { $exists: true } }, // Has at least one deal
+        { notes: { $exists: true, $ne: "" } } // Has notes
+      ]
+    }).lean();
+
+    console.log(`📊 Found ${clients.length} active clients with deals or notes`);
+
+    if (clients.length === 0) {
+      console.log('⚠️ No active clients found with deals. Exiting...');
+      return { processed: 0, failed: 0, skipped: 0, total: 0 };
+    }
+
+    const results = {
+      processed: 0,
+      failed: 0,
+      skipped: 0,
+      total: clients.length,
+      details: [],
+      startTime: new Date(),
+      endTime: null
+    };
+
+    // Process clients in batches to avoid overwhelming the system
+    for (let i = 0; i < clients.length; i += batchSize) {
+      const batch = clients.slice(i, i + batchSize);
+      console.log(`\n📦 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(clients.length / batchSize)} (${batch.length} clients)`);
+
+      // Process batch in parallel
+      const batchPromises = batch.map(async (clientData) => {
+        try {
+          const clientId = clientData._id.toString();
+          const userId = clientData.userId;
+          
+          console.log(`  🔄 Processing ${clientData.name} (${clientData.company || 'No Company'})`);
+          
+          const success = await generateDealIntelligence(clientId, userId, salesMethodology);
+          
+          if (success) {
+            console.log(`  ✅ Success: ${clientData.name}`);
+            return { success: true, client: clientData.name, clientId };
+          } else {
+            console.log(`  ⚠️ Skipped: ${clientData.name}`);
+            return { success: false, client: clientData.name, clientId, reason: 'skipped' };
+          }
+        } catch (error) {
+          console.log(`  ❌ Failed: ${clientData.name} - ${error.message}`);
+          return { success: false, client: clientData.name, clientId: clientData._id.toString(), error: error.message };
+        }
+      });
+
+      // Wait for batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      
+      // Update results
+      batchResults.forEach(result => {
+        if (result.success) {
+          results.processed++;
+        } else if (result.error) {
+          results.failed++;
+        } else {
+          results.skipped++;
+        }
+        results.details.push(result);
+      });
+
+      // Small delay between batches to avoid overwhelming the system
+      if (i + batchSize < clients.length) {
+        console.log('⏳ Waiting 2 seconds before next batch...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    results.endTime = new Date();
+    const durationMinutes = Math.round((results.endTime - results.startTime) / 1000 / 60);
+
+    console.log(`\n✅ Batch processing completed in ${durationMinutes} minutes:`);
+    console.log(`   📈 Processed: ${results.processed}`);
+    console.log(`   ⚠️ Skipped: ${results.skipped}`);
+    console.log(`   ❌ Failed: ${results.failed}`);
+    console.log(`   📊 Total: ${results.total}`);
+
+    return results;
+
+  } catch (error) {
+    console.error('❌ Error in batch processing:', error.message);
+    throw error;
+  }
+}
+
 // Export enhanced functions for use by other modules
 module.exports = {
   generateDealIntelligence,
+  processAllClientDeals,
   batchGenerateDealIntelligence,
   getPerformanceMetrics,
   cleanupMetrics,
