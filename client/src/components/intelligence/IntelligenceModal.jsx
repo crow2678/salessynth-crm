@@ -6,7 +6,7 @@ import CompanyTab from './tabs/CompanyTab';
 import ProfileTab from './tabs/ProfileTab';
 import WebResearchTab from './tabs/WebResearchTab';
 import DashboardTab from './tabs/DashboardTab';
-import { generateIntelligenceReport, generateModalScreenshotPDF } from '../utils/pdfGenerator';
+import { generateIntelligenceReport, generateModalScreenshotPDF } from './utils/pdfGenerator';
 import axios from 'axios';
 
 const API_URL = 'https://salesiq-fpbsdxbka5auhab8.westus-01.azurewebsites.net/api';
