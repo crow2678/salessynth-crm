@@ -19,11 +19,12 @@ router.get("/summary/:clientId/:userId", async (req, res) => {
         }
 
         res.json({
-            summary: research.summary || "No AI summary available.",
-            data: research.data || {},
-            company: research.company || "Unknown Company",
-            timestamp: research.timestamp ? new Date(research.timestamp).toISOString() : null
-        });
+			summary: research.summary || "No AI summary available.",
+			data: research.data || {},
+			company: research.company || "Unknown Company",
+			timestamp: research.timestamp ? new Date(research.timestamp).toISOString() : null,
+			dealIntelligence: research.dealIntelligence || null  
+		});
 
     } catch (error) {
         console.error("❌ Server Error fetching research summary:", error);

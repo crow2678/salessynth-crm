@@ -55,6 +55,7 @@ const Feedback = require('./models/Feedback');
 const Interaction = require('./models/Interaction');
 // Add with other model imports
 //const Research = require('./agentic/database/models/Research');
+const { Research } = require('./agentic/database/db');
 const researchRoutes = require('./agentic/routes/researchRoutes');
 
 // Add this line after other imports
@@ -679,10 +680,14 @@ function calculateTimeToClose(deal) {
 
 app.get('/api/summary/:clientId/:userId', authMiddleware, async (req, res) => {
   try {
-    // Fetch research summary for the client
+    const { clientId, userId } = req.params;
+    
+    // Import Research from the correct location
+    const { Research } = require('./agentic/database/db');
+    
     const research = await Research.findOne({
-      clientId: req.params.clientId,
-      userId: req.params.userId
+      clientId: clientId,
+      userId: userId
     }).lean();
 
     if (!research) {
@@ -691,7 +696,15 @@ app.get('/api/summary/:clientId/:userId', authMiddleware, async (req, res) => {
       });
     }
 
-    res.json(research);
+    // Return the research data including dealIntelligence
+    res.json({
+      summary: research.summary || "No AI summary available.",
+      data: research.data || {},
+      company: research.company || "Unknown Company",
+      timestamp: research.timestamp ? new Date(research.timestamp).toISOString() : null,
+      dealIntelligence: research.dealIntelligence || null  // ← This is the key addition
+    });
+
   } catch (error) {
     console.error('Error fetching research summary:', error);
     res.status(500).json({ 
