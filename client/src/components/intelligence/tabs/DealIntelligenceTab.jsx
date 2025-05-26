@@ -262,7 +262,12 @@ const DealIntelligenceTab = ({ clientId, userId }) => {
 	  try {
 		setLoading(true);
 		setError(null);
-		const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+		//const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+		const response = await axios.get(`${API_URL}/research/${clientId}`, {
+		  headers: {
+			'Authorization': `Bearer ${localStorage.getItem('token')}`
+		  }
+		});
 		
 		// Debug logging (temporary)
 		console.log('Full response:', response.data);
