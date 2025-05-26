@@ -258,26 +258,29 @@ const DealIntelligenceTab = ({ clientId, userId }) => {
   const [expandedSection, setExpandedSection] = useState('overview');
 
   // Function to fetch deal intelligence data
-  const fetchDealIntelligence = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
-      
-      // Extract deal intelligence from research data
-      if (response.data && response.data.data && response.data.data.dealIntelligence) {
-        setIntelligence(response.data.data.dealIntelligence);
-      } else {
-        setError('No deal intelligence available');
-      }
-    } catch (err) {
-      console.error('Error fetching deal intelligence:', err);
-      setError(err.response?.data?.message || 'Failed to load deal intelligence');
-    } finally {
-      setLoading(false);
-    }
-  };
+	const fetchDealIntelligence = async () => {
+	  try {
+		setLoading(true);
+		setError(null);
+		const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+		
+		// Debug logging (temporary)
+		console.log('Full response:', response.data);
+		console.log('Deal intelligence:', response.data.dealIntelligence);
+		
+		// Extract deal intelligence from research data - FIXED PATH
+		if (response.data && response.data.dealIntelligence) {
+		  setIntelligence(response.data.dealIntelligence);
+		} else {
+		  setError('No deal intelligence available');
+		}
+	  } catch (err) {
+		console.error('Error fetching deal intelligence:', err);
+		setError(err.response?.data?.message || 'Failed to load deal intelligence');
+	  } finally {
+		setLoading(false);
+	  }
+	};
 
   // Load data on component mount
   useEffect(() => {
