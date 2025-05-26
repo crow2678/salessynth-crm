@@ -262,18 +262,15 @@ const DealIntelligenceTab = ({ clientId, userId }) => {
 	  try {
 		setLoading(true);
 		setError(null);
-		//const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
-		const response = await axios.get(`${API_URL}/research/${clientId}`, {
-		  headers: {
-			'Authorization': `Bearer ${localStorage.getItem('token')}`
-		  }
-		});
 		
-		// Debug logging (temporary)
+		// Use the existing summary route
+		const response = await axios.get(`${API_URL}/summary/${clientId}/${userId}`);
+		
+		// Debug logging
 		console.log('Full response:', response.data);
 		console.log('Deal intelligence:', response.data.dealIntelligence);
 		
-		// Extract deal intelligence from research data - FIXED PATH
+		// Extract deal intelligence
 		if (response.data && response.data.dealIntelligence) {
 		  setIntelligence(response.data.dealIntelligence);
 		} else {
