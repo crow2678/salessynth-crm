@@ -43,38 +43,36 @@ const toTitleCase = (str) => {
   );
 };
 
-// Compact Deal Header Component
+// Minimal Deal Header Component - Option D
 const DealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => {
   const getRiskColor = (risk) => {
     switch (risk?.toLowerCase()) {
-      case 'high': return 'text-red-600';
-      case 'medium': return 'text-amber-600';
-      case 'low': return 'text-green-600';
-      default: return 'text-gray-600';
+      case 'high': return 'text-red-600 bg-red-50 border-red-200';
+      case 'medium': return 'text-amber-600 bg-amber-50 border-amber-200';
+      case 'low': return 'text-green-600 bg-green-50 border-green-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            {toTitleCase(displayName)}{dealValue && ` - ${dealValue}`}
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            <span className={`font-medium ${getRiskColor(dealRisk)}`}>
-              {dealRisk ? `${dealRisk.toUpperCase()} RISK` : 'ANALYZING'}
-            </span>
-            {nextAction && <span className="ml-3">• Next: {nextAction}</span>}
-          </p>
-        </div>
+    <div className="flex items-center justify-between py-3 px-4 bg-white border border-gray-200 rounded-lg mb-4">
+      <div className="flex items-center space-x-4">
+        <h1 className="text-xl font-bold text-gray-900">
+          {toTitleCase(displayName)} - {dealValue || '$285K'}
+        </h1>
+        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getRiskColor(dealRisk)}`}>
+          {dealRisk ? `${dealRisk.toUpperCase()} RISK` : 'ANALYZING'}
+        </span>
+      </div>
+      <div className="text-sm text-gray-600">
+        <span className="font-medium">Next:</span> {nextAction || 'Schedule discovery call'}
       </div>
     </div>
   );
 };
 
 // Deal Blocker Metrics - Option A (Compact)
-const DealBlockerMetrics = () => {
+const DealBlockerMetrics = ({ dealBlockers = 2, pendingDecision = "Budget", decisionTimeline = "3 days", hotAction = "Call", actionTarget = "Contact", actionDeadline = "Today" }) => {
   return (
     <div className="grid grid-cols-3 gap-4 mb-6">
       {/* Deal Blockers */}
@@ -83,7 +81,7 @@ const DealBlockerMetrics = () => {
           <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
           <span className="text-xs font-bold text-red-800 uppercase tracking-wide">Deal Blockers</span>
         </div>
-        <div className="text-2xl font-bold text-red-700 mb-1">2</div>
+        <div className="text-2xl font-bold text-red-700 mb-1">{dealBlockers}</div>
         <div className="text-sm text-red-600 font-medium">Critical Issues</div>
         <div className="text-xs text-red-500 mt-1">Need Resolution</div>
       </div>
@@ -94,9 +92,9 @@ const DealBlockerMetrics = () => {
           <Clock className="h-5 w-5 text-amber-600 mr-2" />
           <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Decision Pending</span>
         </div>
-        <div className="text-2xl font-bold text-amber-700 mb-1">Budget</div>
+        <div className="text-2xl font-bold text-amber-700 mb-1">{pendingDecision}</div>
         <div className="text-sm text-amber-600 font-medium">Approval</div>
-        <div className="text-xs text-amber-500 mt-1">Timeline: 3 days</div>
+        <div className="text-xs text-amber-500 mt-1">Timeline: {decisionTimeline}</div>
       </div>
 
       {/* Hot Actions */}
@@ -105,8 +103,8 @@ const DealBlockerMetrics = () => {
           <Zap className="h-5 w-5 text-blue-600 mr-2" />
           <span className="text-xs font-bold text-blue-800 uppercase tracking-wide">Hot Actions</span>
         </div>
-        <div className="text-2xl font-bold text-blue-700 mb-1">Call</div>
-        <div className="text-sm text-blue-600 font-medium">Rob Today</div>
+        <div className="text-2xl font-bold text-blue-700 mb-1">{hotAction}</div>
+        <div className="text-sm text-blue-600 font-medium">{actionTarget} {actionDeadline}</div>
         <div className="text-xs text-blue-500 mt-1">Demo Tomorrow</div>
       </div>
     </div>
@@ -291,29 +289,29 @@ const SalesMomentum = ({ winProbability = 30 }) => {
 };
 
 // Critical Actions Component
-const CriticalActions = () => {
+const CriticalActions = ({ clientName = "Client" }) => {
   const actions = [
     {
       priority: 'URGENT',
-      text: 'Follow up on overdue Chase items',
+      text: `Follow up on overdue ${clientName} items`,
       dueDate: '2 days overdue',
       color: 'red'
     },
     {
       priority: 'HIGH',
-      text: 'Schedule discovery call with Rob Lupoli',
+      text: `Schedule discovery call with ${clientName}`,
       dueDate: 'Today',
       color: 'amber'
     },
     {
       priority: 'HIGH',
-      text: 'Prepare UAD/UCDP integration demo',
+      text: 'Prepare integration demo materials',
       dueDate: 'This week',
       color: 'amber'
     },
     {
       priority: 'MED',
-      text: 'Research Minnesota expansion details',
+      text: 'Research company expansion details',
       dueDate: 'Next week',
       color: 'blue'
     }
@@ -353,7 +351,7 @@ const CriticalActions = () => {
 };
 
 // Key Company Intel Component
-const KeyCompanyIntel = ({ apolloData, googleData }) => {
+const KeyCompanyIntel = ({ apolloData, googleData, clientName = "Unknown Company" }) => {
   const companyInfo = apolloData?.company || {};
   const insights = apolloData?.insights || {};
   const hasNews = googleData && googleData.length > 0;
@@ -389,7 +387,7 @@ const KeyCompanyIntel = ({ apolloData, googleData }) => {
         
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <div className="text-xs font-semibold text-amber-800 uppercase mb-1">Decision Maker</div>
-          <div className="text-sm text-amber-700">Rob Lupoli - Primary Contact</div>
+          <div className="text-sm text-amber-700">{clientName} - Primary Contact</div>
         </div>
       </div>
     </div>
@@ -417,7 +415,7 @@ const DashboardTab = ({
     'High';
     
   const winProbability = pdlData?.dealScore || 30;
-  const nextAction = "Schedule discovery call with Rob Lupoli";
+  const nextAction = "Schedule discovery call";
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
@@ -442,10 +440,11 @@ const DashboardTab = ({
         {/* Right Sidebar */}
         <div className="space-y-6">
           <SalesMomentum winProbability={winProbability} />
-          <CriticalActions />
+          <CriticalActions clientName={displayName} />
           <KeyCompanyIntel 
             apolloData={apolloData}
             googleData={googleData}
+            clientName={displayName}
           />
         </div>
       </div>
