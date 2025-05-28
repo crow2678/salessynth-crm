@@ -1,4 +1,4 @@
-// tabs/DashboardTab.jsx - Dynamic Data Implementation
+// tabs/DashboardTab.jsx - Complete Part 1: Imports, Utilities, and Core Components
 import React, { useState } from 'react';
 import { 
   AlertTriangle,
@@ -32,12 +32,12 @@ import {
   ThumbsUp,
   MapPin,
   Flame,
-  CircleDollarSign,
-  ExternalLink,
-  Linkedin
+  CircleDollarSign
 } from 'lucide-react';
+import { GoogleNewsCard } from '../common/CommonComponents';
+import { formatMarkdown } from '../utils/intelligenceUtils';
 
-// Utility function to convert text to title case
+// Utility Functions
 const toTitleCase = (str) => {
   if (!str || typeof str !== 'string') return str || '';
   return str.replace(/\w\S*/g, (txt) => 
@@ -45,7 +45,6 @@ const toTitleCase = (str) => {
   );
 };
 
-// Utility function to format dates
 const formatDate = (dateString) => {
   if (!dateString) return 'No date';
   try {
@@ -55,7 +54,7 @@ const formatDate = (dateString) => {
   }
 };
 
-// Combined Header + Metrics Row (4-column layout) - Fully Dynamic
+// HeaderWithMetrics - 4-Column Dynamic Layout
 const HeaderWithMetrics = ({ displayName, dealValue, dealRisk, nextAction, researchData }) => {
   const getRiskColor = (risk) => {
     switch (risk?.toLowerCase()) {
@@ -99,168 +98,216 @@ const HeaderWithMetrics = ({ displayName, dealValue, dealRisk, nextAction, resea
 
   return (
     <div className="grid grid-cols-4 gap-4 mb-6">
-      {/* Client Info Card */}
+      {/* Client Info Card - Fully Dynamic */}
       <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
         <div className="flex items-center mb-2">
           <User className="h-5 w-5 text-gray-600 mr-2" />
           <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">Client Deal</span>
         </div>
         <div className="text-lg font-bold text-gray-900 mb-1">
-          {toTitleCase(displayName)}
+          {displayName || 'Unknown Client'}
         </div>
-        <div className="text-sm text-gray-600 font-medium mb-2">{dealValue}</div>
+        <div className="text-sm text-gray-600 font-medium mb-2">
+          {dealValue || 'Value TBD'}
+        </div>
         <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getRiskColor(dealRisk)}`}>
-          {dealRisk ? `${dealRisk.toUpperCase()} RISK` : 'ANALYZING'}
+          {dealRisk ? `${dealRisk.toUpperCase()} RISK` : 'ASSESSING RISK'}
         </span>
       </div>
 
-      {/* Deal Blockers - Dynamic */}
+      {/* Deal Blockers - Fully Dynamic */}
       <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
         <div className="flex items-center mb-2">
           <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
           <span className="text-xs font-bold text-red-800 uppercase tracking-wide">Deal Blockers</span>
         </div>
-        <div className="text-2xl font-bold text-red-700 mb-1">{criticalIssues}</div>
-        <div className="text-sm text-red-600 font-medium">Critical Issues</div>
-        <div className="text-xs text-red-500 mt-1">
-          {isOverdue ? `Overdue ${timeInStage}` : 'Need Resolution'}
+        <div className="text-2xl font-bold text-red-700 mb-1">
+          {criticalIssues > 0 ? criticalIssues : (allIssues > 0 ? allIssues : '0')}
         </div>
+        <div className="text-sm text-red-600 font-medium">{blockersLabel}</div>
+        <div className="text-xs text-red-500 mt-1">{blockersSubtext}</div>
       </div>
 
-      {/* Decision Pending - Dynamic */}
+      {/* Decision Pending - Fully Dynamic */}
       <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4">
         <div className="flex items-center mb-2">
           <Clock className="h-5 w-5 text-amber-600 mr-2" />
           <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Decision Pending</span>
         </div>
-        <div className="text-2xl font-bold text-amber-700 mb-1">{pendingDecision}</div>
-        <div className="text-sm text-amber-600 font-medium">Stage</div>
-        <div className="text-xs text-amber-500 mt-1">
-          In stage: {timeInStage}
+        <div className="text-2xl font-bold text-amber-700 mb-1">
+          {pendingDecision || 'UNKNOWN'}
         </div>
+        <div className="text-sm text-amber-600 font-medium">{decisionLabel}</div>
+        <div className="text-xs text-amber-500 mt-1">{decisionSubtext}</div>
       </div>
 
-      {/* Hot Actions - Dynamic */}
+      {/* Hot Actions - Fully Dynamic */}
       <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
         <div className="flex items-center mb-2">
           <Zap className="h-5 w-5 text-blue-600 mr-2" />
           <span className="text-xs font-bold text-blue-800 uppercase tracking-wide">Hot Actions</span>
         </div>
-        <div className="text-2xl font-bold text-blue-700 mb-1">{highPriorityActions}</div>
-        <div className="text-sm text-blue-600 font-medium">High Priority</div>
-        <div className="text-xs text-blue-500 mt-1">
-          {primaryAction ? `Due: ${formatDate(primaryAction.deadline)}` : 'No deadline set'}
+        <div className="text-2xl font-bold text-blue-700 mb-1">
+          {highPriorityActions > 0 ? highPriorityActions : (allActions > 0 ? allActions : '0')}
+        </div>
+        <div className="text-sm text-blue-600 font-medium">{actionsLabel}</div>
+        <div className="text-xs text-blue-500 mt-1">{actionsSubtext}</div>
+      </div>
+    </div>
+  );
+};
+
+// CompactDealHeader - Enhanced with Dynamic Data
+const CompactDealHeader = ({ displayName, dealValue, dealRisk, nextAction, researchData }) => {
+  const getRiskColor = (risk) => {
+    switch (risk?.toLowerCase()) {
+      case 'high': return 'text-red-600';
+      case 'medium': return 'text-amber-600';
+      case 'low': return 'text-green-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  // Extract dynamic data from research
+  const dealIntelligence = researchData?.dealIntelligence || {};
+  const currentStage = dealIntelligence.currentStage || 'discovery';
+  const momentum = dealIntelligence.momentum || 'steady';
+  const dealScore = dealIntelligence.dealScore || null;
+  
+  // Use deal score if available, otherwise fallback to risk assessment
+  const displayRisk = dealScore ? 
+    (dealScore >= 70 ? 'LOW' : dealScore >= 40 ? 'MEDIUM' : 'HIGH') : 
+    (dealRisk ? dealRisk.toUpperCase() : 'ASSESSING');
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">
+            {toTitleCase(displayName)}{dealValue && ` - ${dealValue}`}
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">
+            <span className={`font-medium ${getRiskColor(dealRisk)}`}>
+              {displayRisk} RISK
+            </span>
+            {dealScore && <span className="ml-3">• Score: {dealScore}%</span>}
+            <span className="ml-3">• Stage: {toTitleCase(currentStage.replace('_', ' '))}</span>
+            <span className="ml-3">• Momentum: {toTitleCase(momentum)}</span>
+          </p>
         </div>
       </div>
     </div>
   );
 };
 
-// Enhanced Engagement Strategy Component with Title Deduplication
+// CompactMetricCard - Enhanced with Additional Info
+const CompactMetricCard = ({ title, value, subtitle, icon: IconComponent, color = 'blue', urgency = 'normal', additionalInfo = null }) => {
+  const getBgColor = (color, urgency) => {
+    if (urgency === 'urgent') return 'bg-red-50 border-red-200';
+    const colors = {
+      blue: 'bg-blue-50 border-blue-200',
+      green: 'bg-green-50 border-green-200', 
+      amber: 'bg-amber-50 border-amber-200',
+      red: 'bg-red-50 border-red-200'
+    };
+    return colors[color] || colors.blue;
+  };
+
+  const getTextColor = (color, urgency) => {
+    if (urgency === 'urgent') return 'text-red-700';
+    const colors = {
+      blue: 'text-blue-700',
+      green: 'text-green-700',
+      amber: 'text-amber-700', 
+      red: 'text-red-700'
+    };
+    return colors[color] || colors.blue;
+  };
+
+  return (
+    <div className={`border rounded-lg p-3 ${getBgColor(color, urgency)}`}>
+      {urgency === 'urgent' && (
+        <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full mb-2 inline-block">
+          URGENT
+        </span>
+      )}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className={`text-xl font-bold ${getTextColor(color, urgency)}`}>
+            {value}
+          </div>
+          <div className="text-xs font-medium text-gray-700 uppercase">
+            {title}
+          </div>
+          {subtitle && (
+            <div className="text-xs text-gray-600 mt-0.5">
+              {subtitle}
+            </div>
+          )}
+          {additionalInfo && (
+            <div className="text-xs text-gray-500 mt-0.5">
+              {additionalInfo}
+            </div>
+          )}
+        </div>
+        <IconComponent className={`h-5 w-5 ${getTextColor(color, urgency).replace('text-', 'text-').replace('-700', '-600')}`} />
+      </div>
+    </div>
+  );
+};
+// tabs/DashboardTab.jsx - Complete Part 2: Strategy and Intelligence Components
+
+// Engagement Strategy Component - Enhanced and Fully Dynamic
 const EngagementStrategy = ({ researchData }) => {
+  const dealIntelligence = researchData?.dealIntelligence || {};
+  const strategies = dealIntelligence.strategies || [];
+  const nextActions = dealIntelligence.nextActions || [];
   const hasSummary = researchData?.summary;
   
-  if (!hasSummary) {
-    return (
-      <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
-        <div className="flex items-center mb-4">
-          <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mr-3">
-            <Star className="h-4 w-4 text-white" />
-          </div>
-          <h2 className="text-lg font-bold text-gray-900">AI-Powered Engagement Strategy</h2>
-        </div>
-        <div className="text-center py-6">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto mb-3"></div>
-          <p className="text-sm text-gray-500">Generating personalized strategy...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Parse strategy sections from summary
-  const summaryText = researchData.summary;
-  
-  // Extract sections based on the emoji headers
-  const sections = [
-    {
-      title: "1️⃣ TAILORED ENGAGEMENT STRATEGY",
-      points: []
-    },
-    {
-      title: "2️⃣ STRATEGIC OBJECTION HANDLING", 
-      points: []
-    },
-    {
-      title: "3️⃣ COMPETITIVE POSITIONING",
-      points: []
-    }
-  ];
-  
-  // Split summary into sections and extract points
-  const sectionRegex = /##\s*[1-3]️⃣\s*([^#]+?)(?=##\s*[1-3]️⃣|$)/gs;
-  let match;
-  let sectionIndex = 0;
-  
-  while ((match = sectionRegex.exec(summaryText)) !== null && sectionIndex < 3) {
-    const sectionContent = match[1].trim();
-    const points = sectionContent
-      .split(/[•\*\-]/)
-      .filter(point => point.trim().length > 15)
-      .map(point => point.trim().replace(/^\d+\.?\s*/, ''))
-      .filter(point => {
-        // Filter out points that are just the section title repeated
-        const cleanPoint = point.toLowerCase().replace(/[^\w\s]/g, '');
-        return !cleanPoint.includes('tailored engagement strategy') && 
-               !cleanPoint.includes('strategic objection handling') && 
-               !cleanPoint.includes('competitive positioning');
-      })
-      .slice(0, 4); // Limit to 4 points per section
-    
-    sections[sectionIndex].points = points;
-    sectionIndex++;
-  }
-  
-  // Fallback: if no sections found, create generic points
-  if (sections.every(section => section.points.length === 0)) {
-    const allPoints = summaryText
+  // If no strategies but have summary, extract from summary
+  let strategyPoints = strategies;
+  if (strategyPoints.length === 0 && hasSummary) {
+    strategyPoints = researchData.summary
       .split(/[•\*\-]/)
       .filter(point => point.trim().length > 20)
       .map(point => point.trim().replace(/^\d+\.?\s*/, ''))
-      .slice(0, 6);
-    
-    sections[0].points = allPoints.slice(0, 2);
-    sections[1].points = allPoints.slice(2, 4);
-    sections[2].points = allPoints.slice(4, 6);
+      .slice(0, 5);
+  }
+  
+  // If still no strategies, show next actions
+  if (strategyPoints.length === 0 && nextActions.length > 0) {
+    strategyPoints = nextActions.map(action => action.description || action.action || action).slice(0, 5);
+  }
+  
+  if (strategyPoints.length === 0) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <Star className="h-4 w-4 text-purple-600 mr-2" />
+          Engagement Strategy
+        </h3>
+        <div className="text-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-500">Generating strategy...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
-      <div className="flex items-center mb-4">
-        <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mr-3">
-          <Star className="h-4 w-4 text-white" />
-        </div>
-        <h2 className="text-lg font-bold text-gray-900">AI-Powered Engagement Strategy</h2>
-      </div>
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <Star className="h-4 w-4 text-purple-600 mr-2" />
+        Engagement Strategy
+      </h3>
       
-      <div className="space-y-6">
-        {sections.map((section, sectionIdx) => (
-          <div key={sectionIdx}>
-            {/* Clean Section Title */}
-            <h3 className="text-base font-bold text-gray-800 mb-3">
-              {section.title}
-            </h3>
-            
-            {/* Section Points */}
-            <div className="space-y-3 ml-4">
-              {section.points.map((point, pointIdx) => (
-                <div key={pointIdx} className="flex items-start bg-purple-50 rounded-lg p-3 border-l-4 border-purple-500">
-                  <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                    <span className="text-white text-xs font-bold">{pointIdx + 1}</span>
-                  </div>
-                  <div className="text-gray-700 leading-relaxed text-sm">{point}</div>
-                </div>
-              ))}
+      <div className="space-y-3">
+        {strategyPoints.map((point, idx) => (
+          <div key={idx} className="flex items-start text-sm">
+            <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
+              <span className="text-purple-600 text-xs font-bold">{idx + 1}</span>
             </div>
+            <span className="text-gray-700 leading-relaxed">{point}</span>
           </div>
         ))}
       </div>
@@ -268,623 +315,550 @@ const EngagementStrategy = ({ researchData }) => {
   );
 };
 
-// Sales Momentum Component - Fully Dynamic
+// Sales Momentum Component - NEW Dynamic Component
 const SalesMomentum = ({ researchData }) => {
   const dealIntelligence = researchData?.dealIntelligence || {};
-  const dealScore = dealIntelligence.dealScore || null;
-  const momentum = dealIntelligence.momentum || null;
-  const engagementLevel = dealIntelligence.engagementLevel || null;
-  const timeInStage = dealIntelligence.stageData?.timeInStage || null;
-  const isOverdue = dealIntelligence.stageData?.isOverdue || false;
-  const confidence = dealIntelligence.confidence || null;
-  const reasoning = dealIntelligence.reasoning || null;
-  
-  const getMomentumData = (score, momentumStatus, overdue, engagement) => {
-    // No hardcoded thresholds - use actual data and reasoning
-    if (overdue) return { 
-      status: 'Overdue', 
-      color: 'text-red-600', 
-      bg: 'bg-red-100', 
-      border: 'border-red-300',
-      icon: TrendingDown,
-      advice: reasoning || 'Deal requires immediate attention'
-    };
-    
-    if (momentumStatus === 'accelerating') return { 
-      status: 'Accelerating', 
-      color: 'text-green-600', 
-      bg: 'bg-green-100', 
-      border: 'border-green-300',
-      icon: TrendingUp,
-      advice: 'Momentum is building - maintain pace'
-    };
-    
-    if (momentumStatus === 'building') return { 
-      status: 'Building', 
-      color: 'text-blue-600', 
-      bg: 'bg-blue-100', 
-      border: 'border-blue-300',
-      icon: Target,
-      advice: 'Progress is steady - keep pushing'
-    };
-    
-    if (momentumStatus === 'stalling' || momentumStatus === 'steady') return { 
-      status: toTitleCase(momentumStatus || 'Unknown'), 
-      color: 'text-amber-600', 
-      bg: 'bg-amber-100', 
-      border: 'border-amber-300',
-      icon: Clock,
-      advice: reasoning || 'Monitor closely for changes'
-    };
-    
-    // Default based on score if no momentum data
-    if (score >= 70) return { 
-      status: 'Strong', 
-      color: 'text-green-600', 
-      bg: 'bg-green-100', 
-      border: 'border-green-300',
-      icon: TrendingUp,
-      advice: 'High probability of success'
-    };
-    
-    if (score >= 40) return { 
-      status: 'Moderate', 
-      color: 'text-blue-600', 
-      bg: 'bg-blue-100', 
-      border: 'border-blue-300',
-      icon: Target,
-      advice: 'Mixed signals - needs attention'
-    };
-    
-    if (score !== null) return { 
-      status: 'Weak', 
-      color: 'text-red-600', 
-      bg: 'bg-red-100', 
-      border: 'border-red-300',
-      icon: TrendingDown,
-      advice: reasoning || 'Significant challenges identified'
-    };
-    
-    // No data available
-    return { 
-      status: 'Analyzing', 
-      color: 'text-gray-600', 
-      bg: 'bg-gray-100', 
-      border: 'border-gray-300',
-      icon: Activity,
-      advice: 'Momentum analysis in progress'
-    };
-  };
-  
-  const momentumData = getMomentumData(dealScore, momentum, isOverdue, engagementLevel);
-  const IconComponent = momentumData.icon;
-  
-  // Extract dynamic risk factors and opportunities - NO fallbacks
+  const momentum = dealIntelligence.momentum || 'steady';
+  const dealScore = dealIntelligence.dealScore || 0;
   const riskFactors = dealIntelligence.riskFactors || [];
   const opportunities = dealIntelligence.opportunities || [];
-  const momentumSignals = dealIntelligence.momentumSignals || [];
+  const stageData = dealIntelligence.stageData || {};
   
-  const momentumKillers = riskFactors
-    .filter(risk => risk.description)
-    .slice(0, 3)
-    .map(risk => risk.description);
-    
-  const momentumBuilders = [
-    ...opportunities.filter(opp => opp.opportunity).slice(0, 2).map(opp => opp.opportunity),
-    ...momentumSignals.filter(signal => signal.type === 'positive' && signal.signal).slice(0, 2).map(signal => signal.signal)
-  ].slice(0, 3);
-  
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center mb-4">
-        <IconComponent className="h-5 w-5 text-blue-600 mr-2" />
-        <h3 className="font-semibold text-gray-900">Sales Momentum</h3>
-      </div>
-      
-      <div className="text-center mb-4">
-        <div className={`w-20 h-20 rounded-full ${momentumData.bg} ${momentumData.border} border-4 flex items-center justify-center mx-auto mb-2`}>
-          <span className={`text-xl font-bold ${momentumData.color}`}>
-            {dealScore !== null ? `${dealScore}%` : '?'}
-          </span>
-        </div>
-        <p className={`text-sm font-medium ${momentumData.color}`}>{momentumData.status}</p>
-        <p className="text-xs text-gray-500 mt-1">{momentumData.advice}</p>
-        {engagementLevel && (
-          <p className="text-xs text-gray-400 mt-1">Engagement: {engagementLevel}</p>
-        )}
-        {confidence && (
-          <p className="text-xs text-gray-400">Confidence: {confidence}%</p>
-        )}
-      </div>
-      
-      <div className="space-y-3">
-        {momentumKillers.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <h4 className="text-xs font-semibold text-red-800 uppercase mb-2">Momentum Killers</h4>
-            <ul className="text-xs text-red-700 space-y-1">
-              {momentumKillers.map((killer, idx) => (
-                <li key={idx}>• {killer}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        
-        {momentumBuilders.length > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <h4 className="text-xs font-semibold text-green-800 uppercase mb-2">Momentum Builders</h4>
-            <ul className="text-xs text-green-700 space-y-1">
-              {momentumBuilders.map((builder, idx) => (
-                <li key={idx}>• {builder}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        
-        {/* Only show "analyzing" if no data at all */}
-        {momentumKillers.length === 0 && momentumBuilders.length === 0 && riskFactors.length === 0 && opportunities.length === 0 && (
-          <div className="text-center py-2">
-            <p className="text-xs text-gray-500">Momentum analysis in progress...</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Critical Actions Component - Fully Dynamic
-const CriticalActions = ({ researchData, displayName }) => {
-  const dealIntelligence = researchData?.dealIntelligence || {};
-  const nextActions = dealIntelligence.nextActions || [];
-  const riskFactors = dealIntelligence.riskFactors || [];
-  
-  // Build actions from real data - NO hardcoding
-  const dynamicActions = [];
-  
-  // Add next actions with their actual priorities and deadlines
-  nextActions.forEach(action => {
-    if (action.action && action.priority) {
-      const priority = action.priority.toUpperCase();
-      const color = priority === 'HIGH' ? 'red' : 
-                   priority === 'MEDIUM' ? 'amber' : 'blue';
-      
-      dynamicActions.push({
-        priority: priority,
-        text: action.action,
-        dueDate: action.deadline ? formatDate(action.deadline) : 'No deadline',
-        color: color,
-        expectedOutcome: action.expectedOutcome || null
-      });
+  const getMomentumColor = (momentum) => {
+    switch (momentum?.toLowerCase()) {
+      case 'accelerating': return 'text-green-600 bg-green-50 border-green-200';
+      case 'steady': return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'stalling': return 'text-amber-600 bg-amber-50 border-amber-200';
+      case 'declining': return 'text-red-600 bg-red-50 border-red-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
-  });
-  
-  // Add actions from risk factors with recommendations
-  riskFactors.forEach(risk => {
-    if (risk.recommendation && risk.severity) {
-      const priority = risk.severity.toUpperCase();
-      const color = priority === 'HIGH' ? 'red' : 
-                   priority === 'MEDIUM' ? 'amber' : 'blue';
-      
-      dynamicActions.push({
-        priority: priority,
-        text: risk.recommendation,
-        dueDate: 'Immediate',
-        color: color,
-        expectedOutcome: null
-      });
-    }
-  });
-  
-  // Sort by priority (red first, then amber, then blue)
-  dynamicActions.sort((a, b) => {
-    const priorityOrder = { red: 0, amber: 1, blue: 2 };
-    return priorityOrder[a.color] - priorityOrder[b.color];
-  });
-  
-  const getPriorityStyle = (color) => {
-    const styles = {
-      red: 'bg-red-100 text-red-800 border-red-300',
-      amber: 'bg-amber-100 text-amber-800 border-amber-300',
-      blue: 'bg-blue-100 text-blue-800 border-blue-300'
-    };
-    return styles[color] || styles.blue;
   };
-  
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center mb-4">
-        <Target className="h-5 w-5 text-red-600 mr-2" />
-        <h3 className="font-semibold text-gray-900">Critical Actions</h3>
-      </div>
-      
-      <div className="space-y-3">
-        {dynamicActions.length > 0 ? (
-          dynamicActions.slice(0, 6).map((action, idx) => (
-            <div key={idx} className={`border rounded-lg p-4 ${getPriorityStyle(action.color)}`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wide">
-                  {action.priority}
-                </span>
-                <span className="text-xs opacity-75">{action.dueDate}</span>
-              </div>
-              <p className="text-sm font-medium">{action.text}</p>
-              {action.expectedOutcome && (
-                <p className="text-xs mt-2 opacity-75">Expected: {action.expectedOutcome}</p>
-              )}
-            </div>
-          ))
-        ) : (
-          <div className="text-center py-6">
-            <p className="text-sm text-gray-500">No specific actions identified</p>
-            <p className="text-xs text-gray-400 mt-1">AI analysis will generate recommendations</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};.severity === 'high' && risk.recommendation) {
-      dynamicActions.push({
-        priority: 'URGENT',
-        text: risk.recommendation,
-        dueDate: 'Immediate',
-        color: 'red'
-      });
+
+  const getMomentumIcon = (momentum) => {
+    switch (momentum?.toLowerCase()) {
+      case 'accelerating': return <TrendingUp className="h-4 w-4" />;
+      case 'steady': return <Activity className="h-4 w-4" />;
+      case 'stalling': return <Clock className="h-4 w-4" />;
+      case 'declining': return <TrendingDown className="h-4 w-4" />;
+      default: return <Activity className="h-4 w-4" />;
     }
-  });
-  
-  // Fallback to generic actions if no dynamic data
-  if (dynamicActions.length === 0) {
-    dynamicActions.push(
-      {
-        priority: 'HIGH',
-        text: `Schedule follow-up call with ${displayName}`,
-        dueDate: 'This week',
-        color: 'amber'
-      },
-      {
-        priority: 'MED',
-        text: 'Prepare customized proposal',
-        dueDate: 'Next week',
-        color: 'blue'
-      }
-    );
-  }
-  
-  const getPriorityStyle = (color) => {
-    const styles = {
-      red: 'bg-red-100 text-red-800 border-red-300',
-      amber: 'bg-amber-100 text-amber-800 border-amber-300',
-      blue: 'bg-blue-100 text-blue-800 border-blue-300'
-    };
-    return styles[color] || styles.blue;
   };
-  
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center mb-4">
-        <Target className="h-5 w-5 text-red-600 mr-2" />
-        <h3 className="font-semibold text-gray-900">Critical Actions</h3>
-      </div>
-      
-      <div className="space-y-3">
-        {dynamicActions.slice(0, 4).map((action, idx) => (
-          <div key={idx} className={`border rounded-lg p-4 ${getPriorityStyle(action.color)}`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wide">
-                {action.priority}
-              </span>
-              <span className="text-xs opacity-75">{action.dueDate}</span>
-            </div>
-            <p className="text-sm font-medium">{action.text}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
-// Enhanced Contact Info Component - Fully Dynamic
-const ContactInfo = ({ researchData, displayName }) => {
-  const pdlData = researchData?.data?.pdl?.personData?.data;
-  const companyData = researchData?.data?.pdl?.companyData;
-  
-  if (!pdlData && !companyData) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <div className="flex items-center mb-4">
-          <User className="h-5 w-5 text-blue-600 mr-2" />
-          <h3 className="font-semibold text-gray-900">Contact Information</h3>
-        </div>
-        <div className="text-center py-3">
-          <p className="text-sm text-gray-500">Contact research in progress...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Extract ALL dynamic data - no defaults
-  const fullName = pdlData?.full_name || displayName || null;
-  const firstName = pdlData?.first_name || null;
-  const lastName = pdlData?.last_name || null;
-  const jobTitle = pdlData?.job_title || null;
-  const company = pdlData?.job_company_name || companyData?.name || null;
-  const industry = pdlData?.industry || pdlData?.job_company_industry || companyData?.industry || null;
-  const linkedinUrl = pdlData?.linkedin_url || null;
-  const linkedinUsername = pdlData?.linkedin_username || null;
-  const hasWorkEmail = pdlData?.work_email === true;
-  const hasPersonalEmail = pdlData?.personal_emails === true;
-  const hasMobilePhone = pdlData?.mobile_phone === true;
-  const hasPhoneNumbers = pdlData?.phone_numbers === true;
-  const companySize = pdlData?.job_company_size || companyData?.size || companyData?.employee_count || null;
-  const companyLocation = pdlData?.job_company_location_name || companyData?.location?.name || null;
-  const jobStartDate = pdlData?.job_start_date || null;
-  const jobLastVerified = pdlData?.job_last_verified || null;
-  const skills = pdlData?.skills || [];
-  const interests = pdlData?.interests || [];
-  
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center mb-4">
-        <User className="h-5 w-5 text-blue-600 mr-2" />
-        <h3 className="font-semibold text-gray-900">Contact Information</h3>
-      </div>
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <Target className="h-4 w-4 text-blue-600 mr-2" />
+        Sales Momentum
+      </h3>
       
-      <div className="space-y-3">
-        {/* Primary Contact - Only show if we have data */}
-        {(fullName || firstName || jobTitle) && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-blue-900">
-                  {fullName ? toTitleCase(fullName) : 
-                   (firstName && lastName ? `${toTitleCase(firstName)} ${toTitleCase(lastName)}` : 
-                    firstName ? toTitleCase(firstName) : 'Name Unknown')}
-                </div>
-                {jobTitle && (
-                  <div className="text-xs text-blue-700">{toTitleCase(jobTitle)}</div>
-                )}
-                {company && (
-                  <div className="text-xs text-blue-600">{toTitleCase(company)}</div>
-                )}
-                {jobStartDate && (
-                  <div className="text-xs text-blue-500">Since: {jobStartDate}</div>
-                )}
-              </div>
-              {linkedinUrl && (
-                <a 
-                  href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800"
-                  title={`LinkedIn: ${linkedinUsername || 'View Profile'}`}
-                >
-                  <Linkedin className="h-5 w-5" />
-                </a>
-              )}
-            </div>
+      {/* Momentum Status */}
+      <div className={`border rounded-lg p-3 mb-3 ${getMomentumColor(momentum)}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            {getMomentumIcon(momentum)}
+            <span className="ml-2 font-semibold text-sm uppercase">{momentum}</span>
           </div>
-        )}
-        
-        {/* Contact Methods - Only show available methods */}
-        {(hasWorkEmail || hasPersonalEmail || hasMobilePhone || hasPhoneNumbers || linkedinUrl) && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="text-xs font-semibold text-green-800 uppercase mb-2">Contact Methods</div>
-            <div className="space-y-1">
-              {hasWorkEmail && (
-                <div className="flex items-center text-xs text-green-700">
-                  <Mail className="h-3 w-3 mr-2" />
-                  Work Email Available
-                </div>
-              )}
-              {hasPersonalEmail && !hasWorkEmail && (
-                <div className="flex items-center text-xs text-green-700">
-                  <Mail className="h-3 w-3 mr-2" />
-                  Personal Email Available
-                </div>
-              )}
-              {(hasMobilePhone || hasPhoneNumbers) && (
-                <div className="flex items-center text-xs text-green-700">
-                  <Phone className="h-3 w-3 mr-2" />
-                  {hasMobilePhone ? 'Mobile Phone Available' : 'Phone Available'}
-                </div>
-              )}
-              {linkedinUrl && (
-                <div className="flex items-center text-xs text-green-700">
-                  <Linkedin className="h-3 w-3 mr-2" />
-                  LinkedIn Profile Active
-                </div>
-              )}
-            </div>
+          <div className="text-right">
+            <div className="text-lg font-bold">{dealScore}%</div>
+            <div className="text-xs">Deal Score</div>
           </div>
-        )}
-        
-        {/* Company Info - Only show if we have data */}
-        {(industry || companySize || companyLocation) && (
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-            <div className="text-xs font-semibold text-purple-800 uppercase mb-1">Company Details</div>
-            <div className="text-sm text-purple-700">
-              {industry && <span>{toTitleCase(industry)}</span>}
-              {industry && (companySize || companyLocation) && <span> • </span>}
-              {companySize && (
-                <span>{typeof companySize === 'number' ? companySize.toLocaleString() : companySize} employees</span>
-              )}
-              {companySize && companyLocation && <span> • </span>}
-              {companyLocation && <span>{companyLocation}</span>}
-            </div>
-          </div>
-        )}
-        
-        {/* Skills/Interests - Only show if available */}
-        {(skills.length > 0 || interests.length > 0) && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <div className="text-xs font-semibold text-amber-800 uppercase mb-1">
-              {skills.length > 0 ? 'Key Skills' : 'Interests'}
-            </div>
-            <div className="text-xs text-amber-700">
-              {skills.length > 0 ? 
-                skills.slice(0, 5).map(skill => toTitleCase(skill)).join(', ') :
-                interests.slice(0, 5).map(interest => toTitleCase(interest)).join(', ')
-              }
-            </div>
-          </div>
+        </div>
+        {stageData.timeInStage && (
+          <div className="text-xs mt-2">In current stage: {stageData.timeInStage}</div>
         )}
       </div>
-    </div>
-  );
-};
 
-// Enhanced Company Intel Component - Fully Dynamic
-const CompanyIntel = ({ researchData }) => {
-  const googleData = researchData?.data?.google || [];
-  const companyData = researchData?.data?.pdl?.companyData;
-  const dealIntelligence = researchData?.dealIntelligence || {};
-  
-  const opportunities = dealIntelligence.opportunities || [];
-  const conversationStarters = dealIntelligence.conversationStarters || [];
-  const keyInsights = dealIntelligence.keyInsights || [];
-  
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center mb-4">
-        <Building className="h-5 w-5 text-blue-600 mr-2" />
-        <h3 className="font-semibold text-gray-900">Company Intelligence</h3>
-      </div>
-      
-      <div className="space-y-3">
-        {/* Recent News - Show multiple if available */}
-        {googleData.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="text-xs font-semibold text-blue-800 uppercase mb-2">Recent News</div>
-            {googleData.slice(0, 2).map((news, idx) => (
-              <div key={idx} className="mb-2 last:mb-0">
-                <div className="text-sm text-blue-700 mb-1">
-                  {news.title ? news.title.substring(0, 80) + (news.title.length > 80 ? '...' : '') : 'News title unavailable'}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-600">
-                    {news.source || 'Unknown Source'} • {news.publishedDate ? formatDate(news.publishedDate) : 'No date'}
-                  </span>
-                  {news.url && (
-                    <a 
-                      href={news.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
-                    >
-                      Read <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        
-        {/* Key Insights */}
-        {keyInsights.length > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="text-xs font-semibold text-green-800 uppercase mb-2">Key Insights</div>
-            {keyInsights.slice(0, 2).map((insight, idx) => (
-              <div key={idx} className="mb-2 last:mb-0">
-                <div className="text-sm text-green-700">{insight.insight}</div>
-                {insight.impact && (
-                  <div className="text-xs text-green-600 mt-1">
-                    Impact: {insight.impact} {insight.actionRequired && '• Action Required'}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        
+      {/* Key Factors */}
+      <div className="space-y-2">
         {/* Opportunities */}
         {opportunities.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <div className="text-xs font-semibold text-amber-800 uppercase mb-2">Opportunities</div>
-            {opportunities.slice(0, 2).map((opp, idx) => (
-              <div key={idx} className="mb-2 last:mb-0">
-                <div className="text-sm text-amber-700">{opp.opportunity}</div>
-                <div className="text-xs text-amber-600 mt-1 flex justify-between">
-                  {opp.potential && <span>Potential: {opp.potential}</span>}
-                  {opp.timeline && <span>{opp.timeline}</span>}
-                </div>
-                {opp.action && (
-                  <div className="text-xs text-amber-600 mt-1 italic">Action: {opp.action}</div>
-                )}
+          <div className="bg-green-50 border border-green-200 rounded p-2">
+            <div className="flex items-start">
+              <CheckCircle className="h-4 w-4 text-green-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-green-800 uppercase">Opportunity</div>
+                <div className="text-sm text-green-700">{opportunities[0].description || opportunities[0]}</div>
               </div>
-            ))}
-          </div>
-        )}
-        
-        {/* Conversation Starters */}
-        {conversationStarters.length > 0 && (
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-            <div className="text-xs font-semibold text-purple-800 uppercase mb-2">Conversation Starters</div>
-            {conversationStarters.slice(0, 2).map((starter, idx) => (
-              <div key={idx} className="mb-2 last:mb-0">
-                <div className="text-sm text-purple-700 font-medium">
-                  "{starter.question}"
-                </div>
-                <div className="text-xs text-purple-600 mt-1">
-                  Topic: {starter.topic}
-                </div>
-                {starter.purpose && (
-                  <div className="text-xs text-purple-500 mt-1 italic">
-                    Purpose: {starter.purpose}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        
-        {/* Company Profile */}
-        {companyData && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <div className="text-xs font-semibold text-gray-800 uppercase mb-2">Company Profile</div>
-            <div className="space-y-1">
-              {companyData.display_name && (
-                <div className="text-sm font-medium text-gray-900">{companyData.display_name}</div>
-              )}
-              <div className="text-sm text-gray-700">
-                {companyData.employee_count && (
-                  <span>{companyData.employee_count.toLocaleString()} employees</span>
-                )}
-                {companyData.employee_count && companyData.industry && <span> • </span>}
-                {companyData.industry && <span>{toTitleCase(companyData.industry)}</span>}
-              </div>
-              {companyData.location?.name && (
-                <div className="text-xs text-gray-600">📍 {companyData.location.name}</div>
-              )}
-              {companyData.founded && (
-                <div className="text-xs text-gray-600">Founded: {companyData.founded}</div>
-              )}
-              {companyData.website && (
-                <div className="text-xs text-gray-600">
-                  <a href={`https://${companyData.website}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
-                    {companyData.website}
-                  </a>
-                </div>
-              )}
-              {companyData.summary && (
-                <div className="text-xs text-gray-600 mt-2">
-                  {companyData.summary.substring(0, 150) + (companyData.summary.length > 150 ? '...' : '')}
-                </div>
-              )}
             </div>
           </div>
         )}
         
-        {/* Show analyzing message only if NO data at all */}
-        {googleData.length === 0 && 
-         opportunities.length === 0 && 
-         conversationStarters.length === 0 && 
-         keyInsights.length === 0 && 
-         !companyData && (
-          <div className="text-center py-6">
-            <p className="text-sm text-gray-500">Company intelligence analysis in progress...</p>
-            <p className="text-xs text-gray-400 mt-1">Gathering news, insights, and opportunities</p>
+        {/* Risk Factors */}
+        {riskFactors.length > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded p-2">
+            <div className="flex items-start">
+              <AlertTriangle className="h-4 w-4 text-red-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-red-800 uppercase">Risk Factor</div>
+                <div className="text-sm text-red-700">{riskFactors[0].description || riskFactors[0]}</div>
+              </div>
+            </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Company Intel Component - Enhanced and Fully Dynamic
+const CompanyIntel = ({ apolloData, googleData, researchData }) => {
+  const companyInfo = apolloData?.company || {};
+  const insights = apolloData?.insights || {};
+  const dealIntelligence = researchData?.dealIntelligence || {};
+  const companyInsights = dealIntelligence.companyInsights || {};
+  const hasNews = googleData && googleData.length > 0;
+  
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <Building className="h-4 w-4 text-blue-600 mr-2" />
+        Company Intelligence
+      </h3>
+      
+      <div className="space-y-3">
+        {/* Company basics - only show if we have valid data */}
+        {(companyInfo.industry && companyInfo.industry !== 'Unknown' && companyInfo.industry !== 'unknown') || 
+         (companyInfo.size && companyInfo.size !== 'Unknown' && companyInfo.size !== 'unknown') || 
+         companyInfo.revenue || companyInfo.location ? (
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {companyInfo.industry && companyInfo.industry !== 'Unknown' && companyInfo.industry !== 'unknown' && (
+              <div>
+                <span className="text-gray-500">Industry:</span>
+                <span className="ml-1 font-medium">{toTitleCase(companyInfo.industry)}</span>
+              </div>
+            )}
+            {companyInfo.size && companyInfo.size !== 'Unknown' && companyInfo.size !== 'unknown' && (
+              <div>
+                <span className="text-gray-500">Size:</span>
+                <span className="ml-1 font-medium">
+                  {typeof companyInfo.size === 'number' ? `${companyInfo.size} employees` : companyInfo.size}
+                </span>
+              </div>
+            )}
+            {companyInfo.revenue && (
+              <div>
+                <span className="text-gray-500">Revenue:</span>
+                <span className="ml-1 font-medium">{companyInfo.revenue}</span>
+              </div>
+            )}
+            {companyInfo.location && (
+              <div>
+                <span className="text-gray-500">Location:</span>
+                <span className="ml-1 font-medium">{companyInfo.location}</span>
+              </div>
+            )}
+          </div>
+        ) : null}
+        
+        {/* Company insights from deal intelligence */}
+        {companyInsights.businessModel && (
+          <div className="bg-blue-50 border border-blue-200 rounded p-2">
+            <div className="flex items-start">
+              <Briefcase className="h-4 w-4 text-blue-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-blue-800 uppercase">Business Model</div>
+                <div className="text-sm text-blue-700">{companyInsights.businessModel}</div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Pain points */}
+        {companyInsights.painPoints && companyInsights.painPoints.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded p-2">
+            <div className="flex items-start">
+              <AlertCircle className="h-4 w-4 text-amber-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-amber-800 uppercase">Pain Point</div>
+                <div className="text-sm text-amber-700">{companyInsights.painPoints[0]}</div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Key signals from Apollo data */}
+        {insights.buyingSignals?.length > 0 && (
+          <div className="bg-green-50 border border-green-200 rounded p-2">
+            <div className="flex items-start">
+              <Zap className="h-4 w-4 text-green-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-green-800 uppercase">Buying Signal</div>
+                <div className="text-sm text-green-700">{insights.buyingSignals[0]}</div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Recent news */}
+        {hasNews && (
+          <div className="bg-blue-50 border border-blue-200 rounded p-2">
+            <div className="flex items-start">
+              <MessageSquare className="h-4 w-4 text-blue-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-blue-800 uppercase flex items-center">
+                  Recent News
+                  <span className="ml-2 text-xs bg-blue-200 text-blue-800 px-1 rounded-full">
+                    {googleData.length}
+                  </span>
+                </div>
+                <div className="text-sm text-blue-700">{googleData[0].title.substring(0, 80)}...</div>
+                {googleData[0].publishedDate && (
+                  <div className="text-xs text-blue-500 mt-1">{formatDate(googleData[0].publishedDate)}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Growth indicators */}
+        {insights.growthIndicators?.length > 0 && (
+          <div className="bg-green-50 border border-green-200 rounded p-2">
+            <div className="flex items-start">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-green-800 uppercase">Growth Signal</div>
+                <div className="text-sm text-green-700">{insights.growthIndicators[0]}</div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Technologies */}
+        {companyInsights.technologies && companyInsights.technologies.length > 0 && (
+          <div className="bg-purple-50 border border-purple-200 rounded p-2">
+            <div className="flex items-start">
+              <Shield className="h-4 w-4 text-purple-600 mr-2 mt-0.5" />
+              <div>
+                <div className="text-xs font-semibold text-purple-800 uppercase">Tech Stack</div>
+                <div className="text-sm text-purple-700">
+                  {companyInsights.technologies.slice(0, 3).join(', ')}
+                  {companyInsights.technologies.length > 3 && ` +${companyInsights.technologies.length - 3} more`}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Show message if no company data */}
+        {!companyInfo.industry && !companyInfo.size && !companyInfo.revenue && !companyInfo.location &&
+         !insights.buyingSignals?.length && !hasNews && !insights.growthIndicators?.length && 
+         !companyInsights.businessModel && !companyInsights.painPoints?.length && (
+          <div className="text-center py-3">
+            <p className="text-sm text-gray-500">Company intelligence being gathered...</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Contact Strategy Component - Enhanced and Fully Dynamic
+const ContactStrategy = ({ apolloData, pdlData, researchData }) => {
+  const contacts = [];
+  const dealIntelligence = researchData?.dealIntelligence || {};
+  const keyContacts = dealIntelligence.keyContacts || [];
+  
+  // Add contacts from deal intelligence first (highest priority)
+  keyContacts.forEach(contact => {
+    contacts.push({
+      name: contact.name,
+      title: contact.role || contact.title || 'Unknown Title',
+      priority: contact.priority || 'high',
+      action: contact.recommendedAction || 'Initial outreach',
+      email: contact.email,
+      source: 'AI Analysis',
+      influence: contact.influence || 'high'
+    });
+  });
+  
+  // Add PDL contact if available and not duplicate
+  if (pdlData?.personData?.data) {
+    const person = pdlData.personData.data;
+    const personName = person.full_name || `${person.first_name || ''} ${person.last_name || ''}`;
+    
+    // Check for duplicates
+    const isDuplicate = contacts.some(c => c.name.toLowerCase() === personName.toLowerCase());
+    
+    if (!isDuplicate) {
+      contacts.push({
+        name: personName,
+        title: person.job_title || 'Unknown Title',
+        priority: 'high',
+        action: 'Initial outreach',
+        email: person.emails?.[0]?.address,
+        source: 'PDL',
+        influence: 'high'
+      });
+    }
+  }
+  
+  // Add Apollo contacts if not already included
+  if (apolloData?.keyPeople?.length > 0) {
+    apolloData.keyPeople.slice(0, 2).forEach(person => {
+      const isDuplicate = contacts.some(c => c.name.toLowerCase() === person.name.toLowerCase());
+      
+      if (!isDuplicate) {
+        contacts.push({
+          name: person.name,
+          title: person.title,
+          priority: 'medium',
+          action: 'Research & connect',
+          email: person.email,
+          source: 'Apollo',
+          influence: 'medium'
+        });
+      }
+    });
+  }
+  
+  if (contacts.length === 0) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <Users className="h-4 w-4 text-green-600 mr-2" />
+          Contact Strategy
+        </h3>
+        <div className="text-center py-3">
+          <p className="text-sm text-gray-500">Identifying key contacts...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <Users className="h-4 w-4 text-green-600 mr-2" />
+        Contact Strategy
+        <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+          {contacts.length} Contact{contacts.length !== 1 ? 's' : ''}
+        </span>
+      </h3>
+      
+      <div className="space-y-2">
+        {contacts.map((contact, idx) => {
+          const initials = contact.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+          
+          return (
+            <div key={idx} className="flex items-center space-x-3 p-2 bg-gray-50 rounded">
+              <div className={`w-8 h-8 ${
+                contact.priority === 'high' ? 'bg-red-500' : 
+                contact.influence === 'high' ? 'bg-purple-500' : 'bg-blue-500'
+              } text-white rounded-full flex items-center justify-center text-xs font-semibold`}>
+                {initials}
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium text-sm text-gray-900">{toTitleCase(contact.name)}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                    contact.priority === 'high' ? 'bg-red-100 text-red-700' : 
+                    contact.influence === 'high' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {contact.priority.toUpperCase()}
+                  </span>
+                  {contact.source && (
+                    <span className="text-xs bg-gray-200 text-gray-600 px-1 rounded">
+                      {contact.source}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-600">{toTitleCase(contact.title)}</div>
+                <div className="text-xs text-blue-600 font-medium">→ {contact.action}</div>
+              </div>
+              
+              {contact.email && (
+                <button className="p-1.5 bg-blue-100 hover:bg-blue-200 rounded transition-colors" title="Send Email">
+                  <Mail className="h-3 w-3 text-blue-600" />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+// tabs/DashboardTab.jsx - Complete Part 3: Deal Playbook and Main Component
+
+// Deal Playbook Component - Fully Dynamic
+const DealPlaybook = ({ researchData, apolloData, pdlData }) => {
+  const dealIntelligence = researchData?.dealIntelligence || {};
+  const nextActions = dealIntelligence.nextActions || [];
+  const completedMilestones = dealIntelligence.completedMilestones || [];
+  const currentStage = dealIntelligence.currentStage || 'discovery';
+  
+  const generatePlaybookItems = () => {
+    const items = [];
+    
+    // Add completed milestones first
+    completedMilestones.forEach(milestone => {
+      items.push({
+        status: 'completed',
+        text: milestone.description || milestone,
+        priority: 'normal',
+        date: milestone.completedDate ? formatDate(milestone.completedDate) : null
+      });
+    });
+    
+    // Add standard completed items if not already in milestones
+    const standardCompleted = [
+      'AI analysis completed',
+      'Company profile researched', 
+      'Key contacts identified',
+      'Initial research completed'
+    ];
+    
+    standardCompleted.forEach(item => {
+      const alreadyExists = items.some(existing => 
+        existing.text.toLowerCase().includes(item.toLowerCase().split(' ')[0])
+      );
+      
+      if (!alreadyExists) {
+        // Check if we actually have the data for this item
+        if (item.includes('AI analysis') && researchData?.summary) {
+          items.push({ status: 'completed', text: item, priority: 'normal' });
+        } else if (item.includes('Company profile') && apolloData?.company) {
+          items.push({ status: 'completed', text: item, priority: 'normal' });
+        } else if (item.includes('Key contacts') && (apolloData?.keyPeople?.length > 0 || pdlData?.personData)) {
+          items.push({ status: 'completed', text: item, priority: 'normal' });
+        } else if (item.includes('Initial research') && researchData) {
+          items.push({ status: 'completed', text: item, priority: 'normal' });
+        }
+      }
+    });
+    
+    // Add next actions as pending items
+    nextActions.forEach(action => {
+      items.push({
+        status: 'pending',
+        text: action.description || action.action || action,
+        priority: action.priority || 'medium',
+        deadline: action.deadline ? formatDate(action.deadline) : null,
+        isOverdue: action.isOverdue || false
+      });
+    });
+    
+    // Add stage-specific next steps if no custom next actions
+    if (nextActions.length === 0) {
+      const stageActions = {
+        'discovery': [
+          { text: 'Schedule discovery call', priority: 'high' },
+          { text: 'Identify decision makers', priority: 'high' },
+          { text: 'Understand business needs', priority: 'medium' }
+        ],
+        'qualified': [
+          { text: 'Technical deep dive meeting', priority: 'high' },
+          { text: 'Create business case', priority: 'medium' },
+          { text: 'Map stakeholders', priority: 'medium' }
+        ],
+        'proposal': [
+          { text: 'Deliver proposal presentation', priority: 'high' },
+          { text: 'Address technical questions', priority: 'high' },
+          { text: 'Schedule decision meeting', priority: 'medium' }
+        ],
+        'negotiation': [
+          { text: 'Review contract terms', priority: 'high' },
+          { text: 'Finalize implementation plan', priority: 'medium' },
+          { text: 'Schedule signing meeting', priority: 'high' }
+        ]
+      };
+      
+      const currentStageActions = stageActions[currentStage] || stageActions['discovery'];
+      currentStageActions.forEach(action => {
+        items.push({
+          status: 'pending',
+          text: action.text,
+          priority: action.priority
+        });
+      });
+    }
+    
+    // Add future milestone items based on current stage
+    const futureItems = [];
+    if (currentStage === 'discovery' || currentStage === 'qualified') {
+      futureItems.push(
+        { text: 'Proposal development', priority: 'medium' },
+        { text: 'Contract negotiation', priority: 'medium' },
+        { text: 'Deal closed', priority: 'low' }
+      );
+    } else if (currentStage === 'proposal') {
+      futureItems.push(
+        { text: 'Contract negotiation', priority: 'medium' },
+        { text: 'Deal closed', priority: 'low' }
+      );
+    } else if (currentStage === 'negotiation') {
+      futureItems.push(
+        { text: 'Deal closed', priority: 'medium' }
+      );
+    }
+    
+    futureItems.forEach(item => {
+      items.push({
+        status: 'future',
+        text: item.text,
+        priority: item.priority
+      });
+    });
+    
+    return items;
+  };
+
+  const items = generatePlaybookItems();
+
+  const getStatusIcon = (status, isOverdue = false) => {
+    if (isOverdue) return <AlertTriangle className="h-3 w-3 text-red-600" />;
+    
+    switch (status) {
+      case 'completed': return <CheckCircle className="h-3 w-3 text-green-600" />;
+      case 'pending': return <Clock className="h-3 w-3 text-amber-600" />;
+      case 'future': return <AlertCircle className="h-3 w-3 text-gray-400" />;
+      default: return <AlertCircle className="h-3 w-3 text-gray-400" />;
+    }
+  };
+
+  const getItemStyle = (status, priority, isOverdue = false) => {
+    if (isOverdue) return 'text-red-700 font-medium';
+    if (status === 'completed') return 'text-gray-600 line-through';
+    if (priority === 'high' && status === 'pending') return 'text-gray-900 font-medium';
+    return 'text-gray-700';
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+        <PlayCircle className="h-4 w-4 text-green-600 mr-2" />
+        Deal Playbook
+        <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+          {items.filter(i => i.status === 'completed').length}/{items.length}
+        </span>
+      </h3>
+      
+      <div className="space-y-2">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center space-x-2 text-sm">
+            {getStatusIcon(item.status, item.isOverdue)}
+            <span className={`flex-1 ${getItemStyle(item.status, item.priority, item.isOverdue)}`}>
+              {item.text}
+            </span>
+            {item.deadline && (
+              <span className="text-xs text-gray-500">{item.deadline}</span>
+            )}
+            {item.date && (
+              <span className="text-xs text-green-600">{item.date}</span>
+            )}
+            {item.priority === 'high' && item.status === 'pending' && !item.isOverdue && (
+              <span className="bg-red-100 text-red-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                NEXT
+              </span>
+            )}
+            {item.isOverdue && (
+              <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
+                OVERDUE
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -900,195 +874,217 @@ const DashboardTab = ({
   lastUpdated, 
   handleTabClick 
 }) => {
-  // Extract ALL dynamic data from database - NO hardcoding
+  // Extract all dynamic data from research
   const dealIntelligence = researchData?.dealIntelligence || {};
-  const pdlPersonData = researchData?.data?.pdl?.personData?.data;
-  const pdlCompanyData = researchData?.data?.pdl?.companyData;
-  const apolloDeals = apolloData?.deals || [];
+  const currentStage = dealIntelligence.currentStage || 'discovery';
+  const dealScore = dealIntelligence.dealScore || 0;
   const nextActions = dealIntelligence.nextActions || [];
-  
-  // Dynamic deal value calculation - multiple fallback sources
-  let dealValue = null;
-  
-  // 1. Try Apollo data first
-  if (apolloDeals.length > 0 && apolloDeals[0].value) {
-    dealValue = `${apolloDeals[0].value.toLocaleString()}`;
-  }
-  // 2. Try PDL data
-  else if (pdlData?.dealValue) {
-    dealValue = pdlData.dealValue;
-  }
-  // 3. Try any deal value from research data
-  else if (researchData?.dealValue) {
-    dealValue = researchData.dealValue;
-  }
-  // 4. Try to extract from deal intelligence
-  else if (dealIntelligence.dealValue) {
-    dealValue = dealIntelligence.dealValue;
-  }
-  // 5. No deal value available
-  else {
-    dealValue = null;
-  }
-    
-  // Dynamic risk calculation based on actual score and reasoning
-  let dealRisk = null;
-  const dealScore = dealIntelligence.dealScore;
-  const reasoning = dealIntelligence.reasoning;
   const riskFactors = dealIntelligence.riskFactors || [];
-  const isOverdue = dealIntelligence.stageData?.isOverdue;
+  const stageData = dealIntelligence.stageData || {};
   
-  if (isOverdue) {
-    dealRisk = 'High';
-  } else if (dealScore !== null && dealScore !== undefined) {
-    if (dealScore >= 70) dealRisk = 'Low';
-    else if (dealScore >= 40) dealRisk = 'Medium';
-    else dealRisk = 'High';
-  } else if (riskFactors.length > 0) {
-    const highRiskCount = riskFactors.filter(r => r.severity === 'high').length;
-    if (highRiskCount >= 2) dealRisk = 'High';
-    else if (highRiskCount >= 1 || riskFactors.length >= 3) dealRisk = 'Medium';
-    else dealRisk = 'Low';
-  } else {
-    dealRisk = null; // Unable to determine
-  }
-    
-  // Dynamic next action from multiple sources
-  let nextAction = null;
-  
-  // 1. Try high priority next actions first
-  const highPriorityActions = nextActions.filter(action => action.priority === 'high');
-  if (highPriorityActions.length > 0) {
-    nextAction = highPriorityActions[0].action;
-  }
-  // 2. Try any next action
-  else if (nextActions.length > 0) {
-    nextAction = nextActions[0].action;
-  }
-  // 3. Try to extract from risk factors
-  else if (riskFactors.length > 0 && riskFactors[0].recommendation) {
-    nextAction = riskFactors[0].recommendation;
-  }
-  // 4. Try from deal intelligence reasoning
-  else if (reasoning) {
-    // Extract actionable text from reasoning if it contains action words
-    const actionWords = ['schedule', 'contact', 'follow up', 'meet', 'call', 'email', 'prepare'];
-    const sentences = reasoning.split(/[.!?]+/);
-    const actionSentence = sentences.find(sentence => 
-      actionWords.some(word => sentence.toLowerCase().includes(word))
-    );
-    if (actionSentence) {
-      nextAction = actionSentence.trim();
-    }
-  }
-  // 5. No specific action available
-  if (!nextAction) {
-    nextAction = null;
-  }
-
-  // Dynamic display name with multiple fallbacks
-  let dynamicDisplayName = displayName;
-  
-  // 1. Try PDL full name
-  if (pdlPersonData?.full_name) {
-    dynamicDisplayName = toTitleCase(pdlPersonData.full_name);
-  }
-  // 2. Try PDL first/last name combination
-  else if (pdlPersonData?.first_name) {
-    const lastName = pdlPersonData.last_name || '';
-    dynamicDisplayName = toTitleCase(`${pdlPersonData.first_name} ${lastName}`.trim());
-  }
-  // 3. Try company name if no person name
-  else if (!displayName && (pdlCompanyData?.display_name || pdlCompanyData?.name)) {
-    dynamicDisplayName = toTitleCase(pdlCompanyData.display_name || pdlCompanyData.name);
-  }
-  // 4. Keep original displayName as fallback
-  
-  return (
-    <div className="p-4 bg-gray-50 min-h-screen">
-      {/* Combined Header + Metrics Row - Fully Dynamic */}
-      <HeaderWithMetrics 
-        displayName={dynamicDisplayName}
-        dealValue={dealValue}
-        dealRisk={dealRisk}
-        nextAction={nextAction}
-        researchData={researchData}
-      />
-      
-      {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Left Column - Hero Engagement Strategy (spans 2 columns) */}
-        <div className="lg:col-span-2">
-          <EngagementStrategy researchData={researchData} />
-        </div>
-        
-        {/* Right Sidebar - All Dynamic Components */}
-        <div className="space-y-6">
-          <SalesMomentum researchData={researchData} />
-          <CriticalActions researchData={researchData} displayName={dynamicDisplayName} />
-          <ContactInfo researchData={researchData} displayName={dynamicDisplayName} />
-          <CompanyIntel researchData={researchData} />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default DashboardTab;Data, 
-  displayName, 
-  lastUpdated, 
-  handleTabClick 
-}) => {
-  // Calculate dynamic deal metrics
-  const dealIntelligence = researchData?.dealIntelligence || {};
-  const pdlPersonData = researchData?.data?.pdl?.personData?.data;
-  
-  // Dynamic deal value calculation
+  // Calculate deal metrics dynamically
   const dealValue = apolloData?.deals?.[0]?.value ? 
     `$${apolloData.deals[0].value.toLocaleString()}` : 
+    dealIntelligence.dealValue || 
     pdlData?.dealValue || 
-    '$285K'; // Fallback
+    null;
     
-  // Dynamic risk calculation
-  const dealScore = dealIntelligence.dealScore || 30;
-  const dealRisk = dealScore >= 70 ? 'Low' : 
-                   dealScore >= 40 ? 'Medium' : 'High';
+  const dealRisk = dealScore >= 70 ? 'low' : 
+                  dealScore >= 40 ? 'medium' : 'high';
+  
+  // Calculate metrics from actual data
+  const highPriorityActions = nextActions.filter(action => 
+    action.priority === 'high' || action.isOverdue
+  ).length;
+  
+  const overdueActions = nextActions.filter(action => action.isOverdue).length;
+  
+  const thisWeekActions = nextActions.filter(action => {
+    if (!action.deadline) return false;
+    const deadline = new Date(action.deadline);
+    const today = new Date();
+    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return deadline >= today && deadline <= weekFromNow;
+  }).length;
+  
+  // Calculate estimated weeks to close based on stage and momentum
+  const getWeeksToClose = () => {
+    const stageWeeks = {
+      'discovery': 16,
+      'qualified': 12,
+      'proposal': 8,
+      'negotiation': 4
+    };
     
-  // Dynamic next action
-  const nextActions = dealIntelligence.nextActions || [];
+    const baseWeeks = stageWeeks[currentStage] || 16;
+    const momentum = dealIntelligence.momentum;
+    
+    if (momentum === 'accelerating') return Math.max(baseWeeks * 0.7, 2);
+    if (momentum === 'stalling') return baseWeeks * 1.5;
+    if (momentum === 'declining') return baseWeeks * 2;
+    
+    return baseWeeks;
+  };
+  
+  const weeksToClose = Math.round(getWeeksToClose());
+  
   const nextAction = nextActions.length > 0 ? 
-    nextActions[0].action : 
-    "Schedule discovery call";
-
-  // Dynamic display name (prefer PDL data)
-  const dynamicDisplayName = pdlPersonData?.full_name ? 
-    toTitleCase(pdlPersonData.full_name) : 
-    displayName;
+    nextActions[0].description || nextActions[0].action || nextActions[0] :
+    "Schedule discovery call to understand business needs";
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
-      {/* Combined Header + Metrics Row with Dynamic Data */}
+      {/* Dynamic Header with Metrics */}
       <HeaderWithMetrics 
-        displayName={dynamicDisplayName}
+        displayName={displayName}
         dealValue={dealValue}
         dealRisk={dealRisk}
         nextAction={nextAction}
         researchData={researchData}
       />
       
-      {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Left Column - Hero Engagement Strategy (spans 2 columns) */}
-        <div className="lg:col-span-2">
+      {/* Dynamic Metrics Row */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <CompactMetricCard
+          title="THIS WEEK"
+          value={thisWeekActions || highPriorityActions}
+          subtitle={thisWeekActions ? "Scheduled" : "High Priority"}
+          icon={Calendar}
+          color="blue"
+          additionalInfo={stageData.timeInStage ? `In stage: ${stageData.timeInStage}` : null}
+        />
+        <CompactMetricCard
+          title="OVERDUE" 
+          value={overdueActions}
+          subtitle="Actions"
+          icon={AlertTriangle}
+          color="red"
+          urgency={overdueActions > 0 ? 'urgent' : 'normal'}
+          additionalInfo={overdueActions > 0 ? "Needs attention" : "On track"}
+        />
+        <CompactMetricCard
+          title="TIMELINE"
+          value={`${weeksToClose}wks`}
+          subtitle="Est. Close"
+          icon={Timer}
+          color={weeksToClose <= 4 ? 'green' : weeksToClose <= 8 ? 'amber' : 'blue'}
+          additionalInfo={dealScore > 0 ? `${dealScore}% confidence` : null}
+        />
+      </div>
+      
+      {/* Main Content Grid - 3 Columns */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        {/* Left Column */}
+        <div className="space-y-4">
           <EngagementStrategy researchData={researchData} />
+          <SalesMomentum researchData={researchData} />
+          <DealPlaybook 
+            researchData={researchData}
+            apolloData={apolloData}
+            pdlData={pdlData}
+          />
         </div>
         
-        {/* Right Sidebar with Dynamic Components */}
-        <div className="space-y-6">
-          <SalesMomentum researchData={researchData} />
-          <CriticalActions researchData={researchData} displayName={dynamicDisplayName} />
-          <ContactInfo researchData={researchData} displayName={dynamicDisplayName} />
-          <CompanyIntel researchData={researchData} />
+        {/* Middle Column */}
+        <div className="space-y-4">
+          <CompanyIntel 
+            apolloData={apolloData}
+            googleData={googleData}
+            researchData={researchData}
+          />
+          <ContactStrategy 
+            apolloData={apolloData}
+            pdlData={pdlData}
+            researchData={researchData}
+          />
+        </div>
+        
+        {/* Right Column - Quick Actions */}
+        <div className="space-y-4">
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <Zap className="h-4 w-4 text-blue-600 mr-2" />
+              Quick Actions
+            </h3>
+            <div className="space-y-2">
+              <button 
+                onClick={() => handleTabClick('deal')}
+                className="w-full text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-blue-900 text-sm">Deal Analysis</div>
+                    <div className="text-xs text-blue-600">View success factors</div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-blue-600" />
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => handleTabClick('company')}
+                className="w-full text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-green-900 text-sm">Company Profile</div>
+                    <div className="text-xs text-green-600">Deep company research</div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-green-600" />
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => handleTabClick('profile')}
+                className="w-full text-left p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors border border-purple-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-purple-900 text-sm">Contact Profiles</div>
+                    <div className="text-xs text-purple-600">Decision maker details</div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-purple-600" />
+                </div>
+              </button>
+            </div>
+          </div>
+          
+          {/* Recent Activity - Dynamic */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <Activity className="h-4 w-4 text-gray-600 mr-2" />
+              Recent Activity
+            </h3>
+            <div className="space-y-2 text-sm">
+              {researchData?.summary && (
+                <div className="flex items-center text-gray-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  <span>Intelligence analysis completed</span>
+                  <span className="ml-auto text-xs">Today</span>
+                </div>
+              )}
+              {apolloData?.company && (
+                <div className="flex items-center text-gray-600">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                  <span>Company research updated</span>
+                  <span className="ml-auto text-xs">Today</span>
+                </div>
+              )}
+              {googleData?.length > 0 && (
+                <div className="flex items-center text-gray-600">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
+                  <span>News monitoring active</span>
+                  <span className="ml-auto text-xs">Today</span>
+                </div>
+              )}
+              {lastUpdated && (
+                <div className="flex items-center text-gray-600">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full mr-2"></div>
+                  <span>Data last refreshed</span>
+                  <span className="ml-auto text-xs">{formatDate(lastUpdated)}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
