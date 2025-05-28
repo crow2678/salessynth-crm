@@ -43,7 +43,7 @@ const toTitleCase = (str) => {
   );
 };
 
-// Minimal Deal Header Component - Option D
+// Minimal Deal Header Component - Option D (True Single Line)
 const DealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => {
   const getRiskColor = (risk) => {
     switch (risk?.toLowerCase()) {
@@ -55,17 +55,21 @@ const DealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => {
   };
 
   return (
-    <div className="flex items-center justify-between py-3 px-4 bg-white border border-gray-200 rounded-lg mb-4">
-      <div className="flex items-center space-x-4">
-        <h1 className="text-xl font-bold text-gray-900">
+    <div className="flex items-center justify-between py-2 px-4 bg-white border border-gray-200 rounded-lg mb-4">
+      {/* Left side: Name, Amount, Risk Badge - ALL IN ONE LINE */}
+      <div className="flex items-center space-x-3">
+        <h1 className="text-lg font-bold text-gray-900">
           {toTitleCase(displayName)} - {dealValue || '$285K'}
         </h1>
-        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getRiskColor(dealRisk)}`}>
+        <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getRiskColor(dealRisk)}`}>
           {dealRisk ? `${dealRisk.toUpperCase()} RISK` : 'ANALYZING'}
         </span>
       </div>
-      <div className="text-sm text-gray-600">
-        <span className="font-medium">Next:</span> {nextAction || 'Schedule discovery call'}
+      
+      {/* Right side: Next Action */}
+      <div className="text-sm text-gray-600 flex items-center">
+        <span className="font-medium text-gray-700">Next:</span> 
+        <span className="ml-1">{nextAction || 'Schedule discovery call'}</span>
       </div>
     </div>
   );
