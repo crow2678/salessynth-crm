@@ -43,7 +43,7 @@ const toTitleCase = (str) => {
   );
 };
 
-// Deal Header Component
+// Compact Deal Header Component
 const DealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => {
   const getRiskColor = (risk) => {
     switch (risk?.toLowerCase()) {
@@ -55,17 +55,17 @@ const DealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+    <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-xl font-bold text-gray-900">
             {toTitleCase(displayName)}{dealValue && ` - ${dealValue}`}
           </h1>
-          <p className="text-sm text-gray-600 mt-2">
+          <p className="text-sm text-gray-600 mt-1">
             <span className={`font-medium ${getRiskColor(dealRisk)}`}>
               {dealRisk ? `${dealRisk.toUpperCase()} RISK` : 'ANALYZING'}
             </span>
-            {nextAction && <span className="ml-4">• Next: {nextAction}</span>}
+            {nextAction && <span className="ml-3">• Next: {nextAction}</span>}
           </p>
         </div>
       </div>
@@ -73,39 +73,39 @@ const DealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => {
   );
 };
 
-// Deal Blocker Metrics - Option A
+// Deal Blocker Metrics - Option A (Compact)
 const DealBlockerMetrics = () => {
   return (
-    <div className="grid grid-cols-3 gap-6 mb-8">
+    <div className="grid grid-cols-3 gap-4 mb-6">
       {/* Deal Blockers */}
-      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-6">
-        <div className="flex items-center mb-3">
-          <AlertTriangle className="h-6 w-6 text-red-600 mr-3" />
-          <span className="text-sm font-bold text-red-800 uppercase tracking-wide">Deal Blockers</span>
+      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+        <div className="flex items-center mb-2">
+          <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
+          <span className="text-xs font-bold text-red-800 uppercase tracking-wide">Deal Blockers</span>
         </div>
-        <div className="text-3xl font-bold text-red-700 mb-1">2</div>
+        <div className="text-2xl font-bold text-red-700 mb-1">2</div>
         <div className="text-sm text-red-600 font-medium">Critical Issues</div>
         <div className="text-xs text-red-500 mt-1">Need Resolution</div>
       </div>
 
       {/* Decision Pending */}
-      <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-6">
-        <div className="flex items-center mb-3">
-          <Clock className="h-6 w-6 text-amber-600 mr-3" />
-          <span className="text-sm font-bold text-amber-800 uppercase tracking-wide">Decision Pending</span>
+      <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4">
+        <div className="flex items-center mb-2">
+          <Clock className="h-5 w-5 text-amber-600 mr-2" />
+          <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Decision Pending</span>
         </div>
-        <div className="text-3xl font-bold text-amber-700 mb-1">Budget</div>
+        <div className="text-2xl font-bold text-amber-700 mb-1">Budget</div>
         <div className="text-sm text-amber-600 font-medium">Approval</div>
         <div className="text-xs text-amber-500 mt-1">Timeline: 3 days</div>
       </div>
 
       {/* Hot Actions */}
-      <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
-        <div className="flex items-center mb-3">
-          <Zap className="h-6 w-6 text-blue-600 mr-3" />
-          <span className="text-sm font-bold text-blue-800 uppercase tracking-wide">Hot Actions</span>
+      <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+        <div className="flex items-center mb-2">
+          <Zap className="h-5 w-5 text-blue-600 mr-2" />
+          <span className="text-xs font-bold text-blue-800 uppercase tracking-wide">Hot Actions</span>
         </div>
-        <div className="text-3xl font-bold text-blue-700 mb-1">Call</div>
+        <div className="text-2xl font-bold text-blue-700 mb-1">Call</div>
         <div className="text-sm text-blue-600 font-medium">Rob Today</div>
         <div className="text-xs text-blue-500 mt-1">Demo Tomorrow</div>
       </div>
@@ -119,45 +119,100 @@ const EngagementStrategy = ({ researchData }) => {
   
   if (!hasSummary) {
     return (
-      <div className="bg-white border-2 border-purple-200 rounded-xl p-8">
-        <div className="flex items-center mb-6">
-          <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center mr-4">
-            <Star className="h-5 w-5 text-white" />
+      <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
+        <div className="flex items-center mb-4">
+          <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mr-3">
+            <Star className="h-4 w-4 text-white" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900">AI-Powered Engagement Strategy</h2>
+          <h2 className="text-lg font-bold text-gray-900">AI-Powered Engagement Strategy</h2>
         </div>
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          <p className="text-gray-500">Generating personalized strategy...</p>
+        <div className="text-center py-6">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto mb-3"></div>
+          <p className="text-sm text-gray-500">Generating personalized strategy...</p>
         </div>
       </div>
     );
   }
 
-  // Extract strategy points from summary
+  // Parse strategy sections from summary
   const summaryText = researchData.summary;
-  const strategyPoints = summaryText
-    .split(/[•\*\-]/)
-    .filter(point => point.trim().length > 20)
-    .map(point => point.trim().replace(/^\d+\.?\s*/, ''))
-    .slice(0, 6); // Limit to 6 key points
+  
+  // Extract sections based on the emoji headers
+  const sections = [
+    {
+      title: "1️⃣ TAILORED ENGAGEMENT STRATEGY",
+      points: []
+    },
+    {
+      title: "2️⃣ STRATEGIC OBJECTION HANDLING", 
+      points: []
+    },
+    {
+      title: "3️⃣ COMPETITIVE POSITIONING",
+      points: []
+    }
+  ];
+  
+  // Split summary into sections and extract points
+  const sectionRegex = /##\s*[1-3]️⃣\s*([^#]+?)(?=##\s*[1-3]️⃣|$)/gs;
+  let match;
+  let sectionIndex = 0;
+  
+  while ((match = sectionRegex.exec(summaryText)) !== null && sectionIndex < 3) {
+    const sectionContent = match[1].trim();
+    const points = sectionContent
+      .split(/[•\*\-]/)
+      .filter(point => point.trim().length > 15)
+      .map(point => point.trim().replace(/^\d+\.?\s*/, ''))
+      .slice(0, 4); // Limit to 4 points per section
+    
+    sections[sectionIndex].points = points;
+    sectionIndex++;
+  }
+  
+  // Fallback: if no sections found, create generic points
+  if (sections.every(section => section.points.length === 0)) {
+    const allPoints = summaryText
+      .split(/[•\*\-]/)
+      .filter(point => point.trim().length > 20)
+      .map(point => point.trim().replace(/^\d+\.?\s*/, ''))
+      .slice(0, 6);
+    
+    sections[0].points = allPoints.slice(0, 2);
+    sections[1].points = allPoints.slice(2, 4);
+    sections[2].points = allPoints.slice(4, 6);
+  }
 
   return (
-    <div className="bg-white border-2 border-purple-200 rounded-xl p-8">
-      <div className="flex items-center mb-6">
-        <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center mr-4">
-          <Star className="h-5 w-5 text-white" />
+    <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
+      <div className="flex items-center mb-4">
+        <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mr-3">
+          <Star className="h-4 w-4 text-white" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900">AI-Powered Engagement Strategy</h2>
+        <h2 className="text-lg font-bold text-gray-900">AI-Powered Engagement Strategy</h2>
       </div>
       
-      <div className="space-y-5">
-        {strategyPoints.map((point, idx) => (
-          <div key={idx} className="flex items-start bg-purple-50 rounded-lg p-5 border-l-4 border-purple-500">
-            <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
-              <span className="text-white text-sm font-bold">{idx + 1}</span>
+      <div className="space-y-6">
+        {sections.map((section, sectionIdx) => (
+          <div key={sectionIdx}>
+            {/* Section Title */}
+            <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center">
+              <span className="text-purple-600 mr-2">##</span>
+              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm mr-2">ℹ️</span>
+              {section.title}
+            </h3>
+            
+            {/* Section Points */}
+            <div className="space-y-3 ml-4">
+              {section.points.map((point, pointIdx) => (
+                <div key={pointIdx} className="flex items-start bg-purple-50 rounded-lg p-3 border-l-4 border-purple-500">
+                  <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                    <span className="text-white text-xs font-bold">{pointIdx + 1}</span>
+                  </div>
+                  <div className="text-gray-700 leading-relaxed text-sm">{point}</div>
+                </div>
+              ))}
             </div>
-            <div className="text-gray-700 leading-relaxed font-medium">{point}</div>
           </div>
         ))}
       </div>
@@ -165,46 +220,69 @@ const EngagementStrategy = ({ researchData }) => {
   );
 };
 
-// Deal Health Score Component
-const DealHealthScore = ({ winProbability = 30 }) => {
-  const getHealthColor = (score) => {
-    if (score >= 70) return { color: 'text-green-600', bg: 'bg-green-100', border: 'border-green-300' };
-    if (score >= 40) return { color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-300' };
-    return { color: 'text-red-600', bg: 'bg-red-100', border: 'border-red-300' };
+// Sales Momentum Component (replaces Deal Health)
+const SalesMomentum = ({ winProbability = 30 }) => {
+  const getMomentumData = (score) => {
+    if (score >= 70) return { 
+      status: 'Accelerating', 
+      color: 'text-green-600', 
+      bg: 'bg-green-100', 
+      border: 'border-green-300',
+      icon: TrendingUp,
+      advice: 'Push for close'
+    };
+    if (score >= 40) return { 
+      status: 'Building', 
+      color: 'text-blue-600', 
+      bg: 'bg-blue-100', 
+      border: 'border-blue-300',
+      icon: Target,
+      advice: 'Maintain pressure'
+    };
+    return { 
+      status: 'Stalling', 
+      color: 'text-red-600', 
+      bg: 'bg-red-100', 
+      border: 'border-red-300',
+      icon: TrendingDown,
+      advice: 'Urgent intervention'
+    };
   };
   
-  const healthStyle = getHealthColor(winProbability);
+  const momentum = getMomentumData(winProbability);
+  const IconComponent = momentum.icon;
   
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6">
       <div className="flex items-center mb-4">
-        <Activity className="h-5 w-5 text-green-600 mr-2" />
-        <h3 className="font-semibold text-gray-900">Deal Health</h3>
+        <IconComponent className="h-5 w-5 text-blue-600 mr-2" />
+        <h3 className="font-semibold text-gray-900">Sales Momentum</h3>
       </div>
       
       <div className="text-center mb-4">
-        <div className={`w-20 h-20 rounded-full ${healthStyle.bg} ${healthStyle.border} border-4 flex items-center justify-center mx-auto mb-2`}>
-          <span className={`text-2xl font-bold ${healthStyle.color}`}>{winProbability}%</span>
+        <div className={`w-20 h-20 rounded-full ${momentum.bg} ${momentum.border} border-4 flex items-center justify-center mx-auto mb-2`}>
+          <span className={`text-xl font-bold ${momentum.color}`}>{winProbability}%</span>
         </div>
-        <p className="text-sm text-gray-600">Win Probability</p>
+        <p className={`text-sm font-medium ${momentum.color}`}>{momentum.status}</p>
+        <p className="text-xs text-gray-500 mt-1">{momentum.advice}</p>
       </div>
       
       <div className="space-y-3">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-red-800 uppercase mb-2">Risk Factors</h4>
-          <ul className="text-xs text-red-700 space-y-1">
-            <li>• No specific questions indicate low engagement</li>
-            <li>• Integration concerns need addressing</li>
-            <li>• Budget timeline unclear</li>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <h4 className="text-xs font-semibold text-amber-800 uppercase mb-2">Momentum Killers</h4>
+          <ul className="text-xs text-amber-700 space-y-1">
+            <li>• Delayed responses (5+ days)</li>
+            <li>• Lack of technical questions</li>
+            <li>• Budget concerns unresolved</li>
           </ul>
         </div>
         
         <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-          <h4 className="text-xs font-semibold text-green-800 uppercase mb-2">Strengths</h4>
+          <h4 className="text-xs font-semibold text-green-800 uppercase mb-2">Momentum Builders</h4>
           <ul className="text-xs text-green-700 space-y-1">
-            <li>• Actively requesting demos</li>
-            <li>• Expansion indicates growth investment</li>
-            <li>• Clear compliance initiatives</li>
+            <li>• Demo request signals interest</li>
+            <li>• Multiple stakeholder involvement</li>
+            <li>• Compliance urgency creates timeline</li>
           </ul>
         </div>
       </div>
@@ -342,7 +420,7 @@ const DashboardTab = ({
   const nextAction = "Schedule discovery call with Rob Lupoli";
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 bg-gray-50 min-h-screen">
       {/* Deal Header */}
       <DealHeader 
         displayName={displayName}
@@ -363,7 +441,7 @@ const DashboardTab = ({
         
         {/* Right Sidebar */}
         <div className="space-y-6">
-          <DealHealthScore winProbability={winProbability} />
+          <SalesMomentum winProbability={winProbability} />
           <CriticalActions />
           <KeyCompanyIntel 
             apolloData={apolloData}
