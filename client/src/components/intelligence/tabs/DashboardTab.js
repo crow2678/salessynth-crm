@@ -43,8 +43,8 @@ const toTitleCase = (str) => {
   );
 };
 
-// Minimal Deal Header Component - Option D (True Single Line)
-const DealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => {
+// Combined Header + Metrics Row (4-column layout)
+const HeaderWithMetrics = ({ displayName, dealValue, dealRisk, nextAction, dealBlockers = 2, pendingDecision = "Budget", decisionTimeline = "3 days", hotAction = "Call", actionTarget = "Contact", actionDeadline = "Today" }) => {
   const getRiskColor = (risk) => {
     switch (risk?.toLowerCase()) {
       case 'high': return 'text-red-600 bg-red-50 border-red-200';
@@ -55,30 +55,22 @@ const DealHeader = ({ displayName, dealValue, dealRisk, nextAction }) => {
   };
 
   return (
-    <div className="flex items-center justify-between py-2 px-4 bg-white border border-gray-200 rounded-lg mb-4">
-      {/* Left side: Name, Amount, Risk Badge - ALL IN ONE LINE */}
-      <div className="flex items-center space-x-3">
-        <h1 className="text-lg font-bold text-gray-900">
-          {toTitleCase(displayName)} - {dealValue || '$285K'}
-        </h1>
+    <div className="grid grid-cols-4 gap-4 mb-6">
+      {/* Client Info Card */}
+      <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
+        <div className="flex items-center mb-2">
+          <User className="h-5 w-5 text-gray-600 mr-2" />
+          <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">Client Deal</span>
+        </div>
+        <div className="text-lg font-bold text-gray-900 mb-1">
+          {toTitleCase(displayName)}
+        </div>
+        <div className="text-sm text-gray-600 font-medium mb-2">{dealValue || '$285K'}</div>
         <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getRiskColor(dealRisk)}`}>
           {dealRisk ? `${dealRisk.toUpperCase()} RISK` : 'ANALYZING'}
         </span>
       </div>
-      
-      {/* Right side: Next Action */}
-      <div className="text-sm text-gray-600 flex items-center">
-        <span className="font-medium text-gray-700">Next:</span> 
-        <span className="ml-1">{nextAction || 'Schedule discovery call'}</span>
-      </div>
-    </div>
-  );
-};
 
-// Deal Blocker Metrics - Option A (Compact)
-const DealBlockerMetrics = ({ dealBlockers = 2, pendingDecision = "Budget", decisionTimeline = "3 days", hotAction = "Call", actionTarget = "Contact", actionDeadline = "Today" }) => {
-  return (
-    <div className="grid grid-cols-3 gap-4 mb-6">
       {/* Deal Blockers */}
       <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
         <div className="flex items-center mb-2">
@@ -109,11 +101,15 @@ const DealBlockerMetrics = ({ dealBlockers = 2, pendingDecision = "Budget", deci
         </div>
         <div className="text-2xl font-bold text-blue-700 mb-1">{hotAction}</div>
         <div className="text-sm text-blue-600 font-medium">{actionTarget} {actionDeadline}</div>
-        <div className="text-xs text-blue-500 mt-1">Demo Tomorrow</div>
+        <div className="text-xs text-blue-500 mt-1">
+          Next: {nextAction || 'Schedule discovery call'}
+        </div>
       </div>
     </div>
   );
 };
+
+// Deal Blocker Metrics - Option A (Compact) - REMOVED, now part of HeaderWithMetrics
 
 // Enhanced Engagement Strategy Component
 const EngagementStrategy = ({ researchData }) => {
@@ -423,16 +419,13 @@ const DashboardTab = ({
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
-      {/* Deal Header */}
-      <DealHeader 
+      {/* Combined Header + Metrics Row */}
+      <HeaderWithMetrics 
         displayName={displayName}
         dealValue={dealValue}
         dealRisk={dealRisk}
         nextAction={nextAction}
       />
-      
-      {/* Deal Blocker Metrics - Option A */}
-      <DealBlockerMetrics />
       
       {/* Main Content Grid */}
       <div className="grid lg:grid-cols-3 gap-8">
